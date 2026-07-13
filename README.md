@@ -30,7 +30,7 @@ pnpm typecheck
 pnpm test
 ```
 
-Use Node.js 20 or newer. Choose the narrowest matching top-level area for new
+Use Node.js 24 or newer. Choose the narrowest matching top-level area for new
 work and keep each project independently understandable and deployable.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for repository conventions and
