@@ -10,8 +10,10 @@ events into that contract.
 - encrypted, durable installation storage
 - verification of HubSpot-signed extension requests
 - idempotent provisioning of exactly one TidsHub custom object
-- weekly time-entry search and record creation
+- weekly time-entry search, creation, editing, and deletion
 - optional association of a time entry to the current CRM record
+- searchable contact, company, deal, and ticket associations
+- approval-officer settings, week submission, and approval authorization
 
 The provisioner first looks for both the original `tidshub_record` schema and
 the manually created `tidshub_poster` schema. It reuses either one, so an
@@ -59,14 +61,24 @@ memory store is intentionally local-only.
 
 ## Routes
 
-| Method | Route                                 | Purpose                                    |
-| ------ | ------------------------------------- | ------------------------------------------ |
-| `GET`  | `/health`                             | Readiness check                            |
-| `GET`  | `/oauth/install`                      | Begin OAuth installation                   |
-| `GET`  | `/oauth/callback`                     | Exchange and store OAuth tokens            |
-| `POST` | `/api/provision?portalId=…`           | Reuse/create the one object and properties |
-| `GET`  | `/api/entries?portalId=…&from=…&to=…` | Weekly records                             |
-| `POST` | `/api/entries?portalId=…`             | Create a record and optional association   |
+| Method   | Route                                 | Purpose                                    |
+| -------- | ------------------------------------- | ------------------------------------------ |
+| `GET`    | `/health`                             | Readiness check                            |
+| `GET`    | `/oauth/install`                      | Begin OAuth installation                   |
+| `GET`    | `/oauth/callback`                     | Exchange and store OAuth tokens            |
+| `POST`   | `/api/provision?portalId=…`           | Reuse/create the one object and properties |
+| `GET`    | `/api/entries?portalId=…&from=…&to=…` | Weekly records                             |
+| `POST`   | `/api/entries?portalId=…`             | Create a record and optional association   |
+| `PATCH`  | `/api/entries/:id?portalId=…`         | Edit an owned, unlocked time entry         |
+| `DELETE` | `/api/entries/:id?portalId=…`         | Delete an owned, unlocked time entry       |
+| `GET`    | `/api/crm/search?portalId=…`          | Search supported CRM records               |
+| `GET`    | `/api/users?portalId=…`               | List users available as approval officers  |
+| `GET`    | `/api/approval-settings?portalId=…`   | Read a user's approval officer             |
+| `PUT`    | `/api/approval-settings?portalId=…`   | Save a user's approval officer             |
+| `GET`    | `/api/week?portalId=…`                | Read week submission state                 |
+| `POST`   | `/api/week/submit?portalId=…`         | Submit a week for approval                 |
+| `GET`    | `/api/approvals/pending?portalId=…`   | List weeks assigned to an approver         |
+| `POST`   | `/api/week/approve?portalId=…`        | Approve an assigned week                   |
 
 The `/api/*` routes validate HubSpot signature v3 and reject timestamps older
 than five minutes.

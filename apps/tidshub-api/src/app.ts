@@ -68,6 +68,97 @@ export function createApp(dependencies: AppDependencies) {
         if (request.method === "POST" && url.pathname === "/api/provision") {
           return json(await hubspot.ensureSchema());
         }
+        if (request.method === "GET" && url.pathname === "/api/users") {
+          return json({ results: await hubspot.listUsers() });
+        }
+        if (request.method === "GET" && url.pathname === "/api/crm/search") {
+          return json({
+            results: await hubspot.searchCrmRecords(
+              crmObjectType(requiredQuery(url, "objectType")),
+              requiredQuery(url, "q"),
+            ),
+          });
+        }
+        if (
+          request.method === "GET" &&
+          url.pathname === "/api/approval-settings"
+        ) {
+          const schema = await hubspot.ensureSchema();
+          return json({
+            settings: await hubspot.getApprovalSettings(
+              schema.fullyQualifiedName,
+              requiredQuery(url, "ownerId"),
+            ),
+          });
+        }
+        if (
+          request.method === "PUT" &&
+          url.pathname === "/api/approval-settings"
+        ) {
+          const body = parseObject(rawBody);
+          const schema = await hubspot.ensureSchema();
+          return json({
+            settings: await hubspot.saveApprovalSettings({
+              objectType: schema.fullyQualifiedName,
+              primaryDisplayProperty: schema.primaryDisplayProperty,
+              ownerId: requiredBodyString(body, "ownerId"),
+              ownerEmail: requiredBodyString(body, "ownerEmail"),
+              approverId: requiredBodyString(body, "approverId"),
+              approverEmail: requiredBodyString(body, "approverEmail"),
+            }),
+          });
+        }
+        if (request.method === "GET" && url.pathname === "/api/week") {
+          const schema = await hubspot.ensureSchema();
+          return json({
+            week: await hubspot.getWeekApproval(
+              schema.fullyQualifiedName,
+              requiredQuery(url, "ownerId"),
+              requiredQuery(url, "weekKey"),
+            ),
+          });
+        }
+        if (request.method === "POST" && url.pathname === "/api/week/submit") {
+          const body = parseObject(rawBody);
+          const schema = await hubspot.ensureSchema();
+          return json({
+            week: await hubspot.submitWeek({
+              objectType: schema.fullyQualifiedName,
+              primaryDisplayProperty: schema.primaryDisplayProperty,
+              ownerId: requiredBodyString(body, "ownerId"),
+              ownerEmail: requiredBodyString(body, "ownerEmail"),
+              weekKey: requiredBodyString(body, "weekKey"),
+              totalMinutes: nonNegativeInteger(
+                body.totalMinutes,
+                "totalMinutes",
+              ),
+            }),
+          });
+        }
+        if (
+          request.method === "GET" &&
+          url.pathname === "/api/approvals/pending"
+        ) {
+          const schema = await hubspot.ensureSchema();
+          return json({
+            results: await hubspot.listPendingApprovals(
+              schema.fullyQualifiedName,
+              requiredQuery(url, "approverId"),
+            ),
+          });
+        }
+        if (request.method === "POST" && url.pathname === "/api/week/approve") {
+          const body = parseObject(rawBody);
+          const schema = await hubspot.ensureSchema();
+          return json({
+            week: await hubspot.approveWeek({
+              objectType: schema.fullyQualifiedName,
+              weekId: requiredBodyString(body, "weekId"),
+              approverId: requiredBodyString(body, "approverId"),
+              approverEmail: requiredBodyString(body, "approverEmail"),
+            }),
+          });
+        }
         if (request.method === "GET" && url.pathname === "/api/entries") {
           const schema = await hubspot.ensureSchema();
           const results = await hubspot.searchEntries({
@@ -83,10 +174,24 @@ export function createApp(dependencies: AppDependencies) {
         if (request.method === "POST" && url.pathname === "/api/entries") {
           const body = parseObject(rawBody);
           const schema = await hubspot.ensureSchema();
+          const properties = stringProperties(body.properties);
+          const existingWeek = await hubspot.getWeekApproval(
+            schema.fullyQualifiedName,
+            requiredRecordProperty(properties, "hubspot_user_id"),
+            requiredRecordProperty(properties, "week_key"),
+          );
+          if (
+            existingWeek &&
+            ["submitted", "approved"].includes(existingWeek.status)
+          ) {
+            throw new RequestError(
+              "Ugen er indsendt og kan ikke modtage flere registreringer.",
+            );
+          }
           const entry = await hubspot.createEntry(
             schema.fullyQualifiedName,
             schema.primaryDisplayProperty,
-            stringProperties(body.properties),
+            properties,
           );
           const association = optionalAssociation(body.association);
           if (association) {
@@ -98,6 +203,37 @@ export function createApp(dependencies: AppDependencies) {
             );
           }
           return json(entry, 201);
+        }
+        const entryRoute = url.pathname.match(/^\/api\/entries\/([^/]+)$/);
+        if (entryRoute && request.method === "PATCH") {
+          const body = parseObject(rawBody);
+          const schema = await hubspot.ensureSchema();
+          const durationMinutes = positiveInteger(
+            body.durationMinutes,
+            "durationMinutes",
+          );
+          return json(
+            await hubspot.updateEntry({
+              objectType: schema.fullyQualifiedName,
+              entryId: decodeURIComponent(entryRoute[1] as string),
+              ownerId: requiredBodyString(body, "ownerId"),
+              properties: {
+                duration_minutes: String(durationMinutes),
+                category: timeCategory(body.category),
+                description: optionalBodyString(body.description),
+                billable: booleanValue(body.billable, "billable"),
+              },
+            }),
+          );
+        }
+        if (entryRoute && request.method === "DELETE") {
+          const schema = await hubspot.ensureSchema();
+          await hubspot.deleteEntry({
+            objectType: schema.fullyQualifiedName,
+            entryId: decodeURIComponent(entryRoute[1] as string),
+            ownerId: requiredQuery(url, "ownerId"),
+          });
+          return json({ deleted: true });
         }
       }
       return json({ error: "Not found" }, 404);
@@ -131,12 +267,54 @@ function requiredQuery(url: URL, name: string): string {
   return value;
 }
 
-function positiveInteger(value: string | null, name: string): number {
+function positiveInteger(value: unknown, name: string): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new RequestError(`${name} must be a positive integer.`);
   }
   return parsed;
+}
+
+function nonNegativeInteger(value: unknown, name: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new RequestError(`${name} must be a non-negative integer.`);
+  }
+  return parsed;
+}
+
+function optionalBodyString(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string") {
+    throw new RequestError("description must be a string.");
+  }
+  return value.trim();
+}
+
+function booleanValue(value: unknown, name: string): string {
+  if (typeof value !== "boolean") {
+    throw new RequestError(`${name} must be a boolean.`);
+  }
+  return String(value);
+}
+
+function timeCategory(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    !["project", "internal", "meeting", "break", "absence"].includes(value)
+  ) {
+    throw new RequestError("Unsupported time category.");
+  }
+  return value;
+}
+
+function crmObjectType(
+  value: string,
+): "contacts" | "companies" | "deals" | "tickets" {
+  if (!["contacts", "companies", "deals", "tickets"].includes(value)) {
+    throw new RequestError("Unsupported CRM object type.");
+  }
+  return value as "contacts" | "companies" | "deals" | "tickets";
 }
 
 function isoDate(value: string, name: string): string {
@@ -160,6 +338,26 @@ function parseObject(rawBody: string): Record<string, unknown> {
   } catch {
     throw new RequestError("Request body must be a JSON object.");
   }
+}
+
+function requiredBodyString(
+  body: Record<string, unknown>,
+  name: string,
+): string {
+  const value = body[name];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new RequestError(`${name} must be a non-empty string.`);
+  }
+  return value.trim();
+}
+
+function requiredRecordProperty(
+  properties: Record<string, string>,
+  name: string,
+): string {
+  const value = properties[name]?.trim();
+  if (!value) throw new RequestError(`Missing property ${name}.`);
+  return value;
 }
 
 function stringProperties(value: unknown): Record<string, string> {

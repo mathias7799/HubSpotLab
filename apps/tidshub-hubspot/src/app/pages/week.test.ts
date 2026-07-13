@@ -51,6 +51,9 @@ describe("week summary", () => {
         description: "Customer work",
         billable: true,
         status: "draft",
+        associationType: null,
+        associationId: null,
+        associationLabel: null,
       },
       {
         id: "2",
@@ -63,6 +66,9 @@ describe("week summary", () => {
         description: "Planning",
         billable: false,
         status: "draft",
+        associationType: null,
+        associationId: null,
+        associationLabel: null,
       },
     ];
 

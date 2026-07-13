@@ -25,9 +25,16 @@ export const recordProperties = [
   "submitted_at",
   "approved_at",
   "manager_comment",
+  "approval_officer_id",
+  "approval_officer_email",
+  "approved_by_id",
+  "approved_by_email",
   "hubspot_user_id",
   "hubspot_user_email",
   "hubspot_owner_id",
+  "associated_object_type",
+  "associated_object_id",
+  "associated_object_label",
 ] as const;
 
 export type RecordProperty = (typeof recordProperties)[number];
@@ -56,6 +63,9 @@ export interface TimeEntry {
   description: string | null;
   billable: boolean;
   status: string;
+  associationType: string | null;
+  associationId: string | null;
+  associationLabel: string | null;
 }
 
 export interface WorkNorm {
@@ -97,6 +107,9 @@ export function toTimeEntry(record: TidsHubRecord): TimeEntry | null {
     description: properties.description ?? null,
     billable: properties.billable === "true",
     status: properties.record_status ?? "draft",
+    associationType: properties.associated_object_type ?? null,
+    associationId: properties.associated_object_id ?? null,
+    associationLabel: properties.associated_object_label ?? null,
   };
 }
 

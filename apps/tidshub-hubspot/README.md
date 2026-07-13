@@ -6,12 +6,16 @@ backend provisioning.
 
 ## Product surfaces
 
-- **App page:** week navigation, totals, billable share, daily rollups, and time
-  entry creation.
+- **App page:** week navigation, totals, day drill-down, low-click CRM search,
+  time entry creation/editing/deletion, submission, and approvals.
 - **CRM sidebar card:** quick entry associated with the current contact,
   company, deal, or ticket.
 - **Settings:** health check and idempotent provisioning of exactly one custom
   object.
+
+Approval officers and week workflow records use the same TidsHub custom object
+as time entries. No second custom object or external application database is
+required.
 
 The UI is intentionally built only with `@hubspot/ui-extensions`. It ships no
 iframe application and requires no separate frontend host.

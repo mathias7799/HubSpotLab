@@ -16,13 +16,13 @@ flowchart LR
 
 ## Components
 
-| Component        | Runtime     | Responsibility                                      |
-| ---------------- | ----------- | --------------------------------------------------- |
-| App page         | HubSpot     | Week overview, navigation, entry form, empty states |
-| CRM sidebar card | HubSpot     | Quick entry and association to the current record   |
-| Settings page    | HubSpot     | Installation health and idempotent provisioning     |
-| OAuth API        | User hosted | Tokens, signatures, schema, records, associations   |
-| Token store      | Upstash     | Encrypted, durable installation records             |
+| Component        | Runtime     | Responsibility                                       |
+| ---------------- | ----------- | ---------------------------------------------------- |
+| App page         | HubSpot     | Week overview, day drill-down, entry CRUD, approvals |
+| CRM sidebar card | HubSpot     | Quick entry and association to the current record    |
+| Settings page    | HubSpot     | Installation health and idempotent provisioning      |
+| OAuth API        | User hosted | Tokens, signatures, schema, records, associations    |
+| Token store      | Upstash     | Encrypted, durable installation records              |
 
 The API core uses standard web `Request` and `Response` objects. Thin adapters
 translate Node HTTP, AWS Lambda, Azure Functions, or optional HubSpot serverless
@@ -37,12 +37,27 @@ upgrade from creating a second custom object.
 The `record_kind` property differentiates records:
 
 - `time_entry`: a user's dated duration, category, description, and billing
-  state;
-- `week`: reserved for weekly workflow state;
-- `norm`: reserved for work schedules and historical norms.
+  state, including optional CRM association metadata;
+- `week`: submission, approval officer, approval state, and weekly totals;
+- `norm`: work schedules and the user's selected approval officer.
 
 Time entries can be associated with contacts, companies, deals, and tickets.
-The app creates association definitions only when they are needed.
+The registration form searches automatically after two characters and offers
+direct result selection. The app creates association definitions only when
+they are needed.
+
+## Approval workflow
+
+Each user can select another HubSpot user as their approval officer. Submitting
+a week creates or updates a `week` record with a snapshot of the registered
+minutes and locks further entry creation for that week. Only the assigned
+approval officer can approve it. Authorization is checked in the backend, not
+only hidden in the interface.
+
+Editing and deleting are available from each day's drill-down while a week is
+still a draft. The backend verifies ownership and the week state for both
+operations, so submitted and approved weeks cannot be changed through a direct
+API request.
 
 ## Request trust boundary
 
