@@ -21,7 +21,7 @@ export interface HubSpotUser {
 
 export interface CrmAssociationResult {
   id: string;
-  objectType: "contacts" | "companies" | "deals" | "tickets";
+  objectType: "contacts" | "companies" | "deals" | "tickets" | "tasks";
   objectTypeId: string;
   label: string;
   secondary: string;
@@ -61,6 +61,12 @@ export interface CreateTimeEntryInput {
   weekKey: string;
   association?: {
     objectType: string;
+    objectTypeId: string;
+    objectId: string;
+    label: string;
+  };
+  taskAssociation?: {
+    objectType: "tasks";
     objectTypeId: string;
     objectId: string;
     label: string;
@@ -106,13 +112,29 @@ export async function createTimeEntry(
           associated_object_type: input.association?.objectType ?? "",
           associated_object_id: input.association?.objectId ?? "",
           associated_object_label: input.association?.label ?? "",
+          associated_task_id: input.taskAssociation?.objectId ?? "",
+          associated_task_label: input.taskAssociation?.label ?? "",
         },
-        ...(input.association
+        ...(input.association || input.taskAssociation
           ? {
-              association: {
-                objectTypeId: input.association.objectTypeId,
-                objectId: input.association.objectId,
-              },
+              associations: [
+                ...(input.association
+                  ? [
+                      {
+                        objectTypeId: input.association.objectTypeId,
+                        objectId: input.association.objectId,
+                      },
+                    ]
+                  : []),
+                ...(input.taskAssociation
+                  ? [
+                      {
+                        objectTypeId: input.taskAssociation.objectTypeId,
+                        objectId: input.taskAssociation.objectId,
+                      },
+                    ]
+                  : []),
+              ],
             }
           : {}),
       },
@@ -178,7 +200,7 @@ export async function listHubSpotUsers(
 
 export async function searchCrmAssociations(input: {
   portalId: number;
-  objectType: "contacts" | "companies" | "deals" | "tickets";
+  objectType: "contacts" | "companies" | "deals" | "tickets" | "tasks";
   query: string;
 }): Promise<CrmAssociationResult[]> {
   const url = new URL(`${TIDSHUB_BACKEND_URL}/api/crm/search`);

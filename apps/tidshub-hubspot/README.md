@@ -7,7 +7,8 @@ backend provisioning.
 ## Product surfaces
 
 - **App page:** week navigation, totals, day drill-down, low-click CRM search,
-  time entry creation/editing/deletion, submission, and approvals.
+  optional task linking, time entry creation/editing/deletion, submission, and
+  approvals.
 - **CRM sidebar card:** quick entry associated with the current contact,
   company, deal, or ticket.
 - **Settings:** health check and idempotent provisioning of exactly one custom
@@ -16,6 +17,23 @@ backend provisioning.
 Approval officers and week workflow records use the same TidsHub custom object
 as time entries. No second custom object or external application database is
 required.
+
+## Screenshots
+
+### Weekly overview
+
+![TidsHub weekly overview](../../docs/images/tidshub-week-overview.jpg)
+
+### CRM record and optional task
+
+Each registration can link to one project or CRM record and, independently,
+one HubSpot task.
+
+![TidsHub contact and task association](../../docs/images/tidshub-registration-associations.jpg)
+
+### Daily drill-down
+
+![TidsHub daily registration details](../../docs/images/tidshub-day-details.jpg)
 
 The UI is intentionally built only with `@hubspot/ui-extensions`. It ships no
 iframe application and requires no separate frontend host.

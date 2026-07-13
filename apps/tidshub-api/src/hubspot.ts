@@ -45,7 +45,12 @@ export interface WeekApproval {
   approvedByEmail: string | null;
 }
 
-export type CrmObjectType = "contacts" | "companies" | "deals" | "tickets";
+export type CrmObjectType =
+  | "contacts"
+  | "companies"
+  | "deals"
+  | "tickets"
+  | "tasks";
 
 export class HubSpotClient {
   constructor(
@@ -448,13 +453,17 @@ export class HubSpotClient {
   ): Promise<{ category: string; typeId: number }> {
     interface AssociationLabel {
       category?: string;
+      label?: string | null;
       typeId?: number;
     }
     const path = `/crm/v4/associations/${encodeURIComponent(fromObjectType)}/${encodeURIComponent(toObjectType)}/labels`;
     const existing = await this.request<{ results?: AssociationLabel[] }>(path);
-    const label = (existing.results ?? []).find(
+    const labels = existing.results ?? [];
+    const label = labels.find(
       (item) =>
-        typeof item.category === "string" && Number.isInteger(item.typeId),
+        item.category === "USER_DEFINED" &&
+        item.label === "TidsHub-post" &&
+        Number.isInteger(item.typeId),
     );
     if (label?.category && label.typeId !== undefined) {
       return { category: label.category, typeId: label.typeId };
@@ -643,6 +652,8 @@ const entryProperties = [
   "associated_object_type",
   "associated_object_id",
   "associated_object_label",
+  "associated_task_id",
+  "associated_task_label",
 ] as const;
 
 const approvalProperties = [
@@ -708,6 +719,8 @@ const schemaProperties = [
   property("associated_object_type", "Tilknyttet objekttype", "string", "text"),
   property("associated_object_id", "Tilknyttet objekt-ID", "string", "text"),
   property("associated_object_label", "Tilknyttet CRM-post", "string", "text"),
+  property("associated_task_id", "Tilknyttet opgave-ID", "string", "text"),
+  property("associated_task_label", "Tilknyttet opgave", "string", "text"),
   property("approval_officer_id", "Godkender-ID", "string", "text"),
   property("approval_officer_email", "Godkender-e-mail", "string", "text"),
   property("approved_by_id", "Godkendt af ID", "string", "text"),
@@ -826,6 +839,20 @@ const crmSearchConfig: Record<
     label: (properties) => value(properties.subject, "Ticket"),
     secondary: (properties) =>
       [properties.hs_ticket_priority, properties.hs_pipeline_stage]
+        .filter(Boolean)
+        .join(" | "),
+  },
+  tasks: {
+    objectTypeId: "0-27",
+    properties: [
+      "hs_task_subject",
+      "hs_task_status",
+      "hs_task_priority",
+      "hs_timestamp",
+    ],
+    label: (properties) => value(properties.hs_task_subject, "Opgave"),
+    secondary: (properties) =>
+      [properties.hs_task_status, properties.hs_task_priority]
         .filter(Boolean)
         .join(" | "),
   },

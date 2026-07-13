@@ -18,7 +18,7 @@ import {
 
 type SearchableObjectType = CrmAssociationResult["objectType"];
 
-const objectTypeOptions = [
+const primaryObjectTypeOptions = [
   { label: "Deal", value: "deals" },
   { label: "Virksomhed", value: "companies" },
   { label: "Kontakt", value: "contacts" },
@@ -29,14 +29,18 @@ export function AssociationPicker({
   portalId,
   selected,
   disabled,
+  kind = "primary",
   onSelectedChange,
 }: {
   portalId: number;
   selected: CrmAssociationResult | null;
   disabled: boolean;
+  kind?: "primary" | "task";
   onSelectedChange: (result: CrmAssociationResult | null) => void;
 }): React.ReactElement {
-  const [objectType, setObjectType] = useState<SearchableObjectType>("deals");
+  const [objectType, setObjectType] = useState<SearchableObjectType>(
+    kind === "task" ? "tasks" : "deals",
+  );
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CrmAssociationResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -88,28 +92,40 @@ export function AssociationPicker({
 
   return (
     <Flex direction="column" gap="small">
-      <Text format={{ fontWeight: "demibold" }}>Tilknyt CRM-post</Text>
-      <Text>Valgfrit. Skriv mindst to tegn, så søger TidsHub automatisk.</Text>
+      <Text format={{ fontWeight: "demibold" }}>
+        {kind === "task" ? "Tilknyt opgave" : "Tilknyt projekt / CRM-post"}
+      </Text>
+      <Text>
+        {kind === "task"
+          ? "Valgfrit. Tilføj en HubSpot-opgave oven på projektet eller CRM-posten."
+          : "Valgfrit. Vælg det projekt eller den CRM-post, tiden vedrører."}
+      </Text>
       <Flex direction="row" gap="small" align="end">
-        <Select
-          name="associationType"
-          label="Type"
-          value={objectType}
-          options={objectTypeOptions}
-          readOnly={disabled}
-          onChange={(value) => {
-            setObjectType(String(value) as SearchableObjectType);
-            setResults([]);
-            setSearched(false);
-            setError(null);
-            onSelectedChange(null);
-          }}
-        />
+        {kind === "primary" ? (
+          <Select
+            name="associationType"
+            label="Type"
+            value={objectType}
+            options={primaryObjectTypeOptions}
+            readOnly={disabled}
+            onChange={(value) => {
+              setObjectType(String(value) as SearchableObjectType);
+              setResults([]);
+              setSearched(false);
+              setError(null);
+              onSelectedChange(null);
+            }}
+          />
+        ) : null}
         <Input
-          name="associationQuery"
-          label="Søg i HubSpot"
+          name={kind === "task" ? "taskAssociationQuery" : "associationQuery"}
+          label={kind === "task" ? "Søg efter opgave" : "Søg i HubSpot"}
           value={query}
-          placeholder="Navn, e-mail, domæne eller titel"
+          placeholder={
+            kind === "task"
+              ? "Opgavens titel"
+              : "Navn, e-mail, domæne eller titel"
+          }
           readOnly={disabled}
           onInput={(value) => updateQuery(String(value))}
           onChange={(value) => updateQuery(String(value))}
@@ -150,7 +166,9 @@ export function AssociationPicker({
       ) : null}
       {selected ? (
         <Flex direction="row" gap="small" align="center">
-          <StatusTag variant="success">Tilknyttes: {selected.label}</StatusTag>
+          <StatusTag variant="success">
+            {kind === "task" ? "Opgave" : "CRM"}: {selected.label}
+          </StatusTag>
           <Button
             type="button"
             size="xs"

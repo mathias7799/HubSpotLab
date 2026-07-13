@@ -12,7 +12,8 @@ events into that contract.
 - idempotent provisioning of exactly one TidsHub custom object
 - weekly time-entry search, creation, editing, and deletion
 - optional association of a time entry to the current CRM record
-- searchable contact, company, deal, and ticket associations
+- searchable contact, company, deal, ticket, and task associations
+- one primary CRM association plus an independent optional task association
 - approval-officer settings, week submission, and approval authorization
 
 The provisioner first looks for both the original `tidshub_record` schema and

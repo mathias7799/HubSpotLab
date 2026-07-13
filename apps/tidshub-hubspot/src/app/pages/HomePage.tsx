@@ -104,6 +104,8 @@ export function HomePage(): React.ReactElement {
   const [association, setAssociation] = useState<CrmAssociationResult | null>(
     null,
   );
+  const [taskAssociation, setTaskAssociation] =
+    useState<CrmAssociationResult | null>(null);
   const [approvalSettings, setApprovalSettings] =
     useState<ApprovalSettings | null>(null);
   const [weekApproval, setWeekApproval] = useState<WeekApproval | null>(null);
@@ -190,6 +192,16 @@ export function HomePage(): React.ReactElement {
               },
             }
           : {}),
+        ...(taskAssociation?.objectType === "tasks"
+          ? {
+              taskAssociation: {
+                objectType: "tasks" as const,
+                objectTypeId: taskAssociation.objectTypeId,
+                objectId: taskAssociation.id,
+                label: taskAssociation.label,
+              },
+            }
+          : {}),
       });
       actions.addAlert({
         type: "success",
@@ -201,6 +213,7 @@ export function HomePage(): React.ReactElement {
       }
       setFormVersion((version) => version + 1);
       setAssociation(null);
+      setTaskAssociation(null);
       setSelectedTab("overview");
       setState("idle");
     } catch (cause) {
@@ -504,6 +517,13 @@ export function HomePage(): React.ReactElement {
                 disabled={busy || weekLocked}
                 onSelectedChange={setAssociation}
               />
+              <AssociationPicker
+                portalId={portalId}
+                selected={taskAssociation}
+                disabled={busy || weekLocked}
+                kind="task"
+                onSelectedChange={setTaskAssociation}
+              />
               <ButtonRow>
                 <Button
                   type="submit"
@@ -724,7 +744,7 @@ function DayDetails({
                     {entry.billable ? "Fakturerbar" : "Ikke fakturerbar"}
                   </StatusTag>
                 </TableCell>
-                <TableCell>{entry.associationLabel ?? "-"}</TableCell>
+                <TableCell>{associationLabels(entry)}</TableCell>
                 <TableCell>
                   <ButtonRow>
                     <Button
@@ -866,6 +886,14 @@ function categoryLabel(category: TimeCategory): string {
     break: "Pause",
     absence: "Fravær",
   }[category];
+}
+
+function associationLabels(entry: TimeEntry): string {
+  const labels = [
+    entry.associationLabel ? `CRM: ${entry.associationLabel}` : null,
+    entry.taskAssociationLabel ? `Opgave: ${entry.taskAssociationLabel}` : null,
+  ].filter(Boolean);
+  return labels.length > 0 ? labels.join(" / ") : "-";
 }
 
 function dayStatus(day: DaySummary): {

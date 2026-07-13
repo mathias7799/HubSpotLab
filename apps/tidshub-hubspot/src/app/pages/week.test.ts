@@ -54,6 +54,8 @@ describe("week summary", () => {
         associationType: null,
         associationId: null,
         associationLabel: null,
+        taskAssociationId: null,
+        taskAssociationLabel: null,
       },
       {
         id: "2",
@@ -69,6 +71,8 @@ describe("week summary", () => {
         associationType: null,
         associationId: null,
         associationLabel: null,
+        taskAssociationId: null,
+        taskAssociationLabel: null,
       },
     ];
 

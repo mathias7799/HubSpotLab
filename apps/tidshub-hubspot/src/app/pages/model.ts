@@ -35,6 +35,8 @@ export const recordProperties = [
   "associated_object_type",
   "associated_object_id",
   "associated_object_label",
+  "associated_task_id",
+  "associated_task_label",
 ] as const;
 
 export type RecordProperty = (typeof recordProperties)[number];
@@ -66,6 +68,8 @@ export interface TimeEntry {
   associationType: string | null;
   associationId: string | null;
   associationLabel: string | null;
+  taskAssociationId: string | null;
+  taskAssociationLabel: string | null;
 }
 
 export interface WorkNorm {
@@ -110,6 +114,8 @@ export function toTimeEntry(record: TidsHubRecord): TimeEntry | null {
     associationType: properties.associated_object_type ?? null,
     associationId: properties.associated_object_id ?? null,
     associationLabel: properties.associated_object_label ?? null,
+    taskAssociationId: properties.associated_task_id ?? null,
+    taskAssociationLabel: properties.associated_task_label ?? null,
   };
 }
 

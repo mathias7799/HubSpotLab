@@ -194,12 +194,14 @@ export function createApp(dependencies: AppDependencies) {
             properties,
           );
           const association = optionalAssociation(body.association);
-          if (association) {
+          const associations = optionalAssociations(body.associations);
+          if (association) associations.push(association);
+          for (const item of associations) {
             await hubspot.associate(
               schema.fullyQualifiedName,
               entry.id,
-              association.objectTypeId,
-              association.objectId,
+              item.objectTypeId,
+              item.objectId,
             );
           }
           return json(entry, 201);
@@ -310,11 +312,11 @@ function timeCategory(value: unknown): string {
 
 function crmObjectType(
   value: string,
-): "contacts" | "companies" | "deals" | "tickets" {
-  if (!["contacts", "companies", "deals", "tickets"].includes(value)) {
+): "contacts" | "companies" | "deals" | "tickets" | "tasks" {
+  if (!["contacts", "companies", "deals", "tickets", "tasks"].includes(value)) {
     throw new RequestError("Unsupported CRM object type.");
   }
-  return value as "contacts" | "companies" | "deals" | "tickets";
+  return value as "contacts" | "companies" | "deals" | "tickets" | "tasks";
 }
 
 function isoDate(value: string, name: string): string {
@@ -392,6 +394,22 @@ function optionalAssociation(
     objectTypeId: String(association.objectTypeId),
     objectId: String(association.objectId),
   };
+}
+
+function optionalAssociations(
+  value: unknown,
+): Array<{ objectTypeId: string; objectId: string }> {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new RequestError("associations must be an array.");
+  }
+  return value.map((item) => {
+    const association = optionalAssociation(item);
+    if (!association) {
+      throw new RequestError("associations cannot contain empty values.");
+    }
+    return association;
+  });
 }
 
 function readCookie(request: Request, name: string): string | null {

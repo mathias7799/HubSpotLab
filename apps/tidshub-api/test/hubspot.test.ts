@@ -88,6 +88,68 @@ describe("HubSpotClient", () => {
     });
   });
 
+  it("searches HubSpot tasks for optional entry associations", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        results: [
+          {
+            id: "701",
+            properties: {
+              hs_task_subject: "Følg op på tilbud",
+              hs_task_status: "NOT_STARTED",
+              hs_task_priority: "HIGH",
+            },
+          },
+        ],
+      }),
+    );
+    const client = new HubSpotClient("test-token", fetcher);
+
+    const results = await client.searchCrmRecords("tasks", "tilbud");
+
+    expect(results).toEqual([
+      {
+        id: "701",
+        objectType: "tasks",
+        objectTypeId: "0-27",
+        label: "Følg op på tilbud",
+        secondary: "NOT_STARTED | HIGH",
+      },
+    ]);
+  });
+
+  it("creates a dedicated custom label instead of using an invalid system association", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          results: [
+            {
+              category: "HUBSPOT_DEFINED",
+              typeId: 1,
+              label: null,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          category: "USER_DEFINED",
+          typeId: 99,
+          label: "TidsHub-post",
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({}));
+    const client = new HubSpotClient("test-token", fetcher);
+
+    await client.associate("p123_tidshub_record", "entry-1", "0-1", "501");
+
+    expect(fetcher.mock.calls[1]?.[1]?.method).toBe("POST");
+    expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual([
+      { associationCategory: "USER_DEFINED", associationTypeId: 99 },
+    ]);
+  });
+
   it("updates an owned entry when its week is still editable", async () => {
     const fetcher = vi
       .fn<typeof fetch>()
