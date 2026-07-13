@@ -1,0 +1,21 @@
+{
+  "name": "@hubspotlab/tidshub-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/adapters/node.ts",
+    "dev:local": "HUBSPOT_CLIENT_ID=local-client HUBSPOT_CLIENT_SECRET=local-secret PUBLIC_URL=http://localhost:8799 PORT=8799 TOKEN_ENCRYPTION_KEY=local-only-change-me ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=true tsx watch src/adapters/node.ts",
+    "start": "node dist/adapters/node.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "26.0.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.8"
+  }
+}

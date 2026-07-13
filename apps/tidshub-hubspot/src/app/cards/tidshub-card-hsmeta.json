@@ -1,0 +1,11 @@
+{
+  "uid": "tidshub_native_record_card",
+  "type": "card",
+  "config": {
+    "name": "TidsHub",
+    "description": "Registrer tid og se ugens timer for denne HubSpot-post.",
+    "location": "crm.record.sidebar",
+    "entrypoint": "/app/cards/TidsHubCard.tsx",
+    "objectTypes": ["contacts", "companies", "deals", "tickets"]
+  }
+}

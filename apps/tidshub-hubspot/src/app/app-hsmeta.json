@@ -1,0 +1,40 @@
+{
+  "uid": "tidshub_native_private_app",
+  "type": "app",
+  "config": {
+    "description": "Native weekly time registration and CRM-linked time overview inside HubSpot.",
+    "name": "TidsHub",
+    "distribution": "marketplace",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": [
+        "https://c00cc054661d9a6c-185-229-152-184.serveousercontent.com/oauth/callback"
+      ],
+      "requiredScopes": [
+        "oauth",
+        "crm.schemas.custom.read",
+        "crm.objects.custom.read",
+        "crm.objects.custom.write",
+        "crm.objects.contacts.read",
+        "crm.objects.companies.read",
+        "crm.objects.deals.read",
+        "tickets",
+        "crm.objects.owners.read"
+      ],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": [
+        "https://c00cc054661d9a6c-185-229-152-184.serveousercontent.com"
+      ],
+      "iframe": [],
+      "img": []
+    },
+    "support": {
+      "supportEmail": "support@timez.dk",
+      "documentationUrl": "https://github.com/mathias7799/HubSpotLab/tree/main/apps/tidshub-hubspot",
+      "supportUrl": "https://github.com/mathias7799/HubSpotLab/issues"
+    }
+  }
+}

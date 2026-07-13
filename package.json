@@ -1,0 +1,24 @@
+{
+  "name": "hubspot-lab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.6.0",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "tidshub:api:dev": "pnpm --filter @hubspotlab/tidshub-api dev",
+    "tidshub:api:local": "pnpm --filter @hubspotlab/tidshub-api dev:local",
+    "tidshub:validate": "cd apps/tidshub-hubspot && env -u INIT_CWD hs project validate",
+    "tidshub:upload": "cd apps/tidshub-hubspot && env -u INIT_CWD hs project upload"
+  },
+  "devDependencies": {
+    "@hubspot/cli": "8.9.1",
+    "prettier": "3.8.4",
+    "typescript": "5.9.3",
+    "vitest": "4.1.8"
+  }
+}

@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  TidsHubApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: dist/adapters/aws-lambda.handler
+      CodeUri: ../../
+      Timeout: 15
+      MemorySize: 256
+      FunctionUrlConfig:
+        AuthType: NONE
+      Environment:
+        Variables:
+          PUBLIC_URL: https://replace-with-function-url.example
+          HUBSPOT_CLIENT_ID: replace-me
+          HUBSPOT_CLIENT_SECRET: replace-me
+          TOKEN_ENCRYPTION_KEY: replace-me
+          UPSTASH_REDIS_REST_URL: replace-me
+          UPSTASH_REDIS_REST_TOKEN: replace-me

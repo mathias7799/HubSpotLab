@@ -1,0 +1,19 @@
+{
+  "runtime": "nodejs22.x",
+  "version": "1.0",
+  "environment": {},
+  "secrets": [
+    "HUBSPOT_CLIENT_ID",
+    "HUBSPOT_CLIENT_SECRET",
+    "PUBLIC_URL",
+    "TOKEN_ENCRYPTION_KEY",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN"
+  ],
+  "endpoints": {
+    "*": {
+      "method": ["GET", "POST"],
+      "file": "dist/adapters/hubspot-serverless.js"
+    }
+  }
+}
