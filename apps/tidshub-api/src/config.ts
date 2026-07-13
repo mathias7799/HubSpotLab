@@ -46,6 +46,7 @@ export const defaultScopes = [
   "crm.objects.contacts.read",
   "crm.objects.companies.read",
   "crm.objects.deals.read",
+  "crm.objects.projects.read",
   "tickets",
   "crm.objects.owners.read",
 ] as const;

@@ -21,7 +21,13 @@ export interface HubSpotUser {
 
 export interface CrmAssociationResult {
   id: string;
-  objectType: "contacts" | "companies" | "deals" | "tickets" | "tasks";
+  objectType:
+    | "contacts"
+    | "companies"
+    | "deals"
+    | "tickets"
+    | "projects"
+    | "tasks";
   objectTypeId: string;
   label: string;
   secondary: string;
@@ -200,7 +206,13 @@ export async function listHubSpotUsers(
 
 export async function searchCrmAssociations(input: {
   portalId: number;
-  objectType: "contacts" | "companies" | "deals" | "tickets" | "tasks";
+  objectType:
+    | "contacts"
+    | "companies"
+    | "deals"
+    | "tickets"
+    | "projects"
+    | "tasks";
   query: string;
 }): Promise<CrmAssociationResult[]> {
   const url = new URL(`${TIDSHUB_BACKEND_URL}/api/crm/search`);

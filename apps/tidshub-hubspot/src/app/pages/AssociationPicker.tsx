@@ -19,6 +19,7 @@ import {
 type SearchableObjectType = CrmAssociationResult["objectType"];
 
 const primaryObjectTypeOptions = [
+  { label: "Projekt", value: "projects" },
   { label: "Deal", value: "deals" },
   { label: "Virksomhed", value: "companies" },
   { label: "Kontakt", value: "contacts" },
@@ -39,7 +40,7 @@ export function AssociationPicker({
   onSelectedChange: (result: CrmAssociationResult | null) => void;
 }): React.ReactElement {
   const [objectType, setObjectType] = useState<SearchableObjectType>(
-    kind === "task" ? "tasks" : "deals",
+    kind === "task" ? "tasks" : "projects",
   );
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CrmAssociationResult[]>([]);

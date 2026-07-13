@@ -6,6 +6,6 @@
     "description": "Registrer tid og se ugens timer for denne HubSpot-post.",
     "location": "crm.record.sidebar",
     "entrypoint": "/app/cards/TidsHubCard.tsx",
-    "objectTypes": ["contacts", "companies", "deals", "tickets"]
+    "objectTypes": ["contacts", "companies", "deals", "tickets", "projects"]
   }
 }

@@ -41,13 +41,14 @@ The `record_kind` property differentiates records:
 - `week`: submission, approval officer, approval state, and weekly totals;
 - `norm`: work schedules and the user's selected approval officer.
 
-Time entries can be associated with contacts, companies, deals, and tickets.
-They can also carry a second, independent association to a HubSpot task. This
-supports combinations such as deal + task or contact + task without another
-custom object. The registration form searches automatically after two
-characters and offers direct result selection. The API uses a dedicated
-user-defined association label for each object pair instead of reusing an
-arbitrary HubSpot system label.
+Time entries can be associated with HubSpot projects (`0-970`), contacts,
+companies, deals, and tickets. They can also carry a second, independent
+association to a HubSpot task. This supports combinations such as project +
+task, deal + task, or contact + task without another custom object. The
+registration form searches automatically after two characters and offers
+direct result selection. The daily drill-down links each association directly
+to its HubSpot record. The API uses a dedicated user-defined association label
+for each object pair instead of reusing an arbitrary HubSpot system label.
 
 ## Approval workflow
 

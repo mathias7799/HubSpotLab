@@ -7,7 +7,8 @@ backend provisioning.
 ## Product surfaces
 
 - **App page:** week navigation, totals, day drill-down, low-click CRM search,
-  optional task linking, time entry creation/editing/deletion, submission, and
+  first-class HubSpot project support, optional task linking, clickable
+  associated records, time entry creation/editing/deletion, submission, and
   approvals.
 - **CRM sidebar card:** quick entry associated with the current contact,
   company, deal, or ticket.
@@ -26,8 +27,9 @@ required.
 
 ### CRM record and optional task
 
-Each registration can link to one project or CRM record and, independently,
-one HubSpot task.
+Each registration can link to one HubSpot project or CRM record and,
+independently, one HubSpot task. Associated records link directly to their
+HubSpot detail pages from the daily drill-down.
 
 ![TidsHub contact and task association](../../docs/images/tidshub-registration-associations.jpg)
 
@@ -57,5 +59,7 @@ pnpm tidshub:upload
 
 The project targets HubSpot platform version `2026.03`. The app requires OAuth
 scopes for custom-object schemas and records plus read access to supported CRM
-record types. Schema writes are performed by the portable OAuth backend because
-the UI-extension request proxy does not expose schema creation reliably.
+record types, including `crm.objects.projects.read`. Adding that scope to an
+existing installation requires OAuth reauthorization. Schema writes are
+performed by the portable OAuth backend because the UI-extension request proxy
+does not expose schema creation reliably.

@@ -50,6 +50,7 @@ export type CrmObjectType =
   | "companies"
   | "deals"
   | "tickets"
+  | "projects"
   | "tasks";
 
 export class HubSpotClient {
@@ -839,6 +840,24 @@ const crmSearchConfig: Record<
     label: (properties) => value(properties.subject, "Ticket"),
     secondary: (properties) =>
       [properties.hs_ticket_priority, properties.hs_pipeline_stage]
+        .filter(Boolean)
+        .join(" | "),
+  },
+  projects: {
+    objectTypeId: "0-970",
+    properties: [
+      "hs_name",
+      "hs_status",
+      "hs_pipeline_stage",
+      "hs_target_due_date",
+    ],
+    label: (properties) => value(properties.hs_name, "Projekt"),
+    secondary: (properties) =>
+      [
+        properties.hs_status,
+        properties.hs_pipeline_stage,
+        properties.hs_target_due_date,
+      ]
         .filter(Boolean)
         .join(" | "),
   },

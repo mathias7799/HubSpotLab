@@ -312,11 +312,26 @@ function timeCategory(value: unknown): string {
 
 function crmObjectType(
   value: string,
-): "contacts" | "companies" | "deals" | "tickets" | "tasks" {
-  if (!["contacts", "companies", "deals", "tickets", "tasks"].includes(value)) {
+): "contacts" | "companies" | "deals" | "tickets" | "projects" | "tasks" {
+  if (
+    ![
+      "contacts",
+      "companies",
+      "deals",
+      "tickets",
+      "projects",
+      "tasks",
+    ].includes(value)
+  ) {
     throw new RequestError("Unsupported CRM object type.");
   }
-  return value as "contacts" | "companies" | "deals" | "tickets" | "tasks";
+  return value as
+    | "contacts"
+    | "companies"
+    | "deals"
+    | "tickets"
+    | "projects"
+    | "tasks";
 }
 
 function isoDate(value: string, name: string): string {

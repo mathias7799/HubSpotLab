@@ -8,6 +8,7 @@ import {
   Flex,
   Form,
   Heading,
+  Link,
   LoadingSpinner,
   Select,
   Statistics,
@@ -52,6 +53,7 @@ import {
   type WeekApproval,
 } from "./api.ts";
 import { defaultNorm, type TimeCategory, type TimeEntry } from "./model.ts";
+import { crmRecordPath } from "./recordLinks.ts";
 import {
   formatMinutes,
   isoDateFromInput,
@@ -456,6 +458,7 @@ export function HomePage(): React.ReactElement {
           <WeekTable
             range={range}
             entries={entries}
+            portalId={portalId}
             locked={weekLocked}
             busy={busy}
             onRegister={() => setSelectedTab("register")}
@@ -557,6 +560,7 @@ export function HomePage(): React.ReactElement {
 function WeekTable({
   range,
   entries,
+  portalId,
   locked,
   busy,
   onRegister,
@@ -565,6 +569,7 @@ function WeekTable({
 }: {
   range: IsoWeekRange;
   entries: TimeEntry[];
+  portalId: number;
   locked: boolean;
   busy: boolean;
   onRegister: () => void;
@@ -645,6 +650,7 @@ function WeekTable({
       {selectedDay ? (
         <DayDetails
           day={selectedDay}
+          portalId={portalId}
           locked={locked}
           busy={busy}
           onUpdate={onUpdate}
@@ -657,12 +663,14 @@ function WeekTable({
 
 function DayDetails({
   day,
+  portalId,
   locked,
   busy,
   onUpdate,
   onDelete,
 }: {
   day: DaySummary;
+  portalId: number;
   locked: boolean;
   busy: boolean;
   onUpdate: (input: {
@@ -744,7 +752,9 @@ function DayDetails({
                     {entry.billable ? "Fakturerbar" : "Ikke fakturerbar"}
                   </StatusTag>
                 </TableCell>
-                <TableCell>{associationLabels(entry)}</TableCell>
+                <TableCell>
+                  <AssociationLinks entry={entry} portalId={portalId} />
+                </TableCell>
                 <TableCell>
                   <ButtonRow>
                     <Button
@@ -888,12 +898,47 @@ function categoryLabel(category: TimeCategory): string {
   }[category];
 }
 
-function associationLabels(entry: TimeEntry): string {
-  const labels = [
-    entry.associationLabel ? `CRM: ${entry.associationLabel}` : null,
-    entry.taskAssociationLabel ? `Opgave: ${entry.taskAssociationLabel}` : null,
-  ].filter(Boolean);
-  return labels.length > 0 ? labels.join(" / ") : "-";
+function AssociationLinks({
+  entry,
+  portalId,
+}: {
+  entry: TimeEntry;
+  portalId: number;
+}): React.ReactElement {
+  const crmPath =
+    entry.associationType && entry.associationId
+      ? crmRecordPath(portalId, entry.associationType, entry.associationId)
+      : null;
+  const taskPath = entry.taskAssociationId
+    ? crmRecordPath(portalId, "tasks", entry.taskAssociationId)
+    : null;
+
+  if (!entry.associationLabel && !entry.taskAssociationLabel) {
+    return <Text>-</Text>;
+  }
+
+  return (
+    <Flex direction="column" gap="extra-small">
+      {entry.associationLabel ? (
+        crmPath ? (
+          <Link href={{ url: crmPath, external: false }}>
+            CRM: {entry.associationLabel}
+          </Link>
+        ) : (
+          <Text>CRM: {entry.associationLabel}</Text>
+        )
+      ) : null}
+      {entry.taskAssociationLabel ? (
+        taskPath ? (
+          <Link href={{ url: taskPath, external: false }}>
+            Opgave: {entry.taskAssociationLabel}
+          </Link>
+        ) : (
+          <Text>Opgave: {entry.taskAssociationLabel}</Text>
+        )
+      ) : null}
+    </Flex>
+  );
 }
 
 function dayStatus(day: DaySummary): {

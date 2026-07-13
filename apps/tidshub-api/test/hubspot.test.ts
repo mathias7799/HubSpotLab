@@ -118,6 +118,39 @@ describe("HubSpotClient", () => {
     ]);
   });
 
+  it("searches HubSpot projects as primary entry associations", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        results: [
+          {
+            id: "9701",
+            properties: {
+              hs_name: "Website relaunch",
+              hs_status: "IN_PROGRESS",
+              hs_pipeline_stage: "execution",
+            },
+          },
+        ],
+      }),
+    );
+    const client = new HubSpotClient("test-token", fetcher);
+
+    const results = await client.searchCrmRecords("projects", "Website");
+
+    expect(results).toEqual([
+      {
+        id: "9701",
+        objectType: "projects",
+        objectTypeId: "0-970",
+        label: "Website relaunch",
+        secondary: "IN_PROGRESS | execution",
+      },
+    ]);
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({
+      properties: expect.arrayContaining(["hs_name", "hs_status"]),
+    });
+  });
+
   it("creates a dedicated custom label instead of using an invalid system association", async () => {
     const fetcher = vi
       .fn<typeof fetch>()
