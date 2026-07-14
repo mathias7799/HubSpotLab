@@ -1,0 +1,12 @@
+{
+  "name": "@hubspotlab/tidshub",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "api:build": "pnpm --filter @hubspotlab/tidshub-api build",
+    "api:dev": "pnpm --filter @hubspotlab/tidshub-api dev",
+    "api:local": "pnpm --filter @hubspotlab/tidshub-api dev:local",
+    "validate": "cd apps/hubspot && env -u INIT_CWD hs project validate",
+    "upload": "cd apps/hubspot && env -u INIT_CWD hs project upload"
+  }
+}

@@ -9,14 +9,14 @@ same repository-wide conventions.
 
 ## Repository layout
 
-| Path        | Purpose                                                 |
-| ----------- | ------------------------------------------------------- |
-| `apps/`     | Deployable HubSpot apps and services                    |
-| `packages/` | Reusable libraries and shared modules                   |
-| `tools/`    | CLIs, scripts, generators, and developer utilities      |
-| `skills/`   | Agent skills and supporting resources                   |
-| `docs/`     | Architecture, guides, decisions, and reference material |
-| `examples/` | Small, runnable examples and integration demos          |
+| Path        | Purpose                                                     |
+| ----------- | ----------------------------------------------------------- |
+| `projects/` | Self-contained products with their apps, services, and docs |
+| `packages/` | Reusable libraries and shared modules                       |
+| `tools/`    | CLIs, scripts, generators, and developer utilities          |
+| `skills/`   | Agent skills and supporting resources                       |
+| `docs/`     | Repository-wide architecture, decisions, and conventions    |
+| `examples/` | Small, runnable examples and integration demos              |
 
 Each top-level area contains its own guidance. New projects should have a
 README that states their purpose, setup, validation, and ownership.
@@ -35,15 +35,14 @@ work and keep each project independently understandable and deployable.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for repository conventions and
 [docs/architecture.md](docs/architecture.md) for the design principles behind
-the monorepo. The [TidsHub architecture guide](docs/tidshub.md) documents the
-first complete app and its trust boundaries.
+the monorepo. The [TidsHub project](projects/tidshub/README.md) documents the
+first complete product and its trust boundaries.
 
-## Current apps
+## Current projects
 
-| Project                | Purpose                                                |
-| ---------------------- | ------------------------------------------------------ |
-| `apps/tidshub-hubspot` | TidsHub OAuth UI-extension project                     |
-| `apps/tidshub-api`     | Portable OAuth/API backend for Node, Lambda, and Azure |
+| Project            | Purpose                                                     |
+| ------------------ | ----------------------------------------------------------- |
+| `projects/tidshub` | Time registration with a HubSpot app and portable OAuth API |
 
 ## Status
 

@@ -20,22 +20,9 @@ importers:
         specifier: 4.1.8
         version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(vite@6.4.2(@types/node@26.1.1)(jiti@2.7.0)(tsx@4.20.6))
 
-  apps/tidshub-api:
-    devDependencies:
-      "@types/node":
-        specifier: 26.0.0
-        version: 26.0.0
-      tsx:
-        specifier: 4.20.6
-        version: 4.20.6
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: 4.1.8
-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@6.4.2(@types/node@26.0.0)(jiti@2.7.0)(tsx@4.20.6))
+  projects/tidshub: {}
 
-  apps/tidshub-hubspot/src/app/cards:
+  projects/tidshub/apps/hubspot/src/app/cards:
     dependencies:
       "@hubspot/ui-extensions":
         specifier: 0.14.2
@@ -81,7 +68,7 @@ importers:
         specifier: ^8.63.0
         version: 8.63.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
 
-  apps/tidshub-hubspot/src/app/pages:
+  projects/tidshub/apps/hubspot/src/app/pages:
     dependencies:
       "@hubspot/ui-extensions":
         specifier: 0.14.2
@@ -130,7 +117,7 @@ importers:
         specifier: 4.1.8
         version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(vite@6.4.2(@types/node@26.1.1)(jiti@2.7.0)(tsx@4.20.6))
 
-  apps/tidshub-hubspot/src/app/settings:
+  projects/tidshub/apps/hubspot/src/app/settings:
     dependencies:
       "@hubspot/ui-extensions":
         specifier: 0.14.2
@@ -175,6 +162,21 @@ importers:
       typescript-eslint:
         specifier: ^8.63.0
         version: 8.63.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+
+  projects/tidshub/services/api:
+    devDependencies:
+      "@types/node":
+        specifier: 26.0.0
+        version: 26.0.0
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.8
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@6.4.2(@types/node@26.0.0)(jiti@2.7.0)(tsx@4.20.6))
 
 packages:
   "@alcalzone/ansi-tokenize@0.2.5":
@@ -6896,7 +6898,7 @@ snapshots:
 
   "@hubspot/api-client@13.5.0":
     dependencies:
-      "@types/node": 26.1.1
+      "@types/node": 26.0.0
       "@types/node-fetch": 2.6.13
       bottleneck: 2.19.5
       es6-promise: 4.2.8
@@ -7043,7 +7045,7 @@ snapshots:
       js-yaml: 4.1.1
       moment: 2.30.1
       p-queue: 7.4.1
-      prettier: 3.8.4
+      prettier: 3.9.5
       semver: 6.3.1
       unixify: 1.0.0
     transitivePeerDependencies:
@@ -7070,7 +7072,7 @@ snapshots:
       js-yaml: 4.1.1
       moment: 2.30.1
       p-queue: 7.4.1
-      prettier: 3.8.4
+      prettier: 3.9.5
       semver: 6.3.1
       unixify: 1.0.0
       unzipper: 0.12.3
@@ -7894,7 +7896,7 @@ snapshots:
 
   "@types/connect@3.4.38":
     dependencies:
-      "@types/node": 26.1.1
+      "@types/node": 26.0.0
     optional: true
 
   "@types/deep-eql@4.0.2": {}
@@ -7905,12 +7907,12 @@ snapshots:
 
   "@types/mysql@2.15.27":
     dependencies:
-      "@types/node": 26.1.1
+      "@types/node": 26.0.0
     optional: true
 
   "@types/node-fetch@2.6.13":
     dependencies:
-      "@types/node": 26.1.1
+      "@types/node": 26.0.0
       form-data: 4.0.6
     optional: true
 
@@ -7929,7 +7931,7 @@ snapshots:
 
   "@types/pg@8.15.6":
     dependencies:
-      "@types/node": 26.1.1
+      "@types/node": 26.0.0
       pg-protocol: 1.15.0
       pg-types: 2.2.0
     optional: true
@@ -7947,12 +7949,12 @@ snapshots:
 
   "@types/tedious@4.0.14":
     dependencies:
-      "@types/node": 26.1.1
+      "@types/node": 26.0.0
     optional: true
 
   "@types/yauzl@2.10.3":
     dependencies:
-      "@types/node": 26.1.1
+      "@types/node": 26.0.0
     optional: true
 
   "@typescript-eslint/eslint-plugin@8.63.0(@typescript-eslint/parser@8.63.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)":
@@ -9568,7 +9570,7 @@ snapshots:
 
   ink-text-input@6.0.0(ink@6.6.0(react@19.2.3))(react@19.2.3):
     dependencies:
-      chalk: 5.4.1
+      chalk: 5.6.2
       ink: 6.6.0(react@19.2.3)
       react: 19.2.3
       type-fest: 4.41.0
@@ -11031,7 +11033,7 @@ snapshots:
   update-notifier@7.3.1:
     dependencies:
       boxen: 8.0.1
-      chalk: 5.4.1
+      chalk: 5.6.2
       configstore: 7.1.0
       is-in-ci: 1.0.0
       is-installed-globally: 1.0.0

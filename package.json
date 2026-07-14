@@ -13,10 +13,10 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "tidshub:api:dev": "pnpm --filter @hubspotlab/tidshub-api dev",
-    "tidshub:api:local": "pnpm --filter @hubspotlab/tidshub-api dev:local",
-    "tidshub:validate": "cd apps/tidshub-hubspot && env -u INIT_CWD hs project validate",
-    "tidshub:upload": "cd apps/tidshub-hubspot && env -u INIT_CWD hs project upload"
+    "tidshub:api:dev": "pnpm --dir projects/tidshub api:dev",
+    "tidshub:api:local": "pnpm --dir projects/tidshub api:local",
+    "tidshub:validate": "pnpm --dir projects/tidshub validate",
+    "tidshub:upload": "pnpm --dir projects/tidshub upload"
   },
   "devDependencies": {
     "@hubspot/cli": "8.9.1",

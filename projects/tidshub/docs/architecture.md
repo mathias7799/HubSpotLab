@@ -76,7 +76,7 @@ is configured.
 
 ## Deployment checklist
 
-1. Deploy `apps/tidshub-api` with the required environment variables.
+1. Deploy `projects/tidshub/services/api` with the required environment variables.
 2. Replace the development API origin in the app manifest and extension
    constants.
 3. Add the exact OAuth callback URL and permitted fetch origin.

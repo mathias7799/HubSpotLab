@@ -40,12 +40,12 @@ HubSpot detail pages from the daily drill-down.
 The UI is intentionally built only with `@hubspot/ui-extensions`. It ships no
 iframe application and requires no separate frontend host.
 
-See the repository's [TidsHub architecture guide](../../docs/tidshub.md) for
+See the repository's [TidsHub architecture guide](../../docs/architecture.md) for
 the data model, request trust boundary, and deployment sequence.
 
 The extension does not use the experimental API client. All protected writes
-go through `apps/tidshub-api`, while supported CRM hooks continue to render
-HubSpot-native data.
+go through `projects/tidshub/services/api`, while supported CRM hooks continue
+to render HubSpot-native data.
 
 Before validating or uploading, replace the development origin in the manifest
 and source constants with your deployed API origin. Keep the OAuth callback URL

@@ -1,8 +1,10 @@
 packages:
-  - "apps/*"
-  - "apps/*/src/app/pages"
-  - "apps/*/src/app/cards"
-  - "apps/*/src/app/settings"
+  - "projects/*"
+  - "projects/*/services/*"
+  - "projects/*/apps/*/src/app/pages"
+  - "projects/*/apps/*/src/app/cards"
+  - "projects/*/apps/*/src/app/settings"
+  - "packages/*"
 
 allowBuilds:
   esbuild: true

@@ -1,7 +1,8 @@
 # Monorepo architecture
 
-HubSpotLab uses a collection-of-projects model: the repository provides shared
-organization and conventions, while each project remains independently usable.
+HubSpotLab uses a collection-of-projects model. Product-owned apps, services,
+and documentation are grouped under `projects/<name>/`; the repository root
+provides shared organization and conventions.
 
 ## Principles
 
@@ -18,7 +19,7 @@ organization and conventions, while each project remains independently usable.
 
 ## Dependency direction
 
-Apps and tools may depend on packages. Examples may depend on apps, tools, or
-packages for demonstration purposes. Packages must not depend on apps, tools,
-or examples. Documentation and skills may reference any project but should not
-be required at runtime.
+Project apps, project services, and tools may depend on packages. Examples may
+depend on projects, tools, or packages for demonstration purposes. Packages
+must not depend on projects, tools, or examples. Documentation and skills may
+reference any project but should not be required at runtime.

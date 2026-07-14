@@ -106,6 +106,6 @@ or an Enterprise subscription.
 ## Connecting the UI extension
 
 Replace the example or development URL in both the HubSpot app manifest and the
-three small backend constants under `apps/tidshub-hubspot/src/app/`. The origin
-must appear in `permittedUrls.fetch`, and the exact callback URL must appear in
-`auth.redirectUrls` and the HubSpot app's OAuth settings.
+three small backend constants under `projects/tidshub/apps/hubspot/src/app/`.
+The origin must appear in `permittedUrls.fetch`, and the exact callback URL
+must appear in `auth.redirectUrls` and the HubSpot app's OAuth settings.

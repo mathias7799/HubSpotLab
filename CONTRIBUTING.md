@@ -2,9 +2,10 @@
 
 ## Add a project
 
-Place new work in the narrowest matching area: deployable products in `apps/`,
-shared code in `packages/`, developer utilities in `tools/`, agent extensions
-in `skills/`, and runnable demonstrations in `examples/`.
+Place each product in `projects/<project-name>/`, including its apps, services,
+tests, and product-specific documentation. Put cross-project code in
+`packages/`, developer utilities in `tools/`, agent extensions in `skills/`,
+and runnable demonstrations in `examples/`.
 
 A project should include:
 
