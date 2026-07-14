@@ -46,9 +46,11 @@ companies, deals, and tickets. They can also carry a second, independent
 association to a HubSpot task. This supports combinations such as project +
 task, deal + task, or contact + task without another custom object. The
 registration form searches automatically after two characters and offers
-direct result selection. The daily drill-down links each association directly
-to its HubSpot record. The API uses a dedicated user-defined association label
-for each object pair instead of reusing an arbitrary HubSpot system label.
+direct result selection. After selecting a primary CRM record, the task picker
+loads its open associated tasks automatically and can optionally include
+completed tasks. The daily drill-down links each association directly to its
+HubSpot record. The API uses a dedicated user-defined association label for
+each object pair instead of reusing an arbitrary HubSpot system label.
 
 ## Approval workflow
 

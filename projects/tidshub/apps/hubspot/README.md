@@ -7,9 +7,10 @@ backend provisioning.
 ## Product surfaces
 
 - **App page:** week navigation, totals, day drill-down, low-click CRM search,
-  first-class HubSpot project support, optional task linking, clickable
+  first-class HubSpot project support, contextual task linking, clickable
   associated records, time entry creation/editing/deletion, submission, and
-  approvals.
+  approvals. Selecting a CRM record automatically lists its open tasks, with
+  an option to include completed tasks.
 - **CRM sidebar card:** quick entry associated with the current contact,
   company, deal, or ticket.
 - **Settings:** health check and idempotent provisioning of exactly one custom

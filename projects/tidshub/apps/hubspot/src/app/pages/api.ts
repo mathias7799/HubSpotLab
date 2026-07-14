@@ -31,6 +31,7 @@ export interface CrmAssociationResult {
   objectTypeId: string;
   label: string;
   secondary: string;
+  completed?: boolean;
 }
 
 export interface ApprovalSettings {
@@ -214,11 +215,32 @@ export async function searchCrmAssociations(input: {
     | "projects"
     | "tasks";
   query: string;
+  includeCompleted?: boolean;
 }): Promise<CrmAssociationResult[]> {
   const url = new URL(`${TIDSHUB_BACKEND_URL}/api/crm/search`);
   url.searchParams.set("portalId", String(input.portalId));
   url.searchParams.set("objectType", input.objectType);
   url.searchParams.set("q", input.query);
+  if (input.objectType === "tasks") {
+    url.searchParams.set("includeCompleted", String(input.includeCompleted));
+  }
+  const body = await request<{ results?: CrmAssociationResult[] }>(
+    url.toString(),
+  );
+  return Array.isArray(body.results) ? body.results : [];
+}
+
+export async function listAssociatedTasks(input: {
+  portalId: number;
+  objectType: Exclude<CrmAssociationResult["objectType"], "tasks">;
+  objectId: string;
+  includeCompleted: boolean;
+}): Promise<CrmAssociationResult[]> {
+  const url = new URL(`${TIDSHUB_BACKEND_URL}/api/crm/associated-tasks`);
+  url.searchParams.set("portalId", String(input.portalId));
+  url.searchParams.set("objectType", input.objectType);
+  url.searchParams.set("objectId", input.objectId);
+  url.searchParams.set("includeCompleted", String(input.includeCompleted));
   const body = await request<{ results?: CrmAssociationResult[] }>(
     url.toString(),
   );

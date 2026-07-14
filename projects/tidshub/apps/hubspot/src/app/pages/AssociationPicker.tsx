@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Button,
+  Checkbox,
   Flex,
   Input,
   LoadingSpinner,
@@ -12,6 +13,7 @@ import {
 
 import {
   humanizeApiError,
+  listAssociatedTasks,
   searchCrmAssociations,
   type CrmAssociationResult,
 } from "./api.ts";
@@ -31,12 +33,14 @@ export function AssociationPicker({
   selected,
   disabled,
   kind = "primary",
+  relatedTo = null,
   onSelectedChange,
 }: {
   portalId: number;
   selected: CrmAssociationResult | null;
   disabled: boolean;
   kind?: "primary" | "task";
+  relatedTo?: CrmAssociationResult | null;
   onSelectedChange: (result: CrmAssociationResult | null) => void;
 }): React.ReactElement {
   const [objectType, setObjectType] = useState<SearchableObjectType>(
@@ -46,7 +50,14 @@ export function AssociationPicker({
   const [results, setResults] = useState<CrmAssociationResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [includeCompleted, setIncludeCompleted] = useState(false);
+  const [relatedTasks, setRelatedTasks] = useState<CrmAssociationResult[]>([]);
+  const [relatedTasksKey, setRelatedTasksKey] = useState("");
+  const [loadingRelated, setLoadingRelated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const currentRelatedKey = relatedTo
+    ? `${relatedTo.objectType}:${relatedTo.id}:${includeCompleted}`
+    : "";
 
   function updateQuery(value: string): void {
     setQuery(value);
@@ -70,6 +81,7 @@ export function AssociationPicker({
         portalId,
         objectType,
         query: normalizedQuery,
+        includeCompleted,
       })
         .then((nextResults) => {
           if (!cancelled) {
@@ -89,7 +101,54 @@ export function AssociationPicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [disabled, objectType, portalId, query, selected]);
+  }, [disabled, includeCompleted, objectType, portalId, query, selected]);
+
+  useEffect(() => {
+    if (kind !== "task" || disabled || !relatedTo) return;
+
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) {
+        setLoadingRelated(true);
+        setError(null);
+      }
+    });
+    void listAssociatedTasks({
+      portalId,
+      objectType: relatedTo.objectType as Exclude<
+        CrmAssociationResult["objectType"],
+        "tasks"
+      >,
+      objectId: relatedTo.id,
+      includeCompleted,
+    })
+      .then((tasks) => {
+        if (!cancelled) {
+          setRelatedTasks(tasks);
+          setRelatedTasksKey(currentRelatedKey);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setError(humanizeApiError(cause));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRelated(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentRelatedKey,
+    disabled,
+    includeCompleted,
+    kind,
+    portalId,
+    relatedTo,
+  ]);
+
+  const visibleRelatedTasks =
+    relatedTasksKey === currentRelatedKey ? relatedTasks : [];
 
   return (
     <Flex direction="column" gap="small">
@@ -101,6 +160,47 @@ export function AssociationPicker({
           ? "Valgfrit. Tilføj en HubSpot-opgave oven på projektet eller CRM-posten."
           : "Valgfrit. Vælg det projekt eller den CRM-post, tiden vedrører."}
       </Text>
+      {kind === "task" ? (
+        <Checkbox
+          name="includeCompletedTasks"
+          checked={includeCompleted}
+          readOnly={disabled}
+          onChange={(checked) => {
+            setIncludeCompleted(checked);
+            setResults([]);
+            setSearched(false);
+            if (!checked && selected?.completed) onSelectedChange(null);
+          }}
+        >
+          Vis afsluttede opgaver
+        </Checkbox>
+      ) : null}
+      {kind === "task" && relatedTo && !selected ? (
+        <Flex direction="column" gap="extra-small">
+          <Text format={{ fontWeight: "demibold" }}>
+            Opgaver tilknyttet {relatedTo.label}
+          </Text>
+          {loadingRelated ? (
+            <LoadingSpinner label="Indlæser tilknyttede opgaver" />
+          ) : null}
+          {!loadingRelated &&
+          relatedTasksKey === currentRelatedKey &&
+          visibleRelatedTasks.length === 0 ? (
+            <Text>
+              {includeCompleted
+                ? "Ingen opgaver er tilknyttet denne CRM-post."
+                : "Ingen åbne opgaver er tilknyttet denne CRM-post."}
+            </Text>
+          ) : null}
+          {visibleRelatedTasks.map((result) => (
+            <AssociationResultButton
+              key={result.id}
+              result={result}
+              onSelect={() => onSelectedChange(result)}
+            />
+          ))}
+        </Flex>
+      ) : null}
       <Flex direction="row" gap="small" align="end">
         {kind === "primary" ? (
           <Select
@@ -120,7 +220,13 @@ export function AssociationPicker({
         ) : null}
         <Input
           name={kind === "task" ? "taskAssociationQuery" : "associationQuery"}
-          label={kind === "task" ? "Søg efter opgave" : "Søg i HubSpot"}
+          label={
+            kind === "task" && relatedTo
+              ? "Søg blandt alle opgaver"
+              : kind === "task"
+                ? "Søg efter opgave"
+                : "Søg i HubSpot"
+          }
           value={query}
           placeholder={
             kind === "task"
@@ -146,22 +252,15 @@ export function AssociationPicker({
         <Flex direction="column" gap="extra-small">
           <Text format={{ fontWeight: "demibold" }}>Vælg et resultat</Text>
           {results.slice(0, 5).map((result) => (
-            <Button
+            <AssociationResultButton
               key={`${result.objectType}:${result.id}`}
-              type="button"
-              variant="secondary"
-              size="sm"
-              truncate
-              onClick={() => {
+              result={result}
+              onSelect={() => {
                 onSelectedChange(result);
                 setResults([]);
                 setSearched(false);
               }}
-            >
-              {result.secondary
-                ? `${result.label} - ${result.secondary}`
-                : result.label}
-            </Button>
+            />
           ))}
         </Flex>
       ) : null}
@@ -182,5 +281,31 @@ export function AssociationPicker({
         </Flex>
       ) : null}
     </Flex>
+  );
+}
+
+function AssociationResultButton({
+  result,
+  onSelect,
+}: {
+  result: CrmAssociationResult;
+  onSelect: () => void;
+}): React.ReactElement {
+  const details = [
+    result.completed ? "Afsluttet" : null,
+    result.secondary || null,
+  ].filter(Boolean);
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="sm"
+      truncate
+      onClick={onSelect}
+    >
+      {details.length > 0
+        ? `${result.label} - ${details.join(" - ")}`
+        : result.label}
+    </Button>
   );
 }

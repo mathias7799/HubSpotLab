@@ -21,6 +21,7 @@ export interface CrmSearchResult {
   objectTypeId: string;
   label: string;
   secondary: string;
+  completed?: boolean;
 }
 
 export interface ApprovalSettings {
@@ -52,6 +53,8 @@ export type CrmObjectType =
   | "tickets"
   | "projects"
   | "tasks";
+
+export type PrimaryCrmObjectType = Exclude<CrmObjectType, "tasks">;
 
 export class HubSpotClient {
   constructor(
@@ -205,6 +208,7 @@ export class HubSpotClient {
   async searchCrmRecords(
     objectType: CrmObjectType,
     query: string,
+    includeCompleted = false,
   ): Promise<CrmSearchResult[]> {
     const config = crmSearchConfig[objectType];
     const response = await this.request<{ results?: SearchResult[] }>(
@@ -214,18 +218,82 @@ export class HubSpotClient {
         body: JSON.stringify({
           query,
           properties: config.properties,
+          ...(objectType === "tasks" && !includeCompleted
+            ? {
+                filterGroups: [
+                  {
+                    filters: [
+                      {
+                        propertyName: "hs_task_status",
+                        operator: "NEQ",
+                        value: "COMPLETED",
+                      },
+                    ],
+                  },
+                ],
+              }
+            : {}),
           after: "0",
           limit: 10,
         }),
       },
     );
-    return (response.results ?? []).map((record) => ({
-      id: record.id,
-      objectType,
-      objectTypeId: config.objectTypeId,
-      label: config.label(record.properties),
-      secondary: config.secondary(record.properties),
-    }));
+    return (response.results ?? []).map((record) =>
+      toCrmSearchResult(objectType, record),
+    );
+  }
+
+  async listAssociatedTasks(
+    objectType: PrimaryCrmObjectType,
+    objectId: string,
+    includeCompleted = false,
+  ): Promise<CrmSearchResult[]> {
+    const taskIds = new Set<string>();
+    let after: string | undefined;
+    let pages = 0;
+
+    do {
+      const search = new URLSearchParams({ limit: "500" });
+      if (after) search.set("after", after);
+      const response = await this.request<{
+        results?: Array<{ toObjectId?: string | number }>;
+        paging?: { next?: { after?: string | number } };
+      }>(
+        `/crm/v4/objects/${encodeURIComponent(objectType)}/${encodeURIComponent(objectId)}/associations/tasks?${search.toString()}`,
+      );
+      for (const association of response.results ?? []) {
+        if (association.toObjectId !== undefined) {
+          taskIds.add(String(association.toObjectId));
+        }
+      }
+      const next = response.paging?.next?.after;
+      after = next === undefined ? undefined : String(next);
+      pages += 1;
+    } while (after && pages < 20);
+
+    const ids = [...taskIds];
+    const records: SearchResult[] = [];
+    for (let index = 0; index < ids.length; index += 100) {
+      const batch = await this.request<{ results?: SearchResult[] }>(
+        "/crm/v3/objects/tasks/batch/read",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            properties: crmSearchConfig.tasks.properties,
+            inputs: ids.slice(index, index + 100).map((id) => ({ id })),
+          }),
+        },
+      );
+      records.push(...(batch.results ?? []));
+    }
+
+    return records
+      .filter(
+        (record) =>
+          includeCompleted || record.properties.hs_task_status !== "COMPLETED",
+      )
+      .map((record) => toCrmSearchResult("tasks", record))
+      .sort(compareTasks);
   }
 
   async getApprovalSettings(
@@ -876,6 +944,30 @@ const crmSearchConfig: Record<
         .join(" | "),
   },
 };
+
+function toCrmSearchResult(
+  objectType: CrmObjectType,
+  record: SearchResult,
+): CrmSearchResult {
+  const config = crmSearchConfig[objectType];
+  return {
+    id: record.id,
+    objectType,
+    objectTypeId: config.objectTypeId,
+    label: config.label(record.properties),
+    secondary: config.secondary(record.properties),
+    ...(objectType === "tasks"
+      ? { completed: record.properties.hs_task_status === "COMPLETED" }
+      : {}),
+  };
+}
+
+function compareTasks(left: CrmSearchResult, right: CrmSearchResult): number {
+  if (Boolean(left.completed) !== Boolean(right.completed)) {
+    return left.completed ? 1 : -1;
+  }
+  return left.label.localeCompare(right.label, "da");
+}
 
 function toApprovalSettings(record: SearchResult): ApprovalSettings {
   return {

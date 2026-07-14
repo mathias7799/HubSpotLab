@@ -518,13 +518,17 @@ export function HomePage(): React.ReactElement {
                 portalId={portalId}
                 selected={association}
                 disabled={busy || weekLocked}
-                onSelectedChange={setAssociation}
+                onSelectedChange={(nextAssociation) => {
+                  setAssociation(nextAssociation);
+                  setTaskAssociation(null);
+                }}
               />
               <AssociationPicker
                 portalId={portalId}
                 selected={taskAssociation}
                 disabled={busy || weekLocked}
                 kind="task"
+                relatedTo={association}
                 onSelectedChange={setTaskAssociation}
               />
               <ButtonRow>

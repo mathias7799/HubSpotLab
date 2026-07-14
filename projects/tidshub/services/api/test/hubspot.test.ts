@@ -114,8 +114,106 @@ describe("HubSpotClient", () => {
         objectTypeId: "0-27",
         label: "Følg op på tilbud",
         secondary: "NOT_STARTED | HIGH",
+        completed: false,
       },
     ]);
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: "hs_task_status",
+              operator: "NEQ",
+              value: "COMPLETED",
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("loads open tasks associated with a selected CRM record", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          results: [{ toObjectId: 701 }, { toObjectId: 702 }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          results: [
+            {
+              id: "701",
+              properties: {
+                hs_task_subject: "Åben opgave",
+                hs_task_status: "NOT_STARTED",
+                hs_task_priority: "HIGH",
+              },
+            },
+            {
+              id: "702",
+              properties: {
+                hs_task_subject: "Afsluttet opgave",
+                hs_task_status: "COMPLETED",
+                hs_task_priority: "LOW",
+              },
+            },
+          ],
+        }),
+      );
+    const client = new HubSpotClient("test-token", fetcher);
+
+    const results = await client.listAssociatedTasks("deals", "501");
+
+    expect(results).toEqual([
+      {
+        id: "701",
+        objectType: "tasks",
+        objectTypeId: "0-27",
+        label: "Åben opgave",
+        secondary: "NOT_STARTED | HIGH",
+        completed: false,
+      },
+    ]);
+    expect(fetcher.mock.calls[0]?.[0]).toContain(
+      "/crm/v4/objects/deals/501/associations/tasks?limit=500",
+    );
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toMatchObject({
+      inputs: [{ id: "701" }, { id: "702" }],
+      properties: expect.arrayContaining(["hs_task_subject", "hs_task_status"]),
+    });
+  });
+
+  it("includes completed associated tasks when requested", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ results: [{ toObjectId: "702" }] }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          results: [
+            {
+              id: "702",
+              properties: {
+                hs_task_subject: "Afsluttet opgave",
+                hs_task_status: "COMPLETED",
+                hs_task_priority: "LOW",
+              },
+            },
+          ],
+        }),
+      );
+    const client = new HubSpotClient("test-token", fetcher);
+
+    const results = await client.listAssociatedTasks("contacts", "501", true);
+
+    expect(results[0]).toMatchObject({
+      id: "702",
+      completed: true,
+      label: "Afsluttet opgave",
+    });
   });
 
   it("searches HubSpot projects as primary entry associations", async () => {

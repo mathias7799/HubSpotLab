@@ -1,5 +1,9 @@
 import type { AppConfig } from "./config.js";
-import { HubSpotApiError, HubSpotClient } from "./hubspot.js";
+import {
+  HubSpotApiError,
+  HubSpotClient,
+  type PrimaryCrmObjectType,
+} from "./hubspot.js";
 import { OAuthError, OAuthService } from "./oauth.js";
 import { assertHubSpotRequest, SecurityError } from "./security.js";
 import type { TokenStore } from "./token-store.js";
@@ -76,6 +80,19 @@ export function createApp(dependencies: AppDependencies) {
             results: await hubspot.searchCrmRecords(
               crmObjectType(requiredQuery(url, "objectType")),
               requiredQuery(url, "q"),
+              booleanQuery(url, "includeCompleted"),
+            ),
+          });
+        }
+        if (
+          request.method === "GET" &&
+          url.pathname === "/api/crm/associated-tasks"
+        ) {
+          return json({
+            results: await hubspot.listAssociatedTasks(
+              primaryCrmObjectType(requiredQuery(url, "objectType")),
+              requiredQuery(url, "objectId"),
+              booleanQuery(url, "includeCompleted"),
             ),
           });
         }
@@ -332,6 +349,18 @@ function crmObjectType(
     | "tickets"
     | "projects"
     | "tasks";
+}
+
+function primaryCrmObjectType(value: string): PrimaryCrmObjectType {
+  const objectType = crmObjectType(value);
+  if (objectType === "tasks") {
+    throw new RequestError("A task cannot be the parent CRM record.");
+  }
+  return objectType;
+}
+
+function booleanQuery(url: URL, name: string): boolean {
+  return url.searchParams.get(name) === "true";
 }
 
 function isoDate(value: string, name: string): string {
