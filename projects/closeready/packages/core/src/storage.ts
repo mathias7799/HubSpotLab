@@ -135,11 +135,10 @@ function deserializeSubject(
   }
 }
 
-function subjectField<K extends string>(
-  subject: RuleSubject,
-  key: K,
-): string {
-  return key in subject ? String(subject[key as keyof typeof subject] ?? "") : "";
+function subjectField<K extends string>(subject: RuleSubject, key: K): string {
+  return key in subject
+    ? String(subject[key as keyof typeof subject] ?? "")
+    : "";
 }
 
 function serializeValue(value: FactValue | undefined): string {
@@ -180,7 +179,9 @@ function isSeverity(value: string | undefined): value is RuleSeverity {
   return value === "blocker" || value === "warning";
 }
 
-function isObjectType(value: string | undefined): value is AssociatedObjectType {
+function isObjectType(
+  value: string | undefined,
+): value is AssociatedObjectType {
   return value === "contacts" || value === "companies";
 }
 
@@ -191,7 +192,9 @@ function isQuantifier(
 }
 
 function isMetric(value: string | undefined): value is DealMetric {
-  return ["line_item_count", "approved_quote_count", "open_task_count"].includes(
-    value ?? "",
-  );
+  return [
+    "line_item_count",
+    "approved_quote_count",
+    "open_task_count",
+  ].includes(value ?? "");
 }

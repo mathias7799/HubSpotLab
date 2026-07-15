@@ -24,17 +24,17 @@ portable service's token store because credentials must never be written to CRM.
 
 ## API contract
 
-| Method   | Route                        | Purpose                                   |
-| -------- | ---------------------------- | ----------------------------------------- |
-| `POST`   | `/api/provision`             | Reuse or create the one rule object       |
+| Method   | Route                        | Purpose                                       |
+| -------- | ---------------------------- | --------------------------------------------- |
+| `POST`   | `/api/provision`             | Reuse or create the one rule object           |
 | `GET`    | `/api/catalog`               | Pipelines, CRM properties, association labels |
-| `GET`    | `/api/rules?pipelineId=…`    | List pipeline rules                       |
-| `POST`   | `/api/rules`                 | Create a validated rule                   |
-| `PATCH`  | `/api/rules/:id`             | Update a validated rule                   |
-| `DELETE` | `/api/rules/:id`             | Archive a rule                            |
-| `POST`   | `/api/deals/:id/evaluate`    | Evaluate against a target stage           |
-| `POST`   | `/api/deals/:id/transition`  | Guard and perform an allowed transition   |
-| `GET`    | `/api/overview?pipelineId=…` | Pipeline readiness dashboard              |
+| `GET`    | `/api/rules?pipelineId=…`    | List pipeline rules                           |
+| `POST`   | `/api/rules`                 | Create a validated rule                       |
+| `PATCH`  | `/api/rules/:id`             | Update a validated rule                       |
+| `DELETE` | `/api/rules/:id`             | Archive a rule                                |
+| `POST`   | `/api/deals/:id/evaluate`    | Evaluate against a target stage               |
+| `POST`   | `/api/deals/:id/transition`  | Guard and perform an allowed transition       |
+| `GET`    | `/api/overview?pipelineId=…` | Pipeline readiness dashboard                  |
 
 Every `/api/*` request uses HubSpot signature v3. The service rechecks rules
 and current deal facts during a guarded transition; it never trusts readiness

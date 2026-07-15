@@ -21,13 +21,6 @@ import {
   useExtensionContext,
 } from "@hubspot/ui-extensions";
 import { PageBreadcrumbs, PageTitle } from "@hubspot/ui-extensions/pages";
-import type {
-  AssociatedObjectType,
-  ReadinessRule,
-  RuleOperator,
-  RuleSubject,
-} from "@hubspotlab/closeready-core";
-
 import {
   createRule,
   deleteRule,
@@ -37,6 +30,12 @@ import {
   type CatalogPipeline,
   type PortalCatalog,
 } from "./api.ts";
+import type {
+  AssociatedObjectType,
+  ReadinessRule,
+  RuleOperator,
+  RuleSubject,
+} from "./model.ts";
 
 type RuleKind = RuleSubject["kind"];
 type LoadState = "loading" | "idle" | "saving" | "error";
@@ -78,7 +77,9 @@ export function HomePage(): React.ReactElement {
     void refresh();
   }, [refresh]);
 
-  async function changePipeline(next: string | number | boolean): Promise<void> {
+  async function changePipeline(
+    next: string | number | boolean,
+  ): Promise<void> {
     const id = String(next);
     setPipelineId(id);
     setState("loading");
@@ -137,7 +138,10 @@ export function HomePage(): React.ReactElement {
       </Text>
 
       {error ? (
-        <Alert title="CloseReady could not complete the request" variant="danger">
+        <Alert
+          title="CloseReady could not complete the request"
+          variant="danger"
+        >
           {error}
         </Alert>
       ) : null}
@@ -177,7 +181,9 @@ export function HomePage(): React.ReactElement {
             />
           ) : (
             <EmptyState title="No deal pipeline found" layout="vertical">
-              <Text>Create a deal pipeline in HubSpot, then refresh this page.</Text>
+              <Text>
+                Create a deal pipeline in HubSpot, then refresh this page.
+              </Text>
             </EmptyState>
           )}
 
@@ -235,7 +241,10 @@ function RuleBuilder({
     { label: "Any association label", value: "" },
     ...catalog.associationLabels[objectType]
       .filter((item) => item.label)
-      .map((item) => ({ label: String(item.label), value: String(item.label) })),
+      .map((item) => ({
+        label: String(item.label),
+        value: String(item.label),
+      })),
   ];
   const isAssociation = kind.startsWith("associated_record");
   const needsCount = kind === "associated_record_count" || kind === "metric";
@@ -321,9 +330,18 @@ function RuleBuilder({
           value={kind}
           options={[
             { label: "Deal property", value: "deal_property" },
-            { label: "Associated contact or company", value: "associated_record_count" },
-            { label: "Property on an associated record", value: "associated_record_property" },
-            { label: "Line items, approved quotes, or open tasks", value: "metric" },
+            {
+              label: "Associated contact or company",
+              value: "associated_record_count",
+            },
+            {
+              label: "Property on an associated record",
+              value: "associated_record_property",
+            },
+            {
+              label: "Line items, approved quotes, or open tasks",
+              value: "metric",
+            },
           ]}
           onChange={changeKind}
         />
@@ -367,7 +385,9 @@ function RuleBuilder({
         <Flex direction="row" gap="small" wrap="wrap">
           <Select
             name="property"
-            label={kind === "deal_property" ? "Deal property" : "Required property"}
+            label={
+              kind === "deal_property" ? "Deal property" : "Required property"
+            }
             value={propertyName}
             options={propertyOptions}
             onChange={(value) => setPropertyName(String(value))}
@@ -381,7 +401,9 @@ function RuleBuilder({
                 { label: "At least one", value: "any" },
                 { label: "Every matching record", value: "all" },
               ]}
-              onChange={(value) => setQuantifier(String(value) as "any" | "all")}
+              onChange={(value) =>
+                setQuantifier(String(value) as "any" | "all")
+              }
             />
           ) : null}
         </Flex>
@@ -433,7 +455,9 @@ function RuleBuilder({
             { label: "Block transition", value: "blocker" },
             { label: "Show warning", value: "warning" },
           ]}
-          onChange={(value) => setSeverity(String(value) as "blocker" | "warning")}
+          onChange={(value) =>
+            setSeverity(String(value) as "blocker" | "warning")
+          }
         />
         {kind === "deal_property" && fromStageId === "*" ? (
           <Select
@@ -451,9 +475,10 @@ function RuleBuilder({
       </Flex>
 
       <Alert title="Enforcement" variant="info">
-        CloseReady never changes HubSpot pipeline governance through private APIs.
-        Configure native deal-property requirements in HubSpot, then mark them here.
-        Association labels and contact/company fields use CloseReady's guarded move.
+        CloseReady never changes HubSpot pipeline governance through private
+        APIs. Configure native deal-property requirements in HubSpot, then mark
+        them here. Association labels and contact/company fields use
+        CloseReady's guarded move.
       </Alert>
       <ButtonRow>
         <Button
@@ -502,11 +527,14 @@ function RuleList({
           {rules.map((rule) => (
             <TableRow key={rule.id}>
               <TableCell>
-                {stageLabel(pipeline, rule.fromStageId)} to {stageLabel(pipeline, rule.targetStageId)}
+                {stageLabel(pipeline, rule.fromStageId)} to{" "}
+                {stageLabel(pipeline, rule.targetStageId)}
               </TableCell>
               <TableCell>{rule.label}</TableCell>
               <TableCell>
-                <StatusTag variant={rule.severity === "blocker" ? "warning" : "default"}>
+                <StatusTag
+                  variant={rule.severity === "blocker" ? "warning" : "default"}
+                >
                   {rule.nativeEnforcement
                     ? "Native setup marked"
                     : rule.severity === "blocker"
@@ -546,7 +574,11 @@ function buildSubject(input: {
     case "deal_property":
       return { kind: "deal_property", propertyName: input.propertyName };
     case "associated_record_count":
-      return { kind: "associated_record_count", objectType: input.objectType, ...label };
+      return {
+        kind: "associated_record_count",
+        objectType: input.objectType,
+        ...label,
+      };
     case "associated_record_property":
       return {
         kind: "associated_record_property",
@@ -558,7 +590,10 @@ function buildSubject(input: {
     case "metric":
       return {
         kind: "metric",
-        metric: input.propertyName as Extract<RuleSubject, { kind: "metric" }>["metric"],
+        metric: input.propertyName as Extract<
+          RuleSubject,
+          { kind: "metric" }
+        >["metric"],
       };
   }
 }
@@ -586,7 +621,10 @@ function propertyLabel(
   propertyName: string,
   options: Array<{ label: string; value: string }>,
 ): string {
-  return options.find((option) => option.value === propertyName)?.label ?? propertyName;
+  return (
+    options.find((option) => option.value === propertyName)?.label ??
+    propertyName
+  );
 }
 
 function stageOptions(pipeline: CatalogPipeline) {
@@ -595,11 +633,18 @@ function stageOptions(pipeline: CatalogPipeline) {
     .map((stage) => ({ label: stage.label, value: stage.id }));
 }
 
-function stageLabel(pipeline: CatalogPipeline | undefined, stageId: string): string {
+function stageLabel(
+  pipeline: CatalogPipeline | undefined,
+  stageId: string,
+): string {
   if (stageId === "*") return "Any stage";
-  return pipeline?.stages.find((stage) => stage.id === stageId)?.label ?? stageId;
+  return (
+    pipeline?.stages.find((stage) => stage.id === stageId)?.label ?? stageId
+  );
 }
 
 function messageFrom(cause: unknown): string {
-  return cause instanceof Error ? cause.message : "An unexpected CloseReady error occurred.";
+  return cause instanceof Error
+    ? cause.message
+    : "An unexpected CloseReady error occurred.";
 }

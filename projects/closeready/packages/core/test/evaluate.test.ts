@@ -14,9 +14,7 @@ import {
 
 const rules = closedWonStarterRules("default", "closedwon");
 
-function snapshot(
-  overrides: Partial<DealSnapshot> = {},
-): DealSnapshot {
+function snapshot(overrides: Partial<DealSnapshot> = {}): DealSnapshot {
   return {
     dealId: "deal-1",
     pipelineId: "default",
@@ -85,10 +83,8 @@ describe("evaluateReadiness", () => {
     });
     expect(evaluateReadiness([exact], snapshot()).results).toHaveLength(1);
     expect(
-      evaluateReadiness(
-        [exact],
-        snapshot({ currentStageId: "qualifiedtobuy" }),
-      ).results,
+      evaluateReadiness([exact], snapshot({ currentStageId: "qualifiedtobuy" }))
+        .results,
     ).toHaveLength(0);
   });
 
@@ -135,9 +131,9 @@ describe("evaluateReadiness", () => {
     const correctLabel = snapshot({
       contacts: [{ id: "1", labels: ["decision MAKER"], properties: {} }],
     });
-    expect(evaluateReadiness([rule], wrongLabel).blockers[0]?.message).toContain(
-      "labeled “Decision maker”",
-    );
+    expect(
+      evaluateReadiness([rule], wrongLabel).blockers[0]?.message,
+    ).toContain("labeled “Decision maker”");
     expect(evaluateReadiness([rule], correctLabel).ready).toBe(true);
   });
 
@@ -233,8 +229,9 @@ describe("rule templates and validation", () => {
       "closedwon",
     );
     expect(template).toHaveLength(3);
-    expect(template.every((rule) => rule.fromStageId === "presentationscheduled"))
-      .toBe(true);
+    expect(
+      template.every((rule) => rule.fromStageId === "presentationscheduled"),
+    ).toBe(true);
     expect(template.map((rule) => rule.label)).toEqual([
       "Decision maker contact",
       "Decision maker email",

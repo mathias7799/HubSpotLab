@@ -1,7 +1,7 @@
 import { hubspot } from "@hubspot/ui-extensions";
-import type { ReadinessRule } from "@hubspotlab/closeready-core";
 
 import { CLOSEREADY_BACKEND_URL } from "./backend.ts";
+import type { ReadinessRule } from "./model.ts";
 
 export interface CatalogProperty {
   name: string;
@@ -51,7 +51,9 @@ export async function loadRules(
   pipelineId: string,
 ): Promise<ReadinessRule[]> {
   const query = new URLSearchParams({ portalId: String(portalId), pipelineId });
-  const body = await request<{ results?: ReadinessRule[] }>(`/api/rules?${query}`);
+  const body = await request<{ results?: ReadinessRule[] }>(
+    `/api/rules?${query}`,
+  );
   return body.results ?? [];
 }
 
@@ -69,16 +71,22 @@ export async function deleteRule(
   portalId: number,
   ruleId: string,
 ): Promise<void> {
-  await request(`/api/rules/${encodeURIComponent(ruleId)}?portalId=${portalId}`, {
-    method: "DELETE",
-  });
+  await request(
+    `/api/rules/${encodeURIComponent(ruleId)}?portalId=${portalId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 async function request<T = unknown>(
   path: string,
   options: Parameters<typeof hubspot.fetch>[1] = {},
 ): Promise<T> {
-  const response = await hubspot.fetch(`${CLOSEREADY_BACKEND_URL}${path}`, options);
+  const response = await hubspot.fetch(
+    `${CLOSEREADY_BACKEND_URL}${path}`,
+    options,
+  );
   const body = (await response.json()) as T & { error?: string };
   if (!response.ok) {
     throw new Error(body.error ?? `CloseReady API error ${response.status}`);

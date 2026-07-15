@@ -37,15 +37,12 @@ export function loadConfig(
 export const defaultScopes = [
   "oauth",
   "crm.schemas.custom.read",
-  "crm.schemas.custom.write",
   "crm.objects.custom.read",
   "crm.objects.custom.write",
   "crm.objects.deals.read",
   "crm.objects.deals.write",
   "crm.objects.contacts.read",
   "crm.objects.companies.read",
-  "crm.objects.line_items.read",
-  "crm.objects.quotes.read",
 ] as const;
 
 function required(
