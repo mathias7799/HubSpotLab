@@ -1,0 +1,9 @@
+{
+  "name": "@hubspotlab/closeready",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "core:test": "pnpm --filter @hubspotlab/closeready-core test",
+    "core:typecheck": "pnpm --filter @hubspotlab/closeready-core typecheck"
+  }
+}

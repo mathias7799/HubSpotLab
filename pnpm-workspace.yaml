@@ -1,6 +1,7 @@
 packages:
   - "projects/*"
   - "projects/*/services/*"
+  - "projects/*/packages/*"
   - "projects/*/apps/*/src/app/pages"
   - "projects/*/apps/*/src/app/cards"
   - "projects/*/apps/*/src/app/settings"

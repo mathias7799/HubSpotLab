@@ -40,9 +40,10 @@ first complete product and its trust boundaries.
 
 ## Current projects
 
-| Project            | Purpose                                                     |
-| ------------------ | ----------------------------------------------------------- |
-| `projects/tidshub` | Time registration with a HubSpot app and portable OAuth API |
+| Project               | Purpose                                                     |
+| --------------------- | ----------------------------------------------------------- |
+| `projects/tidshub`    | Time registration with a HubSpot app and portable OAuth API |
+| `projects/closeready` | Pipeline-specific deal readiness and close governance       |
 
 ## Status
 
