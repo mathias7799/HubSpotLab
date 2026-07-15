@@ -7,6 +7,7 @@ import {
   DescriptionListItem,
   Flex,
   Heading,
+  Link,
   LoadingSpinner,
   StatusTag,
   Text,
@@ -113,7 +114,18 @@ function SettingsPage(): React.ReactElement {
       {storageMessage ? (
         <Alert title="App-object approval required" variant="warning">
           HubSpot portal metadata is connected, but rule storage is read-only
-          until the CloseReady app object is approved and installed.
+          until the CloseReady app object is approved and installed. Request
+          approval for the CloseReady prefix and CLOSEREADY_RULE name through
+          the{" "}
+          <Link
+            href={{
+              url: "https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest",
+              external: true,
+            }}
+          >
+            HubSpot app-object form
+          </Link>
+          .
         </Alert>
       ) : null}
 

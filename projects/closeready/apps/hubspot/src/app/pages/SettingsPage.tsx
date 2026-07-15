@@ -6,6 +6,7 @@ import {
   EmptyState,
   Flex,
   Heading,
+  Link,
   LoadingSpinner,
   Select,
   StatusTag,
@@ -173,6 +174,17 @@ export function SettingsPage(): React.ReactElement {
           Pipeline metadata is available, but CloseReady cannot save rules in
           this portal until its single app object is approved and installed.
           You can review the complete configuration below in read-only mode.
+          Request approval for the CloseReady prefix and CLOSEREADY_RULE name
+          through the{" "}
+          <Link
+            href={{
+              url: "https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest",
+              external: true,
+            }}
+          >
+            HubSpot app-object form
+          </Link>
+          .
         </Alert>
       ) : null}
 

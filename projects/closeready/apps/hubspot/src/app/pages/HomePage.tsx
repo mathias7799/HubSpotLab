@@ -5,6 +5,7 @@ import {
   EmptyState,
   Flex,
   Heading,
+  Link,
   LoadingSpinner,
   Select,
   StatusTag,
@@ -139,7 +140,17 @@ export function HomePage(): React.ReactElement {
         <Alert title="Rule storage is not installed yet" variant="warning">
           Portal structure is available in read-only mode. Rule totals and
           coverage will populate after HubSpot approves and installs the single
-          CloseReady app object.
+          CloseReady app object. Request approval for the CloseReady prefix and
+          CLOSEREADY_RULE name through the{" "}
+          <Link
+            href={{
+              url: "https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest",
+              external: true,
+            }}
+          >
+            HubSpot app-object form
+          </Link>
+          .
         </Alert>
       ) : null}
 
