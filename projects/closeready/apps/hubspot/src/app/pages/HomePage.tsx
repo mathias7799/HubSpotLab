@@ -2,14 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
-  ButtonRow,
   EmptyState,
   Flex,
   Heading,
   LoadingSpinner,
   Select,
   StatusTag,
-  StepperInput,
   Table,
   TableBody,
   TableCell,
@@ -17,32 +15,32 @@ import {
   TableHeader,
   TableRow,
   Text,
-  useExtensionActions,
   useExtensionContext,
 } from "@hubspot/ui-extensions";
-import { PageBreadcrumbs, PageTitle } from "@hubspot/ui-extensions/pages";
 import {
-  createRule,
-  deleteRule,
+  PageBreadcrumbs,
+  PageLink,
+  PageTitle,
+} from "@hubspot/ui-extensions/pages";
+
+import {
   loadCatalog,
   loadRules,
   provision,
   type CatalogPipeline,
   type PortalCatalog,
 } from "./api.ts";
-import type {
-  AssociatedObjectType,
-  ReadinessRule,
-  RuleOperator,
-  RuleSubject,
-} from "./model.ts";
+import type { ReadinessRule, RuleSubject } from "./model.ts";
+import {
+  describeSources,
+  ruleKindLabel,
+  summarizeRules,
+} from "./overview.ts";
 
-type RuleKind = RuleSubject["kind"];
-type LoadState = "loading" | "idle" | "saving" | "error";
+type LoadState = "loading" | "idle" | "error";
 
 export function HomePage(): React.ReactElement {
   const context = useExtensionContext<"pages">();
-  const actions = useExtensionActions<"pages">();
   const portalId = context.portal.id;
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -113,579 +111,216 @@ export function HomePage(): React.ReactElement {
     }
   }
 
-  async function addRule(rule: ReadinessRule): Promise<void> {
-    setState("saving");
-    setError(null);
-    try {
-      const saved = await createRule(portalId, rule);
-      setRules((current) => [...current, saved]);
-      setState("idle");
-      actions.addAlert({
-        type: "success",
-        title: "CloseReady",
-        message: "The transition requirement was added.",
-      });
-    } catch (cause) {
-      setState("error");
-      setError(messageFrom(cause));
-    }
-  }
-
-  async function removeRule(rule: ReadinessRule): Promise<void> {
-    setState("saving");
-    setError(null);
-    try {
-      await deleteRule(portalId, rule.id);
-      setRules((current) => current.filter((item) => item.id !== rule.id));
-      setState("idle");
-    } catch (cause) {
-      setState("error");
-      setError(messageFrom(cause));
-    }
-  }
-
   const pipeline = catalog?.pipelines.find((item) => item.id === pipelineId);
-  const busy = state === "loading" || state === "saving";
+  const enabledRules = useMemo(
+    () => rules.filter((rule) => rule.enabled),
+    [rules],
+  );
+  const summary = summarizeRules(enabledRules, pipeline);
 
   return (
     <Flex direction="column" gap="medium">
       <PageBreadcrumbs>
         <PageBreadcrumbs.Current>CloseReady</PageBreadcrumbs.Current>
       </PageBreadcrumbs>
-      <PageTitle>Deal transition requirements</PageTitle>
+      <PageTitle>Pipeline readiness overview</PageTitle>
       <Text>
-        Define exactly what must be complete when a deal moves between two
-        stages. Requirements are evaluated against live HubSpot data.
+        See which deal transitions are governed, where blockers apply, and
+        which stages still need requirements.
       </Text>
 
       {error ? (
-        <Alert
-          title="CloseReady could not complete the request"
-          variant="danger"
-        >
+        <Alert title="CloseReady could not load the overview" variant="danger">
           {error}
         </Alert>
       ) : null}
 
       {storageWarning ? (
         <Alert title="Rule storage is not installed yet" variant="warning">
-          Pipeline metadata is available, but CloseReady cannot save rules in
-          this portal until its single app object is approved and installed.
-          You can review the complete configuration below in read-only mode.
+          Portal structure is available in read-only mode. Rule totals and
+          coverage will populate after HubSpot approves and installs the single
+          CloseReady app object.
         </Alert>
       ) : null}
 
-      {state === "loading" ? (
-        <Flex direction="row" gap="small" align="center">
-          <LoadingSpinner label="Loading CloseReady" />
-          <Text>Loading pipelines and requirements...</Text>
-        </Flex>
-      ) : null}
-
-      {catalog ? (
-        <>
-          <Flex direction="row" gap="small" align="end">
-            <Select
-              name="pipeline"
-              label="Pipeline"
-              value={pipelineId}
-              options={catalog.pipelines.map((item) => ({
-                label: item.label,
-                value: item.id,
-              }))}
-              onChange={(value) => void changePipeline(value)}
-            />
-            <Button disabled={busy} onClick={() => void refresh(pipelineId)}>
-              Refresh portal data
-            </Button>
-          </Flex>
-
-          {pipeline ? (
-            <RuleBuilder
-              key={pipeline.id}
-              pipeline={pipeline}
-              catalog={catalog}
-              busy={busy}
-              canSave={storageReady}
-              onCreate={addRule}
-            />
-          ) : (
-            <EmptyState title="No deal pipeline found" layout="vertical">
-              <Text>
-                Create a deal pipeline in HubSpot, then refresh this page.
-              </Text>
-            </EmptyState>
-          )}
-
-          <RuleList
-            rules={rules}
-            pipeline={pipeline}
-            busy={busy}
-            canDelete={storageReady}
-            onDelete={removeRule}
-          />
-        </>
-      ) : null}
-    </Flex>
-  );
-}
-
-function RuleBuilder({
-  pipeline,
-  catalog,
-  busy,
-  canSave,
-  onCreate,
-}: {
-  pipeline: CatalogPipeline;
-  catalog: PortalCatalog;
-  busy: boolean;
-  canSave: boolean;
-  onCreate: (rule: ReadinessRule) => Promise<void>;
-}): React.ReactElement {
-  const [fromStageId, setFromStageId] = useState("*");
-  const [targetStageId, setTargetStageId] = useState(
-    pipeline.stages.at(-1)?.id ?? "",
-  );
-  const [kind, setKind] = useState<RuleKind>("deal_property");
-  const [objectType, setObjectType] =
-    useState<AssociatedObjectType>("contacts");
-  const [propertyName, setPropertyName] = useState("amount");
-  const [associationLabel, setAssociationLabel] = useState("*");
-  const [quantifier, setQuantifier] = useState<"any" | "all">("any");
-  const [operator, setOperator] = useState<RuleOperator>("present");
-  const [expectedValue, setExpectedValue] = useState(1);
-  const [severity, setSeverity] = useState<"blocker" | "warning">("blocker");
-  const [nativeEnforcement, setNativeEnforcement] = useState(false);
-
-  const propertyOptions = useMemo(() => {
-    const properties =
-      kind === "deal_property"
-        ? catalog.dealProperties
-        : objectType === "contacts"
-          ? catalog.contactProperties
-          : catalog.companyProperties;
-    return properties.map((property) => ({
-      label: property.label || property.name,
-      value: property.name,
-    }));
-  }, [catalog, kind, objectType]);
-  const labelOptions = [
-    { label: "Any association label", value: "*" },
-    ...catalog.associationLabels[objectType]
-      .filter((item) => item.label)
-      .map((item) => ({
-        label: String(item.label),
-        value: String(item.label),
-      })),
-  ];
-  const isAssociation = kind.startsWith("associated_record");
-  const needsCount = kind === "associated_record_count" || kind === "metric";
-
-  function changeKind(value: string | number | boolean): void {
-    const next = String(value) as RuleKind;
-    setKind(next);
-    setNativeEnforcement(false);
-    if (next === "associated_record_count" || next === "metric") {
-      setOperator("count_at_least");
-    } else {
-      setOperator("present");
-    }
-    if (next === "metric") setPropertyName("line_item_count");
-    if (next === "deal_property") {
-      setPropertyName(catalog.dealProperties[0]?.name ?? "");
-    }
-    if (next === "associated_record_property") {
-      setPropertyName(
-        (objectType === "contacts"
-          ? catalog.contactProperties
-          : catalog.companyProperties)[0]?.name ?? "",
-      );
-    }
-  }
-
-  async function submit(): Promise<void> {
-    const subject = buildSubject({
-      kind,
-      objectType,
-      propertyName,
-      associationLabel,
-      quantifier,
-    });
-    const label = describeSubject(subject, propertyOptions);
-    await onCreate({
-      id: `new:${Date.now()}`,
-      pipelineId: pipeline.id,
-      fromStageId,
-      targetStageId,
-      label,
-      subject,
-      operator,
-      ...(needsCount ? { expectedValue } : {}),
-      severity,
-      enabled: true,
-      nativeEnforcement: kind === "deal_property" && nativeEnforcement,
-    });
-  }
-
-  return (
-    <Flex direction="column" gap="medium">
-      <Heading>Add a transition requirement</Heading>
-      <Text>
-        When a deal moves from one stage to another, require the selected CRM
-        data before allowing the guarded transition.
-      </Text>
-      <Flex direction="row" gap="small" wrap="wrap">
-        <Select
-          name="fromStage"
-          label="From stage"
-          value={fromStageId}
-          options={[
-            { label: "Any stage", value: "*" },
-            ...stageOptions(pipeline),
-          ]}
-          onChange={(value) => {
-            const next = String(value);
-            setFromStageId(next);
-            if (next !== "*") setNativeEnforcement(false);
-          }}
-        />
-        <Select
-          name="targetStage"
-          label="To stage"
-          value={targetStageId}
-          options={stageOptions(pipeline)}
-          onChange={(value) => setTargetStageId(String(value))}
-        />
-        <Select
-          name="requirementType"
-          label="Require"
-          value={kind}
-          options={[
-            { label: "Deal property", value: "deal_property" },
-            {
-              label: "Associated contact or company",
-              value: "associated_record_count",
-            },
-            {
-              label: "Property on an associated record",
-              value: "associated_record_property",
-            },
-            {
-              label: "Line items, approved quotes, or open tasks",
-              value: "metric",
-            },
-          ]}
-          onChange={changeKind}
-        />
-      </Flex>
-
-      {isAssociation ? (
-        <Flex direction="row" gap="small" wrap="wrap">
+      <Flex direction="row" gap="small" align="end" wrap="wrap">
+        {catalog ? (
           <Select
-            name="objectType"
-            label="Associated record type"
-            value={objectType}
-            options={[
-              { label: "Contact", value: "contacts" },
-              { label: "Company", value: "companies" },
-            ]}
-            onChange={(value) => {
-              const next = String(value) as AssociatedObjectType;
-              setObjectType(next);
-              if (kind === "associated_record_property") {
-                setPropertyName(
-                  (next === "contacts"
-                    ? catalog.contactProperties
-                    : catalog.companyProperties)[0]?.name ?? "",
-                );
-              }
-              setAssociationLabel("*");
-            }}
-          />
-          <Select
-            name="associationLabel"
-            label="Required association label"
-            description="Choose a HubSpot association label such as Decision maker."
-            value={associationLabel}
-            options={labelOptions}
-            onChange={(value) => setAssociationLabel(String(value))}
-          />
-        </Flex>
-      ) : null}
-
-      {kind === "deal_property" || kind === "associated_record_property" ? (
-        <Flex direction="row" gap="small" wrap="wrap">
-          <Select
-            name="property"
-            label={
-              kind === "deal_property" ? "Deal property" : "Required property"
-            }
-            value={propertyName}
-            options={propertyOptions}
-            onChange={(value) => setPropertyName(String(value))}
-          />
-          {kind === "associated_record_property" ? (
-            <Select
-              name="quantifier"
-              label="Which matching records?"
-              value={quantifier}
-              options={[
-                { label: "At least one", value: "any" },
-                { label: "Every matching record", value: "all" },
-              ]}
-              onChange={(value) =>
-                setQuantifier(String(value) as "any" | "all")
-              }
-            />
-          ) : null}
-        </Flex>
-      ) : null}
-
-      {kind === "metric" ? (
-        <Select
-          name="metric"
-          label="Metric"
-          value={propertyName}
-          options={[
-            { label: "Line item count", value: "line_item_count" },
-            { label: "Approved quote count", value: "approved_quote_count" },
-            { label: "Open task count", value: "open_task_count" },
-          ]}
-          onChange={(value) => setPropertyName(String(value))}
-        />
-      ) : null}
-
-      {needsCount ? (
-        <Flex direction="row" gap="small" wrap="wrap">
-          <Select
-            name="operator"
-            label="Comparison"
-            value={operator}
-            options={[
-              { label: "At least", value: "count_at_least" },
-              { label: "Exactly", value: "equals" },
-            ]}
-            onChange={(value) => setOperator(String(value) as RuleOperator)}
-          />
-          <StepperInput
-            name="expectedValue"
-            label="Count"
-            min={0}
-            stepSize={1}
-            value={expectedValue}
-            onChange={(value) => setExpectedValue(Number(value))}
-          />
-        </Flex>
-      ) : null}
-
-      <Flex direction="row" gap="small" wrap="wrap">
-        <Select
-          name="severity"
-          label="Result"
-          value={severity}
-          options={[
-            { label: "Block transition", value: "blocker" },
-            { label: "Show warning", value: "warning" },
-          ]}
-          onChange={(value) =>
-            setSeverity(String(value) as "blocker" | "warning")
-          }
-        />
-        {kind === "deal_property" && fromStageId === "*" ? (
-          <Select
-            name="nativeEnforcement"
-            label="Native HubSpot setup status"
-            description="Mark this only after you manually add the same property to HubSpot's stage rules."
-            value={nativeEnforcement ? "true" : "false"}
-            options={[
-              { label: "CloseReady only", value: "false" },
-              { label: "Marked as configured natively", value: "true" },
-            ]}
-            onChange={(value) => setNativeEnforcement(String(value) === "true")}
+            name="overviewPipeline"
+            label="Pipeline"
+            value={pipelineId}
+            options={catalog.pipelines.map((item) => ({
+              label: item.label,
+              value: item.id,
+            }))}
+            onChange={(value) => void changePipeline(value)}
           />
         ) : null}
+        <Button
+          disabled={state === "loading"}
+          onClick={() => void refresh(pipelineId)}
+        >
+          Refresh overview
+        </Button>
+        <PageLink to="/settings">Manage rule settings</PageLink>
       </Flex>
 
-      <Alert title="Enforcement" variant="info">
-        CloseReady never changes HubSpot pipeline governance through private
-        APIs. Configure native deal-property requirements in HubSpot, then mark
-        them here. Association labels and contact/company fields use
-        CloseReady's guarded move.
-      </Alert>
-      <ButtonRow>
-        <Button
-          variant="primary"
-          disabled={busy || !canSave || !targetStageId || !propertyName}
-          onClick={() => void submit()}
-        >
-          Add requirement
-        </Button>
-      </ButtonRow>
+      {state === "loading" ? (
+        <Flex direction="row" gap="small" align="center">
+          <LoadingSpinner label="Loading CloseReady overview" />
+          <Text>Loading pipeline coverage...</Text>
+        </Flex>
+      ) : null}
+
+      {pipeline ? (
+        <>
+          <Table bordered density="compact">
+            <TableHead>
+              <TableRow>
+                <TableHeader>Active requirements</TableHeader>
+                <TableHeader>Blocking rules</TableHeader>
+                <TableHeader>Warning rules</TableHeader>
+                <TableHeader>Governed target stages</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell>{summary.total}</TableCell>
+                <TableCell>{summary.blockers}</TableCell>
+                <TableCell>{summary.warnings}</TableCell>
+                <TableCell>
+                  {summary.coveredStages}/{pipeline.stages.length}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+
+          <StageCoverageTable pipeline={pipeline} rules={enabledRules} />
+
+          {enabledRules.length ? (
+            <RequirementMix rules={enabledRules} />
+          ) : (
+            <EmptyState
+              title={
+                storageReady
+                  ? "No active requirements"
+                  : "Coverage will appear after setup"
+              }
+              layout="vertical"
+            >
+              <Text>
+                {storageReady
+                  ? "Open settings to add the first governed deal transition."
+                  : "You can review pipelines now and finish rule setup after storage is installed."}
+              </Text>
+              <PageLink to="/settings">Open rule settings</PageLink>
+            </EmptyState>
+          )}
+        </>
+      ) : state !== "loading" ? (
+        <EmptyState title="No deal pipeline found" layout="vertical">
+          <Text>Create a deal pipeline in HubSpot, then refresh this page.</Text>
+        </EmptyState>
+      ) : null}
     </Flex>
   );
 }
 
-function RuleList({
-  rules,
+function StageCoverageTable({
   pipeline,
-  busy,
-  canDelete,
-  onDelete,
+  rules,
 }: {
+  pipeline: CatalogPipeline;
   rules: ReadinessRule[];
-  pipeline?: CatalogPipeline;
-  busy: boolean;
-  canDelete: boolean;
-  onDelete: (rule: ReadinessRule) => Promise<void>;
 }): React.ReactElement {
-  if (!rules.length) {
-    return (
-      <EmptyState
-        title={
-          canDelete
-            ? "No requirements in this pipeline"
-            : "Rule storage is pending approval"
-        }
-        layout="vertical"
-      >
-        <Text>
-          {canDelete
-            ? "Add the first transition requirement above."
-            : "Requirements will appear here after the CloseReady app object is installed."}
-        </Text>
-      </EmptyState>
-    );
-  }
+  const stages = [...pipeline.stages].sort(
+    (left, right) => (left.displayOrder ?? 0) - (right.displayOrder ?? 0),
+  );
   return (
     <Flex direction="column" gap="small">
-      <Heading>Configured requirements</Heading>
+      <Heading>Target-stage coverage</Heading>
+      <Text>
+        Coverage shows enabled requirements evaluated when a deal enters each
+        stage.
+      </Text>
       <Table bordered density="compact">
         <TableHead>
           <TableRow>
-            <TableHeader>Transition</TableHeader>
-            <TableHeader>Requirement</TableHeader>
-            <TableHeader>Enforcement</TableHeader>
-            <TableHeader>Action</TableHeader>
+            <TableHeader>Target stage</TableHeader>
+            <TableHeader>Blockers</TableHeader>
+            <TableHeader>Warnings</TableHeader>
+            <TableHeader>Source stages</TableHeader>
+            <TableHeader>Status</TableHeader>
           </TableRow>
         </TableHead>
         <TableBody>
-          {rules.map((rule) => (
-            <TableRow key={rule.id}>
-              <TableCell>
-                {stageLabel(pipeline, rule.fromStageId)} to{" "}
-                {stageLabel(pipeline, rule.targetStageId)}
-              </TableCell>
-              <TableCell>{rule.label}</TableCell>
-              <TableCell>
-                <StatusTag
-                  variant={rule.severity === "blocker" ? "warning" : "default"}
-                >
-                  {rule.nativeEnforcement
-                    ? "Native setup marked"
-                    : rule.severity === "blocker"
-                      ? "CloseReady blocker"
-                      : "Warning"}
-                </StatusTag>
-              </TableCell>
-              <TableCell>
-                <Button
-                  size="xs"
-                  variant="destructive"
-                  disabled={busy || !canDelete}
-                  onClick={() => void onDelete(rule)}
-                >
-                  Delete
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+          {stages.map((stage) => {
+            const stageRules = rules.filter(
+              (rule) => rule.targetStageId === stage.id,
+            );
+            const sources = new Set(
+              stageRules.map((rule) => rule.fromStageId),
+            );
+            return (
+              <TableRow key={stage.id}>
+                <TableCell>{stage.label}</TableCell>
+                <TableCell>
+                  {
+                    stageRules.filter((rule) => rule.severity === "blocker")
+                      .length
+                  }
+                </TableCell>
+                <TableCell>
+                  {
+                    stageRules.filter((rule) => rule.severity === "warning")
+                      .length
+                  }
+                </TableCell>
+                <TableCell>{describeSources(sources, pipeline)}</TableCell>
+                <TableCell>
+                  <StatusTag variant={stageRules.length ? "default" : "warning"}>
+                    {stageRules.length ? "Governed" : "No rules"}
+                  </StatusTag>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </Flex>
   );
 }
 
-function buildSubject(input: {
-  kind: RuleKind;
-  objectType: AssociatedObjectType;
-  propertyName: string;
-  associationLabel: string;
-  quantifier: "any" | "all";
-}): RuleSubject {
-  const label = input.associationLabel !== "*"
-    ? { associationLabel: input.associationLabel }
-    : {};
-  switch (input.kind) {
-    case "deal_property":
-      return { kind: "deal_property", propertyName: input.propertyName };
-    case "associated_record_count":
-      return {
-        kind: "associated_record_count",
-        objectType: input.objectType,
-        ...label,
-      };
-    case "associated_record_property":
-      return {
-        kind: "associated_record_property",
-        objectType: input.objectType,
-        propertyName: input.propertyName,
-        quantifier: input.quantifier,
-        ...label,
-      };
-    case "metric":
-      return {
-        kind: "metric",
-        metric: input.propertyName as Extract<
-          RuleSubject,
-          { kind: "metric" }
-        >["metric"],
-      };
+function RequirementMix({
+  rules,
+}: {
+  rules: ReadinessRule[];
+}): React.ReactElement {
+  const kinds = new Map<RuleSubject["kind"], number>();
+  for (const rule of rules) {
+    kinds.set(rule.subject.kind, (kinds.get(rule.subject.kind) ?? 0) + 1);
   }
-}
-
-function describeSubject(
-  subject: RuleSubject,
-  propertyOptions: Array<{ label: string; value: string }>,
-): string {
-  if (subject.kind === "deal_property") {
-    return propertyLabel(subject.propertyName, propertyOptions);
-  }
-  if (subject.kind === "metric") {
-    return subject.metric.replaceAll("_", " ");
-  }
-  const record = subject.objectType === "contacts" ? "contact" : "company";
-  const tagged = subject.associationLabel
-    ? `${subject.associationLabel} ${record}`
-    : `Associated ${record}`;
-  return subject.kind === "associated_record_count"
-    ? tagged
-    : `${tagged}: ${propertyLabel(subject.propertyName, propertyOptions)}`;
-}
-
-function propertyLabel(
-  propertyName: string,
-  options: Array<{ label: string; value: string }>,
-): string {
+  const rows = [...kinds.entries()];
   return (
-    options.find((option) => option.value === propertyName)?.label ??
-    propertyName
-  );
-}
-
-function stageOptions(pipeline: CatalogPipeline) {
-  return [...pipeline.stages]
-    .sort((left, right) => (left.displayOrder ?? 0) - (right.displayOrder ?? 0))
-    .map((stage) => ({ label: stage.label, value: stage.id }));
-}
-
-function stageLabel(
-  pipeline: CatalogPipeline | undefined,
-  stageId: string,
-): string {
-  if (stageId === "*") return "Any stage";
-  return (
-    pipeline?.stages.find((stage) => stage.id === stageId)?.label ?? stageId
+    <Flex direction="column" gap="small">
+      <Heading>Requirement mix</Heading>
+      <Table bordered density="compact">
+        <TableHead>
+          <TableRow>
+            <TableHeader>Requirement type</TableHeader>
+            <TableHeader>Active rules</TableHeader>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map(([kind, count]) => (
+            <TableRow key={kind}>
+              <TableCell>{ruleKindLabel(kind)}</TableCell>
+              <TableCell>{count}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Flex>
   );
 }
 

@@ -27,7 +27,19 @@ The runtime adapters and OAuth token store are intentionally separate from the
 business logic so the same service can run on Node, Lambda, Azure Functions, or
 HubSpot serverless when available.
 
-![CloseReady transition requirement configuration](docs/images/configuration-page.png)
+The HubSpot experience is split into three focused surfaces:
+
+- the app overview shows target-stage coverage, blockers, warnings, and rule
+  types per pipeline;
+- the app's `/settings` route owns transition-rule configuration;
+- the native Connected Apps settings page reports installation health, OAuth
+  access, portal inventory, and app-object status.
+
+![CloseReady pipeline overview](docs/images/overview.png)
+
+![CloseReady rule settings](docs/images/rule-settings.png)
+
+![CloseReady native app settings](docs/images/native-settings.png)
 
 ## HubSpot app-object approval
 
