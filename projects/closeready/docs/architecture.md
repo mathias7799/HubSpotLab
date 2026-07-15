@@ -27,7 +27,7 @@ portable service's token store because credentials must never be written to CRM.
 | Method   | Route                        | Purpose                                   |
 | -------- | ---------------------------- | ----------------------------------------- |
 | `POST`   | `/api/provision`             | Reuse or create the one rule object       |
-| `GET`    | `/api/catalog`               | Pipelines, stages, deal properties, facts |
+| `GET`    | `/api/catalog`               | Pipelines, CRM properties, association labels |
 | `GET`    | `/api/rules?pipelineId=…`    | List pipeline rules                       |
 | `POST`   | `/api/rules`                 | Create a validated rule                   |
 | `PATCH`  | `/api/rules/:id`             | Update a validated rule                   |
@@ -40,15 +40,16 @@ Every `/api/*` request uses HubSpot signature v3. The service rechecks rules
 and current deal facts during a guarded transition; it never trusts readiness
 results supplied by the UI.
 
-## Fact collection
+## Snapshot collection
 
-The API normalizes HubSpot data into stable fact keys consumed by the shared
-engine:
+The API reads only the properties referenced by applicable rules and builds a
+structured snapshot consumed by the shared engine:
 
-- `deal.<propertyName>` from deal properties;
-- association counts for contacts and companies;
-- line-item count;
-- approved-quote count;
-- open-task count.
+- arbitrary deal properties;
+- associated contacts and companies, including their deal-association labels;
+- arbitrary properties on those associated records;
+- line-item, approved-quote, and open-task counts.
 
-New fact providers can be added without changing stored rule structure.
+Rules select this data explicitly. Associated-record property rules may require
+at least one (`any`) or every (`all`) matching record, optionally filtered to a
+label such as `Decision maker`.

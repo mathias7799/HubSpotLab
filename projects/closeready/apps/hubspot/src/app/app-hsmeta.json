@@ -1,0 +1,38 @@
+{
+  "uid": "closeready_app",
+  "type": "app",
+  "config": {
+    "description": "Configurable deal stage requirements for properties, associations, and associated records.",
+    "name": "CloseReady",
+    "distribution": "marketplace",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": ["https://closeready.example.com/oauth/callback"],
+      "requiredScopes": [
+        "oauth",
+        "crm.schemas.custom.read",
+        "crm.schemas.custom.write",
+        "crm.objects.custom.read",
+        "crm.objects.custom.write",
+        "crm.objects.deals.read",
+        "crm.objects.deals.write",
+        "crm.objects.contacts.read",
+        "crm.objects.companies.read",
+        "crm.objects.line_items.read",
+        "crm.objects.quotes.read"
+      ],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": ["https://closeready.example.com"],
+      "iframe": [],
+      "img": []
+    },
+    "support": {
+      "supportEmail": "support@timez.dk",
+      "documentationUrl": "https://github.com/mathias7799/HubSpotLab/tree/main/projects/closeready",
+      "supportUrl": "https://github.com/mathias7799/HubSpotLab/issues"
+    }
+  }
+}

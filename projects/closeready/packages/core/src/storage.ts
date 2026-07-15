@@ -1,8 +1,12 @@
 import type {
+  AssociatedObjectType,
+  AssociatedRecordQuantifier,
+  DealMetric,
   FactValue,
   ReadinessRule,
   RuleOperator,
   RuleSeverity,
+  RuleSubject,
 } from "./model.js";
 
 export const ruleObjectDefinition = {
@@ -12,8 +16,14 @@ export const ruleObjectDefinition = {
   properties: [
     "rule_name",
     "pipeline_id",
+    "from_stage_id",
     "target_stage_id",
-    "fact_key",
+    "subject_kind",
+    "object_type",
+    "property_name",
+    "association_label",
+    "quantifier",
+    "metric",
     "operator",
     "expected_value",
     "expected_value_type",
@@ -32,8 +42,14 @@ export function serializeRule(rule: ReadinessRule): RuleRecordProperties {
   return {
     rule_name: rule.label,
     pipeline_id: rule.pipelineId,
+    from_stage_id: rule.fromStageId,
     target_stage_id: rule.targetStageId,
-    fact_key: rule.factKey,
+    subject_kind: rule.subject.kind,
+    object_type: subjectField(rule.subject, "objectType"),
+    property_name: subjectField(rule.subject, "propertyName"),
+    association_label: subjectField(rule.subject, "associationLabel"),
+    quantifier: subjectField(rule.subject, "quantifier"),
+    metric: subjectField(rule.subject, "metric"),
     operator: rule.operator,
     expected_value: serializeValue(rule.expectedValue),
     expected_value_type: valueType(rule.expectedValue),
@@ -50,13 +66,15 @@ export function deserializeRule(
   if (
     !properties.rule_name ||
     !properties.pipeline_id ||
+    !properties.from_stage_id ||
     !properties.target_stage_id ||
-    !properties.fact_key ||
     !isOperator(properties.operator) ||
     !isSeverity(properties.severity)
   ) {
     return null;
   }
+  const subject = deserializeSubject(properties);
+  if (!subject) return null;
   const expectedValue = deserializeValue(
     properties.expected_value,
     properties.expected_value_type,
@@ -65,14 +83,63 @@ export function deserializeRule(
     id,
     label: properties.rule_name,
     pipelineId: properties.pipeline_id,
+    fromStageId: properties.from_stage_id,
     targetStageId: properties.target_stage_id,
-    factKey: properties.fact_key,
+    subject,
     operator: properties.operator,
     ...(expectedValue === undefined ? {} : { expectedValue }),
     severity: properties.severity,
     enabled: properties.enabled !== "false",
     nativeEnforcement: properties.native_enforcement === "true",
   };
+}
+
+function deserializeSubject(
+  properties: Partial<RuleRecordProperties>,
+): RuleSubject | null {
+  switch (properties.subject_kind) {
+    case "deal_property":
+      return properties.property_name
+        ? { kind: "deal_property", propertyName: properties.property_name }
+        : null;
+    case "associated_record_count":
+      return isObjectType(properties.object_type)
+        ? {
+            kind: "associated_record_count",
+            objectType: properties.object_type,
+            ...(properties.association_label
+              ? { associationLabel: properties.association_label }
+              : {}),
+          }
+        : null;
+    case "associated_record_property":
+      return isObjectType(properties.object_type) &&
+        properties.property_name &&
+        isQuantifier(properties.quantifier)
+        ? {
+            kind: "associated_record_property",
+            objectType: properties.object_type,
+            propertyName: properties.property_name,
+            quantifier: properties.quantifier,
+            ...(properties.association_label
+              ? { associationLabel: properties.association_label }
+              : {}),
+          }
+        : null;
+    case "metric":
+      return isMetric(properties.metric)
+        ? { kind: "metric", metric: properties.metric }
+        : null;
+    default:
+      return null;
+  }
+}
+
+function subjectField<K extends string>(
+  subject: RuleSubject,
+  key: K,
+): string {
+  return key in subject ? String(subject[key as keyof typeof subject] ?? "") : "";
 }
 
 function serializeValue(value: FactValue | undefined): string {
@@ -111,4 +178,20 @@ function isOperator(value: string | undefined): value is RuleOperator {
 
 function isSeverity(value: string | undefined): value is RuleSeverity {
   return value === "blocker" || value === "warning";
+}
+
+function isObjectType(value: string | undefined): value is AssociatedObjectType {
+  return value === "contacts" || value === "companies";
+}
+
+function isQuantifier(
+  value: string | undefined,
+): value is AssociatedRecordQuantifier {
+  return value === "any" || value === "all";
+}
+
+function isMetric(value: string | undefined): value is DealMetric {
+  return ["line_item_count", "approved_quote_count", "open_task_count"].includes(
+    value ?? "",
+  );
 }

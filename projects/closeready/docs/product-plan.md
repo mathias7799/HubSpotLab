@@ -9,10 +9,13 @@ missing data during forecasting or after handoff.
 
 ## Configuration model
 
-Every rule belongs to one pipeline and one target stage. A rule contains:
+Every rule belongs to one pipeline and a source-to-target stage transition. The
+source may be a specific stage or a wildcard. A rule contains:
 
-- a data point, such as deal amount, associated contacts, line items, approved
-  quotes, or open tasks;
+- a subject: an arbitrary deal property, an association count, a property on an
+  associated contact/company, or an operational metric;
+- an optional association label such as `Decision maker`;
+- `any` or `all` matching-record semantics for associated-record properties;
 - an operator and optional expected value;
 - blocker or warning severity;
 - enabled state;
@@ -47,11 +50,12 @@ set to another pipeline, then edit the copy independently.
 
 ## Delivery sequence
 
-1. Deterministic rule engine and validation.
-2. One-object rule persistence and signed portable API.
-3. Pipeline/stage/property discovery.
-4. Configuration app page.
-5. Deal card and live readiness evaluation.
+1. Deterministic rule engine and validation. Complete.
+2. One-object rule persistence and portable API contract. Core complete; OAuth
+   runtime adapters remain.
+3. Pipeline, stage, property, and association-label discovery. Complete.
+4. Configuration app page. Initial implementation complete.
+5. Deal card and live readiness evaluation. Collector complete; card remains.
 6. Pipeline dashboard and guarded transition.
 7. Native-enforcement setup assistant and documentation.
 

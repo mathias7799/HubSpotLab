@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "core:test": "pnpm --filter @hubspotlab/closeready-core test",
-    "core:typecheck": "pnpm --filter @hubspotlab/closeready-core typecheck"
+    "core:typecheck": "pnpm --filter @hubspotlab/closeready-core typecheck",
+    "api:test": "pnpm --filter @hubspotlab/closeready-api test",
+    "api:typecheck": "pnpm --filter @hubspotlab/closeready-api typecheck",
+    "test": "pnpm --filter './packages/**' --filter './services/**' test",
+    "typecheck": "pnpm --filter './packages/**' --filter './services/**' typecheck"
   }
 }

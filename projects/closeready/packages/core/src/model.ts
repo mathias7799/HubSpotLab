@@ -10,13 +10,43 @@ export type RuleOperator =
   | "is_true";
 
 export type RuleSeverity = "blocker" | "warning";
+export type AssociatedObjectType = "contacts" | "companies";
+export type AssociatedRecordQuantifier = "any" | "all";
+export type DealMetric =
+  | "line_item_count"
+  | "approved_quote_count"
+  | "open_task_count";
+
+export type RuleSubject =
+  | {
+      kind: "deal_property";
+      propertyName: string;
+    }
+  | {
+      kind: "associated_record_count";
+      objectType: AssociatedObjectType;
+      associationLabel?: string;
+    }
+  | {
+      kind: "associated_record_property";
+      objectType: AssociatedObjectType;
+      associationLabel?: string;
+      propertyName: string;
+      quantifier: AssociatedRecordQuantifier;
+    }
+  | {
+      kind: "metric";
+      metric: DealMetric;
+    };
 
 export interface ReadinessRule {
   id: string;
   pipelineId: string;
+  /** Use "*" when the rule applies from every source stage. */
+  fromStageId: string;
   targetStageId: string;
   label: string;
-  factKey: string;
+  subject: RuleSubject;
   operator: RuleOperator;
   expectedValue?: FactValue;
   severity: RuleSeverity;
@@ -24,12 +54,22 @@ export interface ReadinessRule {
   nativeEnforcement: boolean;
 }
 
+export interface AssociatedRecordSnapshot {
+  id: string;
+  /** HubSpot association labels attached to this deal-to-record edge. */
+  labels: readonly string[];
+  properties: Readonly<Record<string, FactValue | undefined>>;
+}
+
 export interface DealSnapshot {
   dealId: string;
   pipelineId: string;
   currentStageId: string;
   targetStageId: string;
-  facts: Readonly<Record<string, FactValue | undefined>>;
+  dealProperties: Readonly<Record<string, FactValue | undefined>>;
+  contacts: readonly AssociatedRecordSnapshot[];
+  companies: readonly AssociatedRecordSnapshot[];
+  metrics: Readonly<Record<DealMetric, number>>;
 }
 
 export interface RuleResult {
@@ -37,11 +77,14 @@ export interface RuleResult {
   passed: boolean;
   actualValue: FactValue | undefined;
   message: string;
+  matchedRecordIds?: string[];
+  failingRecordIds?: string[];
 }
 
 export interface ReadinessEvaluation {
   dealId: string;
   pipelineId: string;
+  fromStageId: string;
   targetStageId: string;
   ready: boolean;
   score: number;
@@ -60,6 +103,6 @@ export interface FactDefinition {
 }
 
 export interface RuleValidationIssue {
-  field: keyof ReadinessRule;
+  field: string;
   message: string;
 }

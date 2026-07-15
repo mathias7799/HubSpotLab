@@ -13,17 +13,27 @@ stage, then explains exactly what prevents a deal from progressing or closing.
   deal to its target stage.
 
 HubSpot-native required stage properties provide absolute blocking for deal
-properties. CloseReady evaluates richer conditions such as associated contacts,
-line items, quotes, and open tasks. See the [product plan](docs/product-plan.md)
-and [enforcement model](docs/enforcement.md).
+properties. CloseReady evaluates richer conditions such as labeled associations,
+required fields on associated contacts or companies, line items, quotes, and
+open tasks. Rules can apply to one exact source-to-target transition or to every
+move into a target stage. See the [product plan](docs/product-plan.md) and
+[enforcement model](docs/enforcement.md).
 
 ## Current foundation
 
-The first slice is the deterministic rule engine in `packages/core`. It is
-independent of the UI and API so the deal card, dashboard, and guarded-stage
-endpoint cannot disagree about readiness.
+CloseReady now contains the deterministic engine, a portable HubSpot API client,
+the web-standard HTTP contract, and the first native HubSpot configuration page.
+The runtime adapters and OAuth token store are intentionally separate from the
+business logic so the same service can run on Node, Lambda, Azure Functions, or
+HubSpot serverless when available.
 
 ```bash
 pnpm --filter @hubspotlab/closeready-core test
 pnpm --filter @hubspotlab/closeready-core typecheck
+pnpm --filter @hubspotlab/closeready-api test
+pnpm --filter @hubspotlab/closeready-api typecheck
+pnpm --dir projects/closeready/apps/hubspot/src/app/pages typecheck
 ```
+
+The placeholder `closeready.example.com` origin in the HubSpot app metadata and
+page client must be replaced with the deployed API origin before upload.

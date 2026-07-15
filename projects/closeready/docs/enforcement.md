@@ -8,7 +8,9 @@ HubSpot supports rules on individual deal stages, including required deal
 properties. These rules are pipeline-specific and can prevent a user from
 entering Closed won until the required fields are populated.
 
-CloseReady marks compatible property rules as `nativeEnforcement`. The setup
+CloseReady can mark compatible wildcard-source property rules as
+`nativeEnforcement`. Native required fields apply to every move into a target
+stage, so an exact source-stage rule cannot be represented natively. The setup
 assistant links the administrator to:
 
 ```text
@@ -18,6 +20,9 @@ assistant links the administrator to:
 The public Pipelines API does not expose a supported mutation contract for
 these governance rules, so CloseReady must not silently rely on private HubSpot
 endpoints to configure them.
+The administrator must configure the property in HubSpot and then mark the
+CloseReady rule as mirrored; the flag is an auditable status, not a claim that
+CloseReady mutated pipeline settings.
 
 ## CloseReady blockers
 

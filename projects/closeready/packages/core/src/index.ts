@@ -1,5 +1,8 @@
 export { factCatalog } from "./catalog.js";
-export { closedWonStarterRules } from "./defaults.js";
+export {
+  closedWonStarterRules,
+  decisionMakerStarterRules,
+} from "./defaults.js";
 export { evaluateReadiness, evaluateRule, validateRule } from "./evaluate.js";
 export {
   deserializeRule,
@@ -9,6 +12,10 @@ export {
 } from "./storage.js";
 export type {
   DealSnapshot,
+  DealMetric,
+  AssociatedObjectType,
+  AssociatedRecordQuantifier,
+  AssociatedRecordSnapshot,
   FactDefinition,
   FactValue,
   ReadinessEvaluation,
@@ -16,5 +23,6 @@ export type {
   RuleOperator,
   RuleResult,
   RuleSeverity,
+  RuleSubject,
   RuleValidationIssue,
 } from "./model.js";
