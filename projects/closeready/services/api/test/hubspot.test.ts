@@ -41,7 +41,11 @@ describe("CloseReadyHubSpotClient", () => {
             {
               toObjectId: 101,
               associationTypes: [
-                { category: "USER_DEFINED", typeId: 31, label: "Decision maker" },
+                {
+                  category: "USER_DEFINED",
+                  typeId: 31,
+                  label: "Decision maker",
+                },
               ],
             },
           ],
@@ -51,18 +55,14 @@ describe("CloseReadyHubSpotClient", () => {
         "/crm/v4/objects/deals/42/associations/quotes": { results: [] },
         "/crm/v4/objects/deals/42/associations/tasks": { results: [] },
         "/crm/v3/objects/contacts/batch/read": {
-          results: [
-            { id: "101", properties: { email: "buyer@example.com" } },
-          ],
+          results: [{ id: "101", properties: { email: "buyer@example.com" } }],
         },
       }),
     );
 
-    const snapshot = await client.collectDealSnapshot(
-      "42",
-      "closedwon",
-      [decisionMakerEmail],
-    );
+    const snapshot = await client.collectDealSnapshot("42", "closedwon", [
+      decisionMakerEmail,
+    ]);
 
     expect(snapshot.contacts).toEqual([
       {
@@ -147,7 +147,10 @@ function mockHubSpot(
     const pathname = new URL(url).pathname;
     const key = Object.keys(routes).find((route) => pathname === route);
     if (!key) {
-      return Response.json({ message: `No mock for ${pathname}` }, { status: 404 });
+      return Response.json(
+        { message: `No mock for ${pathname}` },
+        { status: 404 },
+      );
     }
     const configured = routes[key];
     const index = callCounts.get(key) ?? 0;

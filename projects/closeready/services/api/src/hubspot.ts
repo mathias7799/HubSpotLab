@@ -94,7 +94,11 @@ export class CloseReadyHubSpotClient {
         ? [
             {
               filters: [
-                { propertyName: "pipeline_id", operator: "EQ", value: pipelineId },
+                {
+                  propertyName: "pipeline_id",
+                  operator: "EQ",
+                  value: pipelineId,
+                },
               ],
             },
           ]
@@ -155,7 +159,11 @@ export class CloseReadyHubSpotClient {
     const relevant = allRules.filter(
       (rule) => rule.enabled && rule.targetStageId === targetStageId,
     );
-    const snapshot = await this.collectDealSnapshot(dealId, targetStageId, relevant);
+    const snapshot = await this.collectDealSnapshot(
+      dealId,
+      targetStageId,
+      relevant,
+    );
     return evaluateReadiness(relevant, snapshot);
   }
 
@@ -186,8 +194,14 @@ export class CloseReadyHubSpotClient {
           : [],
       ),
     ]);
-    const contactPropertyNames = requiredAssociatedProperties(rules, "contacts");
-    const companyPropertyNames = requiredAssociatedProperties(rules, "companies");
+    const contactPropertyNames = requiredAssociatedProperties(
+      rules,
+      "contacts",
+    );
+    const companyPropertyNames = requiredAssociatedProperties(
+      rules,
+      "companies",
+    );
     const [deal, contactEdges, companyEdges, lineItems, quotes, tasks] =
       await Promise.all([
         this.readRecord("deals", dealId, dealPropertyNames),
@@ -198,8 +212,16 @@ export class CloseReadyHubSpotClient {
         this.readAssociations(dealId, "tasks"),
       ]);
     const [contacts, companies, quoteRecords, taskRecords] = await Promise.all([
-      this.readAssociatedRecords("contacts", contactEdges, contactPropertyNames),
-      this.readAssociatedRecords("companies", companyEdges, companyPropertyNames),
+      this.readAssociatedRecords(
+        "contacts",
+        contactEdges,
+        contactPropertyNames,
+      ),
+      this.readAssociatedRecords(
+        "companies",
+        companyEdges,
+        companyPropertyNames,
+      ),
       this.batchRead("quotes", quotes.map(edgeId), ["hs_status"]),
       this.batchRead("tasks", tasks.map(edgeId), ["hs_task_status"]),
     ]);
@@ -258,8 +280,14 @@ export class CloseReadyHubSpotClient {
     edges: readonly AssociationEdge[],
     properties: readonly string[],
   ): Promise<AssociatedRecordSnapshot[]> {
-    const records = await this.batchRead(objectType, edges.map(edgeId), properties);
-    const edgesById = new Map(edges.map((edge) => [String(edge.toObjectId), edge]));
+    const records = await this.batchRead(
+      objectType,
+      edges.map(edgeId),
+      properties,
+    );
+    const edgesById = new Map(
+      edges.map((edge) => [String(edge.toObjectId), edge]),
+    );
     return records.map((record) => ({
       id: record.id,
       labels: (edgesById.get(record.id)?.associationTypes ?? [])
@@ -300,7 +328,9 @@ export class CloseReadyHubSpotClient {
       headers,
     });
     const text = await response.text();
-    const body = text ? (JSON.parse(text) as T & { message?: string }) : ({} as T);
+    const body = text
+      ? (JSON.parse(text) as T & { message?: string })
+      : ({} as T);
     if (!response.ok) {
       throw new HubSpotApiError(
         response.status,
@@ -336,7 +366,10 @@ const schemaDefinition = {
       "associated_record_property",
       "metric",
     ]),
-    enumeration("object_type", "Associated object type", ["contacts", "companies"]),
+    enumeration("object_type", "Associated object type", [
+      "contacts",
+      "companies",
+    ]),
     property("property_name", "Property name"),
     property("association_label", "Association label"),
     enumeration("quantifier", "Matching records", ["any", "all"]),
@@ -362,7 +395,12 @@ const schemaDefinition = {
   ],
 };
 
-function property(name: string, label: string, type = "string", fieldType = "text") {
+function property(
+  name: string,
+  label: string,
+  type = "string",
+  fieldType = "text",
+) {
   return { name, label, type, fieldType };
 }
 
@@ -411,14 +449,18 @@ function deserializeStoredRule(record: CrmRecord): ReadinessRule {
     record.id,
     record.properties as RuleRecordProperties,
   );
-  if (!rule) throw new HubSpotApiError(502, "HubSpot returned an invalid rule record.");
+  if (!rule)
+    throw new HubSpotApiError(502, "HubSpot returned an invalid rule record.");
   return rule;
 }
 
 function assertValidRule(rule: ReadinessRule): void {
   const issues = validateRule(rule);
   if (issues.length) {
-    throw new HubSpotApiError(400, issues.map((issue) => issue.message).join(" "));
+    throw new HubSpotApiError(
+      400,
+      issues.map((issue) => issue.message).join(" "),
+    );
   }
 }
 
@@ -427,7 +469,10 @@ function normalizeSchema(schema: Record<string, unknown>): RuleSchema {
     typeof schema.objectTypeId !== "string" ||
     typeof schema.fullyQualifiedName !== "string"
   ) {
-    throw new HubSpotApiError(502, "HubSpot returned an incomplete rule schema.");
+    throw new HubSpotApiError(
+      502,
+      "HubSpot returned an incomplete rule schema.",
+    );
   }
   return {
     objectTypeId: schema.objectTypeId,
@@ -450,5 +495,7 @@ function asObject(value: unknown): Record<string, unknown> {
 }
 
 function humanize(value: string): string {
-  return value.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+  return value
+    .replaceAll("_", " ")
+    .replace(/^./, (letter) => letter.toUpperCase());
 }

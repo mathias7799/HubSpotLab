@@ -23,16 +23,21 @@ export function createApp(dependencies: AppDependencies) {
       if (request.method === "GET" && url.pathname === "/health") {
         return json({ ok: true, service: "closeready-api" });
       }
-      if (!url.pathname.startsWith("/api/")) return json({ error: "Not found" }, 404);
+      if (!url.pathname.startsWith("/api/"))
+        return json({ error: "Not found" }, 404);
 
       const rawBody = request.method === "GET" ? "" : await request.text();
       await dependencies.verifyRequest(request, rawBody);
       const portalId = positiveInteger(
-        url.searchParams.get("portalId") ?? request.headers.get("x-hubspot-portal-id"),
+        url.searchParams.get("portalId") ??
+          request.headers.get("x-hubspot-portal-id"),
         "portalId",
       );
       const accessToken = await dependencies.accessTokenForPortal(portalId);
-      const hubspot = new CloseReadyHubSpotClient(accessToken, dependencies.fetcher);
+      const hubspot = new CloseReadyHubSpotClient(
+        accessToken,
+        dependencies.fetcher,
+      );
 
       if (request.method === "POST" && url.pathname === "/api/provision") {
         return json(await hubspot.ensureRuleSchema());
@@ -42,7 +47,9 @@ export function createApp(dependencies: AppDependencies) {
       }
       if (request.method === "GET" && url.pathname === "/api/rules") {
         return json({
-          results: await hubspot.listRules(url.searchParams.get("pipelineId") ?? undefined),
+          results: await hubspot.listRules(
+            url.searchParams.get("pipelineId") ?? undefined,
+          ),
         });
       }
       if (request.method === "POST" && url.pathname === "/api/rules") {
@@ -66,7 +73,10 @@ export function createApp(dependencies: AppDependencies) {
       if (dealRoute && request.method === "POST") {
         const body = parseObject(rawBody);
         const dealId = decodeURIComponent(dealRoute[1] as string);
-        const targetStageId = requiredString(body.targetStageId, "targetStageId");
+        const targetStageId = requiredString(
+          body.targetStageId,
+          "targetStageId",
+        );
         return json(
           dealRoute[2] === "transition"
             ? await hubspot.guardedTransition(dealId, targetStageId)
@@ -76,8 +86,12 @@ export function createApp(dependencies: AppDependencies) {
 
       return json({ error: "Not found" }, 404);
     } catch (cause) {
-      if (cause instanceof RequestError) return json({ error: cause.message }, 400);
+      if (cause instanceof RequestError)
+        return json({ error: cause.message }, 400);
       if (cause instanceof HubSpotApiError) {
+        return json({ error: cause.message }, cause.status);
+      }
+      if (isStatusError(cause)) {
         return json({ error: cause.message }, cause.status);
       }
       if (cause instanceof Error && cause.name === "SecurityError") {
@@ -100,9 +114,15 @@ function parseRule(rawBody: string): ReadinessRule {
     targetStageId: requiredString(body.targetStageId, "targetStageId"),
     label: requiredString(body.label, "label"),
     subject,
-    operator: requiredString(body.operator, "operator") as ReadinessRule["operator"],
+    operator: requiredString(
+      body.operator,
+      "operator",
+    ) as ReadinessRule["operator"],
     ...(expectedValue === undefined ? {} : { expectedValue }),
-    severity: requiredString(body.severity, "severity") as ReadinessRule["severity"],
+    severity: requiredString(
+      body.severity,
+      "severity",
+    ) as ReadinessRule["severity"],
     enabled: requiredBoolean(body.enabled, "enabled"),
     nativeEnforcement: requiredBoolean(
       body.nativeEnforcement,
@@ -121,7 +141,10 @@ function parseSubject(subject: Record<string, unknown>): RuleSubject {
     case "deal_property":
       return {
         kind,
-        propertyName: requiredString(subject.propertyName, "subject.propertyName"),
+        propertyName: requiredString(
+          subject.propertyName,
+          "subject.propertyName",
+        ),
       };
     case "associated_record_count":
       return {
@@ -133,20 +156,28 @@ function parseSubject(subject: Record<string, unknown>): RuleSubject {
       return {
         kind,
         objectType: objectType(subject.objectType),
-        propertyName: requiredString(subject.propertyName, "subject.propertyName"),
+        propertyName: requiredString(
+          subject.propertyName,
+          "subject.propertyName",
+        ),
         quantifier: quantifier(subject.quantifier),
         ...(associationLabel ? { associationLabel } : {}),
       };
     case "metric": {
       const metric = requiredString(subject.metric, "subject.metric");
-      if (![
-        "line_item_count",
-        "approved_quote_count",
-        "open_task_count",
-      ].includes(metric)) {
+      if (
+        ![
+          "line_item_count",
+          "approved_quote_count",
+          "open_task_count",
+        ].includes(metric)
+      ) {
         throw new RequestError("Unsupported metric.");
       }
-      return { kind, metric: metric as Extract<RuleSubject, { kind: "metric" }>["metric"] };
+      return {
+        kind,
+        metric: metric as Extract<RuleSubject, { kind: "metric" }>["metric"],
+      };
     }
     default:
       throw new RequestError("Unsupported rule subject kind.");
@@ -155,7 +186,10 @@ function parseSubject(subject: Record<string, unknown>): RuleSubject {
 
 function parseFactValue(value: unknown, name: string): FactValue | undefined {
   if (value === undefined) return undefined;
-  if (value === null || ["string", "number", "boolean"].includes(typeof value)) {
+  if (
+    value === null ||
+    ["string", "number", "boolean"].includes(typeof value)
+  ) {
     return value as FactValue;
   }
   if (
@@ -177,7 +211,10 @@ function parseObject(rawBody: string): Record<string, unknown> {
   }
 }
 
-function parseObjectValue(value: unknown, name: string): Record<string, unknown> {
+function parseObjectValue(
+  value: unknown,
+  name: string,
+): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new RequestError(`${name} must be an object.`);
   }
@@ -192,13 +229,15 @@ function requiredString(value: unknown, name: string): string {
 }
 
 function requiredBoolean(value: unknown, name: string): boolean {
-  if (typeof value !== "boolean") throw new RequestError(`${name} must be boolean.`);
+  if (typeof value !== "boolean")
+    throw new RequestError(`${name} must be boolean.`);
   return value;
 }
 
 function optionalString(value: unknown, name: string): string | undefined {
   if (value === undefined || value === null || value === "") return undefined;
-  if (typeof value !== "string") throw new RequestError(`${name} must be a string.`);
+  if (typeof value !== "string")
+    throw new RequestError(`${name} must be a string.`);
   return value.trim() || undefined;
 }
 
@@ -235,3 +274,13 @@ function json(value: unknown, status = 200): Response {
 }
 
 class RequestError extends Error {}
+
+function isStatusError(cause: unknown): cause is Error & { status: number } {
+  return (
+    cause instanceof Error &&
+    "status" in cause &&
+    typeof cause.status === "number" &&
+    cause.status >= 400 &&
+    cause.status <= 599
+  );
+}
