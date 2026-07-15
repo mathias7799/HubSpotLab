@@ -33,6 +33,12 @@ interface AssociationLabel {
   label?: string | null;
 }
 
+interface StorageStatus {
+  mode: "hubspot" | "external";
+  durable?: boolean;
+  reason?: string;
+}
+
 hubspot.extend<"settings">(() => <SettingsPage />);
 
 function SettingsPage(): React.ReactElement {
@@ -41,6 +47,9 @@ function SettingsPage(): React.ReactElement {
   const [state, setState] = useState<SetupState>("checking");
   const [error, setError] = useState<string | null>(null);
   const [storageMessage, setStorageMessage] = useState<string | null>(null);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(
+    null,
+  );
   const [inventory, setInventory] = useState<PortalInventory | null>(null);
 
   const check = useCallback(async () => {
@@ -57,8 +66,10 @@ function SettingsPage(): React.ReactElement {
       }
       setInventory(catalogResult.value);
       if (storageResult.status === "fulfilled") {
+        setStorageStatus(storageResult.value as StorageStatus);
         setState("ready");
       } else {
+        setStorageStatus(null);
         setStorageMessage(messageFrom(storageResult.reason));
         setState("pending");
       }
@@ -98,7 +109,9 @@ function SettingsPage(): React.ReactElement {
       {state === "checking" ? (
         <Flex direction="row" gap="small" align="center">
           <LoadingSpinner label="Checking CloseReady setup" />
-          <Text>Checking OAuth access, portal metadata, and rule storage...</Text>
+          <Text>
+            Checking OAuth access, portal metadata, and rule storage...
+          </Text>
         </Flex>
       ) : (
         <StatusTag variant={state === "ready" ? "success" : "warning"}>
@@ -112,10 +125,20 @@ function SettingsPage(): React.ReactElement {
 
       {storageMessage ? (
         <Alert title="Custom object setup needs attention" variant="warning">
-          CloseReady creates exactly one custom object for all transition
-          rules. HubSpot may require a one-time administrator CLI bootstrap on
-          fresh portals. Complete the bootstrap, then check storage again.
-          Details: {storageMessage}
+          CloseReady creates exactly one custom object for all transition rules.
+          HubSpot may require a one-time administrator CLI bootstrap on fresh
+          portals. Complete the bootstrap, then check storage again. Details:{" "}
+          {storageMessage}
+        </Alert>
+      ) : null}
+
+      {storageStatus?.mode === "external" ? (
+        <Alert title="Portable rule storage active" variant="info">
+          This portal does not include HubSpot custom objects. CloseReady is
+          ready and will keep its rules in the encrypted portable backend.
+          {storageStatus.durable
+            ? ""
+            : " Local development data resets when the API restarts."}
         </Alert>
       ) : null}
 
@@ -127,7 +150,9 @@ function SettingsPage(): React.ReactElement {
           {context.user.email}
         </DescriptionListItem>
         <DescriptionListItem label="Rule data model">
-          One custom object
+          {storageStatus?.mode === "external"
+            ? "Encrypted portable store"
+            : "One HubSpot custom object"}
         </DescriptionListItem>
         <DescriptionListItem label="Deal pipelines">
           {inventory?.pipelines.length ?? 0}
@@ -148,9 +173,9 @@ function SettingsPage(): React.ReactElement {
 
       <Heading>Enforcement model</Heading>
       <Text>
-        Native HubSpot stage rules enforce supported deal properties.
-        CloseReady handles labeled associations, associated contact and company
-        fields, and guarded transitions through its OAuth service.
+        Native HubSpot stage rules enforce supported deal properties. CloseReady
+        handles labeled associations, associated contact and company fields, and
+        guarded transitions through its OAuth service.
       </Text>
 
       <ButtonRow>
@@ -166,7 +191,10 @@ async function request<T = unknown>(
   path: string,
   options: Parameters<typeof hubspot.fetch>[1] = {},
 ): Promise<T> {
-  const response = await hubspot.fetch(`${CLOSEREADY_BACKEND_URL}${path}`, options);
+  const response = await hubspot.fetch(
+    `${CLOSEREADY_BACKEND_URL}${path}`,
+    options,
+  );
   const body = (await response.json()) as T & { error?: string };
   if (!response.ok) {
     throw new Error(body.error ?? `CloseReady API error ${response.status}`);

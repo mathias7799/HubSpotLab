@@ -174,8 +174,9 @@ export class CloseReadyHubSpotClient {
   async evaluateDeal(
     dealId: string,
     targetStageId: string,
+    suppliedRules?: readonly ReadinessRule[],
   ): Promise<ReadinessEvaluation> {
-    const allRules = await this.listRules();
+    const allRules = suppliedRules ?? (await this.listRules());
     const relevant = allRules.filter(
       (rule) => rule.enabled && rule.targetStageId === targetStageId,
     );
@@ -190,8 +191,13 @@ export class CloseReadyHubSpotClient {
   async guardedTransition(
     dealId: string,
     targetStageId: string,
+    suppliedRules?: readonly ReadinessRule[],
   ): Promise<ReadinessEvaluation> {
-    const evaluation = await this.evaluateDeal(dealId, targetStageId);
+    const evaluation = await this.evaluateDeal(
+      dealId,
+      targetStageId,
+      suppliedRules,
+    );
     if (!evaluation.ready) return evaluation;
     await this.request(`/crm/v3/objects/deals/${encodeURIComponent(dealId)}`, {
       method: "PATCH",

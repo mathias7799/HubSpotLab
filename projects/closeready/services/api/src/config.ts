@@ -8,6 +8,7 @@ export interface AppConfig {
   upstashToken?: string;
   port: number;
   allowUnsignedDevelopmentRequests: boolean;
+  ruleStorage: "auto" | "hubspot" | "external";
 }
 
 export function loadConfig(
@@ -31,14 +32,20 @@ export function loadConfig(
     port: port(env.PORT),
     allowUnsignedDevelopmentRequests:
       env.ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS === "true",
+    ruleStorage: ruleStorage(env.RULE_STORAGE),
   };
+}
+
+function ruleStorage(value: string | undefined): AppConfig["ruleStorage"] {
+  const normalized = value?.trim().toLowerCase() || "auto";
+  if (!["auto", "hubspot", "external"].includes(normalized)) {
+    throw new Error("RULE_STORAGE must be auto, hubspot, or external.");
+  }
+  return normalized as AppConfig["ruleStorage"];
 }
 
 export const defaultScopes = [
   "oauth",
-  "crm.schemas.custom.read",
-  "crm.objects.custom.read",
-  "crm.objects.custom.write",
   "crm.objects.deals.read",
   "crm.objects.deals.write",
   "crm.objects.contacts.read",

@@ -3,10 +3,12 @@ import type { AppConfig } from "./config.js";
 import { OAuthError, OAuthService } from "./oauth.js";
 import { assertHubSpotRequest } from "./security.js";
 import type { TokenStore } from "./token-store.js";
+import type { RuleStore } from "./rule-store.js";
 
 export function createService(
   config: AppConfig,
   store: TokenStore,
+  ruleStore: RuleStore,
   fetcher: typeof fetch = fetch,
 ) {
   const oauth = new OAuthService(config, store, fetcher);
@@ -15,6 +17,8 @@ export function createService(
     verifyRequest: (request, rawBody) =>
       assertHubSpotRequest(request, config, rawBody),
     fetcher,
+    ruleStore,
+    ruleStorage: config.ruleStorage,
   });
   return async (request: Request): Promise<Response> => {
     try {

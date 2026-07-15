@@ -38,8 +38,16 @@ export interface PortalCatalog {
   };
 }
 
-export async function provision(portalId: number): Promise<void> {
-  await request(`/api/provision?portalId=${portalId}`, { method: "POST" });
+export interface StorageStatus {
+  mode: "hubspot" | "external";
+  durable?: boolean;
+  reason?: string;
+  objectTypeId?: string;
+  fullyQualifiedName?: string;
+}
+
+export async function provision(portalId: number): Promise<StorageStatus> {
+  return request(`/api/provision?portalId=${portalId}`, { method: "POST" });
 }
 
 export async function loadCatalog(portalId: number): Promise<PortalCatalog> {

@@ -7,26 +7,23 @@
     "distribution": "marketplace",
     "auth": {
       "type": "oauth",
-      "redirectUrls": [
-        "https://closeready.example.com/oauth/callback"
-      ],
+      "redirectUrls": ["https://closeready.example.com/oauth/callback"],
       "requiredScopes": [
         "oauth",
-        "crm.schemas.custom.read",
-        "crm.objects.custom.read",
-        "crm.objects.custom.write",
         "crm.objects.deals.read",
         "crm.objects.deals.write",
         "crm.objects.contacts.read",
         "crm.objects.companies.read"
       ],
-      "optionalScopes": [],
+      "optionalScopes": [
+        "crm.schemas.custom.read",
+        "crm.objects.custom.read",
+        "crm.objects.custom.write"
+      ],
       "conditionallyRequiredScopes": []
     },
     "permittedUrls": {
-      "fetch": [
-        "https://closeready.example.com"
-      ],
+      "fetch": ["https://closeready.example.com"],
       "iframe": [],
       "img": []
     },

@@ -19,12 +19,18 @@ export async function assertHubSpotRequest(
   if (Math.abs(Date.now() - Number(timestamp)) > 300_000) {
     throw new SecurityError("Expired HubSpot signature.");
   }
-  const source = `${request.method}${decodeUri(request.url)}${rawBody}${timestamp}`;
-  const expected = Buffer.from(
-    createHmac("sha256", config.clientSecret).update(source).digest("base64"),
-  );
   const actual = Buffer.from(signature);
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+  const uris = [...new Set([decodeUri(request.url), request.url])];
+  const valid = uris.some((uri) => {
+    const source = `${request.method}${uri}${rawBody}${timestamp}`;
+    const expected = Buffer.from(
+      createHmac("sha256", config.clientSecret).update(source).digest("base64"),
+    );
+    return (
+      expected.length === actual.length && timingSafeEqual(expected, actual)
+    );
+  });
+  if (!valid) {
     throw new SecurityError("Invalid HubSpot signature.");
   }
 }

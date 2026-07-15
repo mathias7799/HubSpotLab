@@ -11,6 +11,12 @@ export { OAuthError, OAuthService } from "./oauth.js";
 export { createRuntime } from "./runtime.js";
 export { createService } from "./service.js";
 export {
+  MemoryRuleStore,
+  RuleStoreError,
+  UpstashRuleStore,
+  type RuleStore,
+} from "./rule-store.js";
+export {
   MemoryTokenStore,
   UpstashTokenStore,
   type Installation,

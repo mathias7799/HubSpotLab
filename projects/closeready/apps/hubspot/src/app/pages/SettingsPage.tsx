@@ -29,6 +29,7 @@ import {
   provision,
   type CatalogPipeline,
   type PortalCatalog,
+  type StorageStatus,
 } from "./api.ts";
 import type {
   AssociatedObjectType,
@@ -48,6 +49,9 @@ export function SettingsPage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(
+    null,
+  );
   const [catalog, setCatalog] = useState<PortalCatalog | null>(null);
   const [rules, setRules] = useState<ReadinessRule[]>([]);
   const [pipelineId, setPipelineId] = useState("");
@@ -72,9 +76,11 @@ export function SettingsPage(): React.ReactElement {
         setPipelineId(nextPipeline);
         if (storageResult.status === "fulfilled") {
           setStorageReady(true);
+          setStorageStatus(storageResult.value);
           setRules(nextPipeline ? await loadRules(portalId, nextPipeline) : []);
         } else {
           setStorageReady(false);
+          setStorageStatus(null);
           setRules([]);
           setStorageWarning(messageFrom(storageResult.reason));
         }
@@ -173,6 +179,16 @@ export function SettingsPage(): React.ReactElement {
           CloseReady could not initialize its single custom object. Refresh the
           portal data to retry. If the warning continues, reinstall the app to
           grant its custom-object scopes.
+        </Alert>
+      ) : null}
+
+      {storageStatus?.mode === "external" ? (
+        <Alert title="Portable rule storage active" variant="info">
+          HubSpot custom objects are not available in this portal. CloseReady
+          automatically stores rules in its encrypted portable backend instead.
+          {storageStatus.durable
+            ? ""
+            : " Local development data resets when the API restarts."}
         </Alert>
       ) : null}
 
@@ -315,7 +331,7 @@ function RuleBuilder({
     });
     const label = describeSubject(subject, propertyOptions);
     await onCreate({
-      id: `new:${Date.now()}`,
+      id: `new-${Date.now()}`,
       pipelineId: pipeline.id,
       fromStageId,
       targetStageId,
@@ -614,9 +630,10 @@ function buildSubject(input: {
   associationLabel: string;
   quantifier: "any" | "all";
 }): RuleSubject {
-  const label = input.associationLabel !== "*"
-    ? { associationLabel: input.associationLabel }
-    : {};
+  const label =
+    input.associationLabel !== "*"
+      ? { associationLabel: input.associationLabel }
+      : {};
   switch (input.kind) {
     case "deal_property":
       return { kind: "deal_property", propertyName: input.propertyName };

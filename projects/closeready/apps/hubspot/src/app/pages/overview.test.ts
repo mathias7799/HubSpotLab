@@ -56,9 +56,7 @@ describe("CloseReady overview", () => {
   });
 
   it("describes exact, wildcard, and missing source stages", () => {
-    expect(describeSources(new Set(["qualified"]), pipeline)).toBe(
-      "Qualified",
-    );
+    expect(describeSources(new Set(["qualified"]), pipeline)).toBe("Qualified");
     expect(describeSources(new Set(["*"]), pipeline)).toBe("Any stage");
     expect(describeSources(new Set(), pipeline)).toBe("None");
   });

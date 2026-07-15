@@ -6,27 +6,32 @@ flowchart LR
   Page[CloseReady app page] --> API
   API --> Pipelines[HubSpot pipelines and properties]
   API --> Deals[Deals and associations]
-  API --> Rules[(One CloseReady rule object)]
+  API --> Choice{Custom objects available?}
+  Choice -->|Yes| Rules[(One CloseReady rule object)]
+  Choice -->|No| Portable[(Encrypted portable rule store)]
   Card --> Engine[Shared rule engine]
   Page --> Engine
   API --> Engine
 ```
 
-## One-object persistence
+## Capability-based persistence
 
-CloseReady stores one record per configured rule in the `closeready_rule`
-custom object. Pipeline and stage IDs partition the records. The app does not
-store readiness snapshots; it evaluates current HubSpot data on demand.
+On Enterprise portals, CloseReady stores one record per configured rule in the
+single `closeready_rule` custom object. Pipeline and stage IDs partition the
+records. On portals without custom-object access, the same validated rule model
+is encrypted in the portable Upstash store. The selected mode is cached per
+portal after provisioning.
 
-This keeps configuration auditable without introducing an external application
-database or a second custom object. OAuth installations remain encrypted in the
-portable service's token store because credentials must never be written to CRM.
+The app never creates a second custom object and never stores readiness
+snapshots; it evaluates current HubSpot data on demand. OAuth installations are
+always encrypted in the portable token store because credentials must never be
+written to CRM.
 
 ## API contract
 
 | Method   | Route                        | Purpose                                       |
 | -------- | ---------------------------- | --------------------------------------------- |
-| `POST`   | `/api/provision`             | Reuse or create the one rule object           |
+| `POST`   | `/api/provision`             | Select and report the portal's storage mode   |
 | `GET`    | `/api/catalog`               | Pipelines, CRM properties, association labels |
 | `GET`    | `/api/rules?pipelineId=…`    | List pipeline rules                           |
 | `POST`   | `/api/rules`                 | Create a validated rule                       |

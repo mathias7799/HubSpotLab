@@ -30,9 +30,7 @@ export function describeSources(
   if (!sourceIds.size) return "None";
   if (sourceIds.has("*")) return "Any stage";
   return [...sourceIds]
-    .map(
-      (id) => pipeline.stages.find((stage) => stage.id === id)?.label ?? id,
-    )
+    .map((id) => pipeline.stages.find((stage) => stage.id === id)?.label ?? id)
     .join(", ");
 }
 

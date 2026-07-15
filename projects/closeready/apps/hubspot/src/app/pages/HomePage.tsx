@@ -29,13 +29,10 @@ import {
   provision,
   type CatalogPipeline,
   type PortalCatalog,
+  type StorageStatus,
 } from "./api.ts";
 import type { ReadinessRule, RuleSubject } from "./model.ts";
-import {
-  describeSources,
-  ruleKindLabel,
-  summarizeRules,
-} from "./overview.ts";
+import { describeSources, ruleKindLabel, summarizeRules } from "./overview.ts";
 
 type LoadState = "loading" | "idle" | "error";
 
@@ -46,6 +43,9 @@ export function HomePage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(
+    null,
+  );
   const [catalog, setCatalog] = useState<PortalCatalog | null>(null);
   const [rules, setRules] = useState<ReadinessRule[]>([]);
   const [pipelineId, setPipelineId] = useState("");
@@ -70,9 +70,11 @@ export function HomePage(): React.ReactElement {
         setPipelineId(nextPipeline);
         if (storageResult.status === "fulfilled") {
           setStorageReady(true);
+          setStorageStatus(storageResult.value);
           setRules(nextPipeline ? await loadRules(portalId, nextPipeline) : []);
         } else {
           setStorageReady(false);
+          setStorageStatus(null);
           setRules([]);
           setStorageWarning(messageFrom(storageResult.reason));
         }
@@ -125,8 +127,8 @@ export function HomePage(): React.ReactElement {
       </PageBreadcrumbs>
       <PageTitle>Pipeline readiness overview</PageTitle>
       <Text>
-        See which deal transitions are governed, where blockers apply, and
-        which stages still need requirements.
+        See which deal transitions are governed, where blockers apply, and which
+        stages still need requirements.
       </Text>
 
       {error ? (
@@ -140,6 +142,17 @@ export function HomePage(): React.ReactElement {
           CloseReady could not initialize its single custom object. Open rule
           settings and refresh the portal data to retry. If the warning
           continues, reinstall the app to grant its custom-object scopes.
+        </Alert>
+      ) : null}
+
+      {storageStatus?.mode === "external" ? (
+        <Alert title="Portable rule storage active" variant="info">
+          This portal does not include HubSpot custom objects, so CloseReady is
+          using its encrypted portable store. Rules and readiness checks work
+          normally.
+          {storageStatus.durable
+            ? ""
+            : " Local development data resets when the API restarts."}
         </Alert>
       ) : null}
 
@@ -219,7 +232,9 @@ export function HomePage(): React.ReactElement {
         </>
       ) : state !== "loading" ? (
         <EmptyState title="No deal pipeline found" layout="vertical">
-          <Text>Create a deal pipeline in HubSpot, then refresh this page.</Text>
+          <Text>
+            Create a deal pipeline in HubSpot, then refresh this page.
+          </Text>
         </EmptyState>
       ) : null}
     </Flex>
@@ -258,9 +273,7 @@ function StageCoverageTable({
             const stageRules = rules.filter(
               (rule) => rule.targetStageId === stage.id,
             );
-            const sources = new Set(
-              stageRules.map((rule) => rule.fromStageId),
-            );
+            const sources = new Set(stageRules.map((rule) => rule.fromStageId));
             return (
               <TableRow key={stage.id}>
                 <TableCell>{stage.label}</TableCell>
@@ -278,7 +291,9 @@ function StageCoverageTable({
                 </TableCell>
                 <TableCell>{describeSources(sources, pipeline)}</TableCell>
                 <TableCell>
-                  <StatusTag variant={stageRules.length ? "default" : "warning"}>
+                  <StatusTag
+                    variant={stageRules.length ? "default" : "warning"}
+                  >
                     {stageRules.length ? "Governed" : "No rules"}
                   </StatusTag>
                 </TableCell>

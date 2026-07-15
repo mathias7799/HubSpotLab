@@ -162,7 +162,6 @@ describe("CloseReadyHubSpotClient", () => {
       ruleObjectDefinition.properties,
     );
   });
-
 });
 
 function mockHubSpot(

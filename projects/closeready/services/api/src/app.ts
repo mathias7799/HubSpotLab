@@ -5,11 +5,14 @@ import type {
 } from "@hubspotlab/closeready-core";
 
 import { CloseReadyHubSpotClient, HubSpotApiError } from "./hubspot.js";
+import type { RuleStore } from "./rule-store.js";
 
 export interface AppDependencies {
   accessTokenForPortal: (portalId: number) => Promise<string>;
   verifyRequest: (request: Request, rawBody: string) => Promise<void>;
   fetcher?: typeof fetch;
+  ruleStore: RuleStore;
+  ruleStorage: "auto" | "hubspot" | "external";
 }
 
 /**
@@ -17,6 +20,8 @@ export interface AppDependencies {
  * serverless adapters. Authentication and token persistence stay adapter-level.
  */
 export function createApp(dependencies: AppDependencies) {
+  const selectedStorage = new Map<number, "hubspot" | "external">();
+
   return async function app(request: Request): Promise<Response> {
     try {
       const url = new URL(request.url);
@@ -40,30 +45,62 @@ export function createApp(dependencies: AppDependencies) {
       );
 
       if (request.method === "POST" && url.pathname === "/api/provision") {
-        return json(await hubspot.ensureRuleSchema());
+        const mode = await storageMode(portalId, hubspot);
+        if (mode === "external") {
+          return json({
+            mode,
+            durable: dependencies.ruleStore.durable,
+            reason:
+              "This portal does not include HubSpot custom objects, so CloseReady is using its encrypted portable store.",
+          });
+        }
+        return json({ mode, ...(await hubspot.ensureRuleSchema()) });
       }
       if (request.method === "GET" && url.pathname === "/api/catalog") {
         return json(await hubspot.catalog());
       }
       if (request.method === "GET" && url.pathname === "/api/rules") {
+        const mode = await storageMode(portalId, hubspot);
         return json({
-          results: await hubspot.listRules(
-            url.searchParams.get("pipelineId") ?? undefined,
-          ),
+          results:
+            mode === "hubspot"
+              ? await hubspot.listRules(
+                  url.searchParams.get("pipelineId") ?? undefined,
+                )
+              : await dependencies.ruleStore.list(
+                  portalId,
+                  url.searchParams.get("pipelineId") ?? undefined,
+                ),
         });
       }
       if (request.method === "POST" && url.pathname === "/api/rules") {
-        return json(await hubspot.createRule(parseRule(rawBody)), 201);
+        const rule = parseRule(rawBody);
+        const mode = await storageMode(portalId, hubspot);
+        return json(
+          mode === "hubspot"
+            ? await hubspot.createRule(rule)
+            : await dependencies.ruleStore.put(portalId, rule),
+          201,
+        );
       }
 
       const ruleRoute = url.pathname.match(/^\/api\/rules\/([^/]+)$/);
       if (ruleRoute && request.method === "PATCH") {
         const rule = parseRule(rawBody);
         const id = decodeURIComponent(ruleRoute[1] as string);
-        return json(await hubspot.updateRule({ ...rule, id }));
+        const storedRule = { ...rule, id };
+        const mode = await storageMode(portalId, hubspot);
+        return json(
+          mode === "hubspot"
+            ? await hubspot.updateRule(storedRule)
+            : await dependencies.ruleStore.put(portalId, storedRule),
+        );
       }
       if (ruleRoute && request.method === "DELETE") {
-        await hubspot.deleteRule(decodeURIComponent(ruleRoute[1] as string));
+        const id = decodeURIComponent(ruleRoute[1] as string);
+        const mode = await storageMode(portalId, hubspot);
+        if (mode === "hubspot") await hubspot.deleteRule(id);
+        else await dependencies.ruleStore.delete(portalId, id);
         return json({ deleted: true });
       }
 
@@ -77,10 +114,15 @@ export function createApp(dependencies: AppDependencies) {
           body.targetStageId,
           "targetStageId",
         );
+        const mode = await storageMode(portalId, hubspot);
+        const rules =
+          mode === "hubspot"
+            ? await hubspot.listRules()
+            : await dependencies.ruleStore.list(portalId);
         return json(
           dealRoute[2] === "transition"
-            ? await hubspot.guardedTransition(dealId, targetStageId)
-            : await hubspot.evaluateDeal(dealId, targetStageId),
+            ? await hubspot.guardedTransition(dealId, targetStageId, rules)
+            : await hubspot.evaluateDeal(dealId, targetStageId, rules),
         );
       }
 
@@ -101,6 +143,30 @@ export function createApp(dependencies: AppDependencies) {
       return json({ error: "Internal server error" }, 500);
     }
   };
+
+  async function storageMode(
+    portalId: number,
+    hubspot: CloseReadyHubSpotClient,
+  ): Promise<"hubspot" | "external"> {
+    if (dependencies.ruleStorage === "external") return "external";
+    const cached = selectedStorage.get(portalId);
+    if (cached) return cached;
+    try {
+      await hubspot.ensureRuleSchema();
+      selectedStorage.set(portalId, "hubspot");
+      return "hubspot";
+    } catch (cause) {
+      if (
+        dependencies.ruleStorage === "auto" &&
+        cause instanceof HubSpotApiError &&
+        (cause.status === 403 || cause.status === 409)
+      ) {
+        selectedStorage.set(portalId, "external");
+        return "external";
+      }
+      throw cause;
+    }
+  }
 }
 
 function parseRule(rawBody: string): ReadinessRule {

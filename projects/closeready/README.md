@@ -33,7 +33,7 @@ The HubSpot experience is split into three focused surfaces:
   types per pipeline;
 - the app's `/settings` route owns transition-rule configuration;
 - the native Connected Apps settings page reports installation health, OAuth
-  access, portal inventory, and custom-object status.
+  access, portal inventory, and the active storage mode.
 
 ![CloseReady pipeline overview](docs/images/overview.png)
 
@@ -41,16 +41,22 @@ The HubSpot experience is split into three focused surfaces:
 
 ![CloseReady native app settings](docs/images/native-settings.png)
 
-## One-object setup
+## Storage that fits the portal
 
-CloseReady stores every rule in exactly one custom object named
-`closeready_rule`. The backend reuses that object on every health check and will
-attempt to create it when the installation token permits schema writes. The
-initial schema contains the complete rule property set.
+CloseReady prefers exactly one custom object named `closeready_rule`. The
+backend reuses it on every health check and attempts to create it when the
+portal and installation token permit schema writes. No second custom object is
+ever created.
 
-HubSpot does not currently grant custom-schema write access to this marketplace
-OAuth app. A portal administrator must therefore perform this one-time bootstrap
-from the repository root:
+HubSpot custom objects require an Enterprise entitlement. On Standard portals,
+or whenever HubSpot denies schema administration, CloseReady automatically uses
+the portable backend's AES-256-GCM encrypted Upstash store. Rule authoring,
+evaluation, and guarded transitions behave the same in both modes. Production
+deployments already require this durable store for OAuth tokens, so the fallback
+does not introduce another service.
+
+An eligible Enterprise administrator can perform an optional one-time native
+object bootstrap from the repository root:
 
 ```bash
 pnpm exec hs account auth
@@ -59,11 +65,14 @@ pnpm exec hs custom-object create-schema \
   --path projects/closeready/services/api/schema/closeready-rule.schema.json
 ```
 
-The first command requires deactivating and regenerating the CLI personal access
-key with the requested schema scopes. After the schema is created, reinstall the
-unpublished app with the test OAuth client from HubSpot's Distribution tab and
-use **Check storage again** in the native settings page. No further administrator
-bootstrap is required for normal use.
+If HubSpot enables the CLI's custom-object permission, CloseReady will discover
+the schema automatically. Native mode also requires adding
+`crm.schemas.custom.read`, `crm.objects.custom.read`, and
+`crm.objects.custom.write` to `HUBSPOT_SCOPES`; these are optional app scopes so
+they do not block installation on Standard portals. Otherwise leave
+`RULE_STORAGE=auto`; setup remains ready and selects the encrypted portable
+store. Operators can force a mode with `RULE_STORAGE=hubspot` or
+`RULE_STORAGE=external`.
 
 ```bash
 pnpm --filter @hubspotlab/closeready-core test
