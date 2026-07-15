@@ -61,13 +61,28 @@ export class CloseReadyHubSpotClient {
           ruleObjectDefinition.labels.singular.toLowerCase()
       );
     });
-    if (!existing) {
-      throw new HubSpotApiError(
-        409,
-        "The CloseReady rule app object is not installed. HubSpot must approve the app-object prefix and object name before the component can be deployed.",
-      );
+    let schema = existing;
+    if (!schema) {
+      try {
+        schema = await this.request<Record<string, unknown>>(
+          "/crm-object-schemas/v3/schemas",
+          { method: "POST", body: JSON.stringify(schemaDefinition) },
+        );
+      } catch (cause) {
+        if (
+          cause instanceof HubSpotApiError &&
+          cause.message.toLowerCase().includes("scope")
+        ) {
+          throw new HubSpotApiError(
+            409,
+            "HubSpot requires a one-time administrator bootstrap for custom schema creation. Reauthorize the HubSpot CLI with schema-write access, create the supplied CloseReady schema, then retry setup.",
+          );
+        }
+        throw cause;
+      }
     }
-    return normalizeSchema(existing);
+    const normalized = normalizeSchema(schema);
+    return normalized;
   }
 
   async catalog(): Promise<PortalCatalog> {
@@ -356,6 +371,83 @@ export class HubSpotApiError extends Error {
   }
 }
 
+const schemaProperties = [
+  property("rule_name", "Rule name"),
+  property("pipeline_id", "Pipeline ID"),
+  property("from_stage_id", "From stage ID"),
+  property("target_stage_id", "Target stage ID"),
+  enumeration("subject_kind", "Requirement type", [
+    "deal_property",
+    "associated_record_count",
+    "associated_record_property",
+    "metric",
+  ]),
+  enumeration("object_type", "Associated object type", [
+    "contacts",
+    "companies",
+  ]),
+  property("property_name", "Property name"),
+  property("association_label", "Association label"),
+  enumeration("quantifier", "Matching records", ["any", "all"]),
+  enumeration("metric", "Metric", [
+    "line_item_count",
+    "approved_quote_count",
+    "open_task_count",
+  ]),
+  enumeration("operator", "Operator", [
+    "present",
+    "equals",
+    "not_equals",
+    "contains",
+    "count_at_least",
+    "greater_or_equal",
+    "is_true",
+  ]),
+  property("expected_value", "Expected value", "string", "textarea"),
+  property("expected_value_type", "Expected value type"),
+  enumeration("severity", "Severity", ["blocker", "warning"]),
+  boolProperty("enabled", "Enabled"),
+  boolProperty("native_enforcement", "Native enforcement"),
+] as const;
+
+const schemaDefinition = {
+  name: ruleObjectDefinition.name,
+  labels: ruleObjectDefinition.labels,
+  primaryDisplayProperty: ruleObjectDefinition.primaryDisplayProperty,
+  properties: schemaProperties,
+};
+
+function property(
+  name: string,
+  label: string,
+  type = "string",
+  fieldType = "text",
+) {
+  return { name, label, type, fieldType };
+}
+
+function enumeration(name: string, label: string, values: readonly string[]) {
+  return {
+    ...property(name, label, "enumeration", "select"),
+    options: values.map((value, displayOrder) => ({
+      label: humanize(value),
+      value,
+      displayOrder,
+      hidden: false,
+    })),
+  };
+}
+
+function boolProperty(name: string, label: string) {
+  return {
+    ...property(name, label, "bool", "booleancheckbox"),
+    options: [
+      { label: "Yes", value: "true", displayOrder: 0, hidden: false },
+      { label: "No", value: "false", displayOrder: 1, hidden: false },
+    ],
+  };
+}
+
 function requiredAssociatedProperties(
   rules: readonly ReadinessRule[],
   objectType: "contacts" | "companies",
@@ -422,4 +514,10 @@ function asObject(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function humanize(value: string): string {
+  return value
+    .replaceAll("_", " ")
+    .replace(/^./, (letter) => letter.toUpperCase());
 }

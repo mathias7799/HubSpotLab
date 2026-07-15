@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { ReadinessRule } from "@hubspotlab/closeready-core";
+import {
+  ruleObjectDefinition,
+  type ReadinessRule,
+} from "@hubspotlab/closeready-core";
 
 import { CloseReadyHubSpotClient } from "../src/index.js";
 
@@ -103,7 +106,7 @@ describe("CloseReadyHubSpotClient", () => {
     expect(catalog.associationLabels.contacts[0]?.label).toBe("Decision maker");
   });
 
-  it("reuses the installed transition-aware app object without schema writes", async () => {
+  it("reuses the installed transition-aware custom object without schema writes", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const client = new CloseReadyHubSpotClient(
       "token",
@@ -130,20 +133,36 @@ describe("CloseReadyHubSpotClient", () => {
     expect(requests.some((item) => item.init?.method === "POST")).toBe(false);
   });
 
-  it("reports a missing app object without attempting schema creation", async () => {
+  it("creates the single rule object when it is missing", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const client = new CloseReadyHubSpotClient(
       "token",
       mockHubSpot(requests, {
-        "/crm-object-schemas/v3/schemas": { results: [] },
+        "/crm-object-schemas/v3/schemas": [
+          { results: [] },
+          {
+            objectTypeId: "2-456",
+            fullyQualifiedName: "p1_closeready_rule",
+          },
+        ],
       }),
     );
 
-    await expect(client.ensureRuleSchema()).rejects.toThrow(
-      "HubSpot must approve the app-object prefix",
+    expect(await client.ensureRuleSchema()).toEqual({
+      objectTypeId: "2-456",
+      fullyQualifiedName: "p1_closeready_rule",
+    });
+    const create = requests.find((item) => item.init?.method === "POST");
+    const definition = JSON.parse(String(create?.init?.body)) as {
+      name: string;
+      properties: Array<{ name: string }>;
+    };
+    expect(definition.name).toBe("closeready_rule");
+    expect(definition.properties.map((property) => property.name)).toEqual(
+      ruleObjectDefinition.properties,
     );
-    expect(requests.some((item) => item.init?.method === "POST")).toBe(false);
   });
+
 });
 
 function mockHubSpot(

@@ -5,7 +5,6 @@ import {
   EmptyState,
   Flex,
   Heading,
-  Link,
   LoadingSpinner,
   Select,
   StatusTag,
@@ -137,20 +136,10 @@ export function HomePage(): React.ReactElement {
       ) : null}
 
       {storageWarning ? (
-        <Alert title="Rule storage is not installed yet" variant="warning">
-          Portal structure is available in read-only mode. Rule totals and
-          coverage will populate after HubSpot approves and installs the single
-          CloseReady app object. Request approval for the CloseReady prefix and
-          CLOSEREADY_RULE name through the{" "}
-          <Link
-            href={{
-              url: "https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest",
-              external: true,
-            }}
-          >
-            HubSpot app-object form
-          </Link>
-          .
+        <Alert title="Rule storage needs attention" variant="warning">
+          CloseReady could not initialize its single custom object. Open rule
+          settings and refresh the portal data to retry. If the warning
+          continues, reinstall the app to grant its custom-object scopes.
         </Alert>
       ) : null}
 

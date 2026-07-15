@@ -33,7 +33,7 @@ The HubSpot experience is split into three focused surfaces:
   types per pipeline;
 - the app's `/settings` route owns transition-rule configuration;
 - the native Connected Apps settings page reports installation health, OAuth
-  access, portal inventory, and app-object status.
+  access, portal inventory, and custom-object status.
 
 ![CloseReady pipeline overview](docs/images/overview.png)
 
@@ -41,21 +41,29 @@ The HubSpot experience is split into three focused surfaces:
 
 ![CloseReady native app settings](docs/images/native-settings.png)
 
-## HubSpot app-object approval
+## One-object setup
 
-Rules use exactly one HubSpot app object. Runtime OAuth cannot create that
-schema, so HubSpot must first approve the `CloseReady` app prefix and
-`CLOSEREADY_RULE` object name through the
-[app objects request form](https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest).
-Until approval, the configuration page remains useful in read-only mode and
-loads the portal's pipelines, stages, properties, and association labels.
+CloseReady stores every rule in exactly one custom object named
+`closeready_rule`. The backend reuses that object on every health check and will
+attempt to create it when the installation token permits schema writes. The
+initial schema contains the complete rule property set.
 
-The production component is kept outside the upload tree at
-`apps/hubspot/app-object-template/app-object-hsmeta.json` so development builds
-are not rejected. After approval, copy it into
-`apps/hubspot/src/app/app-objects/app-object-hsmeta.json`, upload the HubSpot
-project, and reinstall the app. Unpublished apps must be installed with the test
-OAuth client generated from HubSpot's Distribution tab.
+HubSpot does not currently grant custom-schema write access to this marketplace
+OAuth app. A portal administrator must therefore perform this one-time bootstrap
+from the repository root:
+
+```bash
+pnpm exec hs account auth
+pnpm exec hs custom-object create-schema \
+  --account <account-name-or-id> \
+  --path projects/closeready/services/api/schema/closeready-rule.schema.json
+```
+
+The first command requires deactivating and regenerating the CLI personal access
+key with the requested schema scopes. After the schema is created, reinstall the
+unpublished app with the test OAuth client from HubSpot's Distribution tab and
+use **Check storage again** in the native settings page. No further administrator
+bootstrap is required for normal use.
 
 ```bash
 pnpm --filter @hubspotlab/closeready-core test

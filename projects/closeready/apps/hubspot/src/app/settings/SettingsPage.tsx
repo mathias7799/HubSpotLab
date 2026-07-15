@@ -7,7 +7,6 @@ import {
   DescriptionListItem,
   Flex,
   Heading,
-  Link,
   LoadingSpinner,
   StatusTag,
   Text,
@@ -112,20 +111,11 @@ function SettingsPage(): React.ReactElement {
       )}
 
       {storageMessage ? (
-        <Alert title="App-object approval required" variant="warning">
-          HubSpot portal metadata is connected, but rule storage is read-only
-          until the CloseReady app object is approved and installed. Request
-          approval for the CloseReady prefix and CLOSEREADY_RULE name through
-          the{" "}
-          <Link
-            href={{
-              url: "https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest",
-              external: true,
-            }}
-          >
-            HubSpot app-object form
-          </Link>
-          .
+        <Alert title="Custom object setup needs attention" variant="warning">
+          CloseReady creates exactly one custom object for all transition
+          rules. HubSpot may require a one-time administrator CLI bootstrap on
+          fresh portals. Complete the bootstrap, then check storage again.
+          Details: {storageMessage}
         </Alert>
       ) : null}
 
@@ -137,7 +127,7 @@ function SettingsPage(): React.ReactElement {
           {context.user.email}
         </DescriptionListItem>
         <DescriptionListItem label="Rule data model">
-          One app object
+          One custom object
         </DescriptionListItem>
         <DescriptionListItem label="Deal pipelines">
           {inventory?.pipelines.length ?? 0}
@@ -165,7 +155,7 @@ function SettingsPage(): React.ReactElement {
 
       <ButtonRow>
         <Button onClick={() => void check()} disabled={state === "checking"}>
-          Check setup again
+          {state === "pending" ? "Check storage again" : "Check setup again"}
         </Button>
       </ButtonRow>
     </Flex>

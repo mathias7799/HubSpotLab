@@ -5,11 +5,7 @@
     "plural": "CloseReady rules"
   },
   "primaryDisplayProperty": "rule_name",
-  "requiredProperties": [
-    "rule_name",
-    "pipeline_id",
-    "target_stage_id"
-  ],
+  "requiredProperties": ["rule_name", "pipeline_id", "target_stage_id"],
   "properties": [
     { "name": "rule_name", "label": "Rule name", "type": "string", "fieldType": "text" },
     { "name": "pipeline_id", "label": "Pipeline ID", "type": "string", "fieldType": "text" },
@@ -26,6 +22,6 @@
     { "name": "expected_value_type", "label": "Expected value type", "type": "string", "fieldType": "text" },
     { "name": "severity", "label": "Severity", "type": "string", "fieldType": "text" },
     { "name": "enabled", "label": "Enabled", "type": "string", "fieldType": "text" },
-    { "name": "native_enforcement", "label": "Native enforcement marked", "type": "string", "fieldType": "text" }
+    { "name": "native_enforcement", "label": "Native enforcement", "type": "string", "fieldType": "text" }
   ]
 }

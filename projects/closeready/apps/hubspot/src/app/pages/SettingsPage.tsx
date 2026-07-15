@@ -6,7 +6,6 @@ import {
   EmptyState,
   Flex,
   Heading,
-  Link,
   LoadingSpinner,
   Select,
   StatusTag,
@@ -170,21 +169,10 @@ export function SettingsPage(): React.ReactElement {
       ) : null}
 
       {storageWarning ? (
-        <Alert title="Rule storage is not installed yet" variant="warning">
-          Pipeline metadata is available, but CloseReady cannot save rules in
-          this portal until its single app object is approved and installed.
-          You can review the complete configuration below in read-only mode.
-          Request approval for the CloseReady prefix and CLOSEREADY_RULE name
-          through the{" "}
-          <Link
-            href={{
-              url: "https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest",
-              external: true,
-            }}
-          >
-            HubSpot app-object form
-          </Link>
-          .
+        <Alert title="Rule storage needs attention" variant="warning">
+          CloseReady could not initialize its single custom object. Refresh the
+          portal data to retry. If the warning continues, reinstall the app to
+          grant its custom-object scopes.
         </Alert>
       ) : null}
 
@@ -558,14 +546,14 @@ function RuleList({
         title={
           canDelete
             ? "No requirements in this pipeline"
-            : "Rule storage is pending approval"
+            : "Rule storage needs setup"
         }
         layout="vertical"
       >
         <Text>
           {canDelete
             ? "Add the first transition requirement above."
-            : "Requirements will appear here after the CloseReady app object is installed."}
+            : "Requirements will appear here after the CloseReady custom object is initialized."}
         </Text>
       </EmptyState>
     );

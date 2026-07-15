@@ -6,7 +6,7 @@ Functions, or HubSpot serverless adapters.
 
 Implemented capabilities:
 
-- locate the single app-managed `CLOSEREADY_RULE` object;
+- create or locate the single `closeready_rule` custom object;
 - discover deal pipelines and deal/contact/company properties;
 - discover HubSpot deal-to-contact and deal-to-company association labels;
 - create, list, update, and archive rules;
@@ -29,10 +29,14 @@ The local command uses an in-memory token store and accepts unsigned requests
 only on `localhost`/`127.0.0.1`. A durable encrypted store is mandatory outside
 development.
 
-CloseReady does not attempt to create a custom schema through OAuth. HubSpot
-requires app-object approval for the `CloseReady` prefix and `CLOSEREADY_RULE`
-name. The component template lives in
-`apps/hubspot/app-object-template/app-object-hsmeta.json`; move it to
-`apps/hubspot/src/app/app-objects/` only after approval. The JSON schema in
-`schema/` is a development-only fallback for a portal administrator with a
-personal access key that includes custom-schema write access.
+CloseReady uses the same idempotent provisioning model as TidsHub. A setup check
+lists the portal's custom schemas, attempts to create `closeready_rule` when
+absent, and reuses it on later calls. The creation payload contains every
+required rule property, and the provisioner never creates a second custom
+object.
+
+HubSpot marketplace OAuth currently rejects schema creation without an
+administrator schema-write grant. Use the checked-in
+`schema/closeready-rule.schema.json` with `hs custom-object create-schema` for
+the one-time portal bootstrap. Runtime rule CRUD then uses the normal
+`crm.objects.custom.read` and `crm.objects.custom.write` OAuth scopes.
