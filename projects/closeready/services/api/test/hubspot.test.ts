@@ -103,36 +103,46 @@ describe("CloseReadyHubSpotClient", () => {
     expect(catalog.associationLabels.contacts[0]?.label).toBe("Decision maker");
   });
 
-  it("provisions one transition-aware rule object", async () => {
+  it("reuses the installed transition-aware app object without schema writes", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const client = new CloseReadyHubSpotClient(
       "token",
       mockHubSpot(requests, {
-        "/crm-object-schemas/v3/schemas": [
-          { results: [] },
-          {
-            objectTypeId: "2-123",
-            fullyQualifiedName: "p1_closeready_rule",
-          },
-        ],
+        "/crm-object-schemas/v3/schemas": {
+          results: [
+            {
+              name: "CLOSEREADY_RULE",
+              labels: {
+                singular: "CloseReady rule",
+                plural: "CloseReady rules",
+              },
+              objectTypeId: "2-123",
+              fullyQualifiedName: "p1_closeready_rule",
+            },
+          ],
+        },
       }),
     );
-    await client.ensureRuleSchema();
-    const create = requests.find((item) => item.init?.method === "POST");
-    const definition = JSON.parse(String(create?.init?.body)) as {
-      name: string;
-      properties: Array<{ name: string }>;
-    };
-    expect(definition.name).toBe("closeready_rule");
-    expect(definition.properties.map((property) => property.name)).toEqual(
-      expect.arrayContaining([
-        "from_stage_id",
-        "subject_kind",
-        "association_label",
-        "property_name",
-        "quantifier",
-      ]),
+    expect(await client.ensureRuleSchema()).toEqual({
+      objectTypeId: "2-123",
+      fullyQualifiedName: "p1_closeready_rule",
+    });
+    expect(requests.some((item) => item.init?.method === "POST")).toBe(false);
+  });
+
+  it("reports a missing app object without attempting schema creation", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const client = new CloseReadyHubSpotClient(
+      "token",
+      mockHubSpot(requests, {
+        "/crm-object-schemas/v3/schemas": { results: [] },
+      }),
     );
+
+    await expect(client.ensureRuleSchema()).rejects.toThrow(
+      "HubSpot must approve the app-object prefix",
+    );
+    expect(requests.some((item) => item.init?.method === "POST")).toBe(false);
   });
 });
 

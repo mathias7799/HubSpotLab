@@ -46,6 +46,8 @@ export function HomePage(): React.ReactElement {
   const portalId = context.portal.id;
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<PortalCatalog | null>(null);
   const [rules, setRules] = useState<ReadinessRule[]>([]);
   const [pipelineId, setPipelineId] = useState("");
@@ -54,21 +56,35 @@ export function HomePage(): React.ReactElement {
     async (preferredPipeline?: string) => {
       setState("loading");
       setError(null);
+      setStorageWarning(null);
       try {
-        await provision(portalId);
-        const nextCatalog = await loadCatalog(portalId);
+        const [catalogResult, storageResult] = await Promise.allSettled([
+          loadCatalog(portalId),
+          provision(portalId),
+        ]);
+        if (catalogResult.status === "rejected") {
+          throw catalogResult.reason;
+        }
+        const nextCatalog = catalogResult.value;
         const nextPipeline =
-          preferredPipeline || pipelineId || nextCatalog.pipelines[0]?.id || "";
+          preferredPipeline || nextCatalog.pipelines[0]?.id || "";
         setCatalog(nextCatalog);
         setPipelineId(nextPipeline);
-        setRules(nextPipeline ? await loadRules(portalId, nextPipeline) : []);
+        if (storageResult.status === "fulfilled") {
+          setStorageReady(true);
+          setRules(nextPipeline ? await loadRules(portalId, nextPipeline) : []);
+        } else {
+          setStorageReady(false);
+          setRules([]);
+          setStorageWarning(messageFrom(storageResult.reason));
+        }
         setState("idle");
       } catch (cause) {
         setState("error");
         setError(messageFrom(cause));
       }
     },
-    [pipelineId, portalId],
+    [portalId],
   );
 
   useEffect(() => {
@@ -82,6 +98,11 @@ export function HomePage(): React.ReactElement {
   ): Promise<void> {
     const id = String(next);
     setPipelineId(id);
+    setError(null);
+    if (!storageReady) {
+      setRules([]);
+      return;
+    }
     setState("loading");
     try {
       setRules(await loadRules(portalId, id));
@@ -146,6 +167,14 @@ export function HomePage(): React.ReactElement {
         </Alert>
       ) : null}
 
+      {storageWarning ? (
+        <Alert title="Rule storage is not installed yet" variant="warning">
+          Pipeline metadata is available, but CloseReady cannot save rules in
+          this portal until its single app object is approved and installed.
+          You can review the complete configuration below in read-only mode.
+        </Alert>
+      ) : null}
+
       {state === "loading" ? (
         <Flex direction="row" gap="small" align="center">
           <LoadingSpinner label="Loading CloseReady" />
@@ -177,6 +206,7 @@ export function HomePage(): React.ReactElement {
               pipeline={pipeline}
               catalog={catalog}
               busy={busy}
+              canSave={storageReady}
               onCreate={addRule}
             />
           ) : (
@@ -191,6 +221,7 @@ export function HomePage(): React.ReactElement {
             rules={rules}
             pipeline={pipeline}
             busy={busy}
+            canDelete={storageReady}
             onDelete={removeRule}
           />
         </>
@@ -203,11 +234,13 @@ function RuleBuilder({
   pipeline,
   catalog,
   busy,
+  canSave,
   onCreate,
 }: {
   pipeline: CatalogPipeline;
   catalog: PortalCatalog;
   busy: boolean;
+  canSave: boolean;
   onCreate: (rule: ReadinessRule) => Promise<void>;
 }): React.ReactElement {
   const [fromStageId, setFromStageId] = useState("*");
@@ -218,7 +251,7 @@ function RuleBuilder({
   const [objectType, setObjectType] =
     useState<AssociatedObjectType>("contacts");
   const [propertyName, setPropertyName] = useState("amount");
-  const [associationLabel, setAssociationLabel] = useState("");
+  const [associationLabel, setAssociationLabel] = useState("*");
   const [quantifier, setQuantifier] = useState<"any" | "all">("any");
   const [operator, setOperator] = useState<RuleOperator>("present");
   const [expectedValue, setExpectedValue] = useState(1);
@@ -238,7 +271,7 @@ function RuleBuilder({
     }));
   }, [catalog, kind, objectType]);
   const labelOptions = [
-    { label: "Any association label", value: "" },
+    { label: "Any association label", value: "*" },
     ...catalog.associationLabels[objectType]
       .filter((item) => item.label)
       .map((item) => ({
@@ -367,7 +400,7 @@ function RuleBuilder({
                     : catalog.companyProperties)[0]?.name ?? "",
                 );
               }
-              setAssociationLabel("");
+              setAssociationLabel("*");
             }}
           />
           <Select
@@ -483,7 +516,7 @@ function RuleBuilder({
       <ButtonRow>
         <Button
           variant="primary"
-          disabled={busy || !targetStageId || !propertyName}
+          disabled={busy || !canSave || !targetStageId || !propertyName}
           onClick={() => void submit()}
         >
           Add requirement
@@ -497,17 +530,30 @@ function RuleList({
   rules,
   pipeline,
   busy,
+  canDelete,
   onDelete,
 }: {
   rules: ReadinessRule[];
   pipeline?: CatalogPipeline;
   busy: boolean;
+  canDelete: boolean;
   onDelete: (rule: ReadinessRule) => Promise<void>;
 }): React.ReactElement {
   if (!rules.length) {
     return (
-      <EmptyState title="No requirements in this pipeline" layout="vertical">
-        <Text>Add the first transition requirement above.</Text>
+      <EmptyState
+        title={
+          canDelete
+            ? "No requirements in this pipeline"
+            : "Rule storage is pending approval"
+        }
+        layout="vertical"
+      >
+        <Text>
+          {canDelete
+            ? "Add the first transition requirement above."
+            : "Requirements will appear here after the CloseReady app object is installed."}
+        </Text>
       </EmptyState>
     );
   }
@@ -546,7 +592,7 @@ function RuleList({
                 <Button
                   size="xs"
                   variant="destructive"
-                  disabled={busy}
+                  disabled={busy || !canDelete}
                   onClick={() => void onDelete(rule)}
                 >
                   Delete
@@ -567,7 +613,7 @@ function buildSubject(input: {
   associationLabel: string;
   quantifier: "any" | "all";
 }): RuleSubject {
-  const label = input.associationLabel
+  const label = input.associationLabel !== "*"
     ? { associationLabel: input.associationLabel }
     : {};
   switch (input.kind) {

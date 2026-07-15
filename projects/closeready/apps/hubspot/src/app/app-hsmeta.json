@@ -7,7 +7,9 @@
     "distribution": "marketplace",
     "auth": {
       "type": "oauth",
-      "redirectUrls": ["https://closeready.example.com/oauth/callback"],
+      "redirectUrls": [
+        "https://closeready.example.com/oauth/callback"
+      ],
       "requiredScopes": [
         "oauth",
         "crm.schemas.custom.read",
@@ -22,7 +24,9 @@
       "conditionallyRequiredScopes": []
     },
     "permittedUrls": {
-      "fetch": ["https://closeready.example.com"],
+      "fetch": [
+        "https://closeready.example.com"
+      ],
       "iframe": [],
       "img": []
     },

@@ -27,6 +27,24 @@ The runtime adapters and OAuth token store are intentionally separate from the
 business logic so the same service can run on Node, Lambda, Azure Functions, or
 HubSpot serverless when available.
 
+![CloseReady transition requirement configuration](docs/images/configuration-page.png)
+
+## HubSpot app-object approval
+
+Rules use exactly one HubSpot app object. Runtime OAuth cannot create that
+schema, so HubSpot must first approve the `CloseReady` app prefix and
+`CLOSEREADY_RULE` object name through the
+[app objects request form](https://app.hubspot.com/l/developer-overview/appObjectsEventsRequest).
+Until approval, the configuration page remains useful in read-only mode and
+loads the portal's pipelines, stages, properties, and association labels.
+
+The production component is kept outside the upload tree at
+`apps/hubspot/app-object-template/app-object-hsmeta.json` so development builds
+are not rejected. After approval, copy it into
+`apps/hubspot/src/app/app-objects/app-object-hsmeta.json`, upload the HubSpot
+project, and reinstall the app. Unpublished apps must be installed with the test
+OAuth client generated from HubSpot's Distribution tab.
+
 ```bash
 pnpm --filter @hubspotlab/closeready-core test
 pnpm --filter @hubspotlab/closeready-core typecheck

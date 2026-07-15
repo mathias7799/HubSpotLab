@@ -6,7 +6,7 @@ Functions, or HubSpot serverless adapters.
 
 Implemented capabilities:
 
-- provision the single `closeready_rule` custom object;
+- locate the single app-managed `CLOSEREADY_RULE` object;
 - discover deal pipelines and deal/contact/company properties;
 - discover HubSpot deal-to-contact and deal-to-company association labels;
 - create, list, update, and archive rules;
@@ -28,3 +28,11 @@ curl http://localhost:8788/health
 The local command uses an in-memory token store and accepts unsigned requests
 only on `localhost`/`127.0.0.1`. A durable encrypted store is mandatory outside
 development.
+
+CloseReady does not attempt to create a custom schema through OAuth. HubSpot
+requires app-object approval for the `CloseReady` prefix and `CLOSEREADY_RULE`
+name. The component template lives in
+`apps/hubspot/app-object-template/app-object-hsmeta.json`; move it to
+`apps/hubspot/src/app/app-objects/` only after approval. The JSON schema in
+`schema/` is a development-only fallback for a portal administrator with a
+personal access key that includes custom-schema write access.

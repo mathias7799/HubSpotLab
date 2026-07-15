@@ -1,0 +1,183 @@
+{
+  "uid": "closeready_rule_object",
+  "type": "app-object",
+  "config": {
+    "name": "CLOSEREADY_RULE",
+    "description": "Stores one record per configurable deal transition requirement.",
+    "singularForm": "CloseReady rule",
+    "pluralForm": "CloseReady rules",
+    "appPrefix": "CloseReady",
+    "primaryDisplayLabelPropertyName": "rule_name",
+    "secondaryDisplayLabelPropertyNames": ["pipeline_id", "target_stage_id"],
+    "properties": [
+      {
+        "name": "rule_name",
+        "label": "Rule name",
+        "type": "string",
+        "fieldType": "text"
+      },
+      {
+        "name": "pipeline_id",
+        "label": "Pipeline ID",
+        "type": "string",
+        "fieldType": "text"
+      },
+      {
+        "name": "from_stage_id",
+        "label": "From stage ID",
+        "type": "string",
+        "fieldType": "text"
+      },
+      {
+        "name": "target_stage_id",
+        "label": "Target stage ID",
+        "type": "string",
+        "fieldType": "text"
+      },
+      {
+        "name": "subject_kind",
+        "label": "Requirement type",
+        "type": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Deal property", "value": "deal_property" },
+          {
+            "label": "Associated record count",
+            "value": "associated_record_count"
+          },
+          {
+            "label": "Associated record property",
+            "value": "associated_record_property"
+          },
+          { "label": "Metric", "value": "metric" }
+        ]
+      },
+      {
+        "name": "object_type",
+        "label": "Associated object type",
+        "type": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Contacts", "value": "contacts" },
+          { "label": "Companies", "value": "companies" }
+        ]
+      },
+      {
+        "name": "property_name",
+        "label": "Property name",
+        "type": "string",
+        "fieldType": "text"
+      },
+      {
+        "name": "association_label",
+        "label": "Association label",
+        "type": "string",
+        "fieldType": "text"
+      },
+      {
+        "name": "quantifier",
+        "label": "Matching records",
+        "type": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Any", "value": "any" },
+          { "label": "All", "value": "all" }
+        ]
+      },
+      {
+        "name": "metric",
+        "label": "Metric",
+        "type": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Line item count", "value": "line_item_count" },
+          {
+            "label": "Approved quote count",
+            "value": "approved_quote_count"
+          },
+          { "label": "Open task count", "value": "open_task_count" }
+        ]
+      },
+      {
+        "name": "operator",
+        "label": "Operator",
+        "type": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Present", "value": "present" },
+          { "label": "Equals", "value": "equals" },
+          { "label": "Not equals", "value": "not_equals" },
+          { "label": "Contains", "value": "contains" },
+          { "label": "Count at least", "value": "count_at_least" },
+          { "label": "Greater or equal", "value": "greater_or_equal" },
+          { "label": "Is true", "value": "is_true" }
+        ]
+      },
+      {
+        "name": "expected_value",
+        "label": "Expected value",
+        "type": "string",
+        "fieldType": "textarea"
+      },
+      {
+        "name": "expected_value_type",
+        "label": "Expected value type",
+        "type": "string",
+        "fieldType": "text"
+      },
+      {
+        "name": "severity",
+        "label": "Severity",
+        "type": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Blocker", "value": "blocker" },
+          { "label": "Warning", "value": "warning" }
+        ]
+      },
+      {
+        "name": "enabled",
+        "label": "Enabled",
+        "type": "bool",
+        "fieldType": "booleancheckbox",
+        "options": [
+          { "label": "Yes", "value": "true" },
+          { "label": "No", "value": "false" }
+        ]
+      },
+      {
+        "name": "native_enforcement",
+        "label": "Native enforcement marked",
+        "type": "bool",
+        "fieldType": "booleancheckbox",
+        "options": [
+          { "label": "Yes", "value": "true" },
+          { "label": "No", "value": "false" }
+        ]
+      }
+    ],
+    "propertyGroups": [],
+    "defaultCreateFormFields": [
+      {
+        "propertyName": "rule_name",
+        "isRequired": true,
+        "isRemovable": false
+      },
+      {
+        "propertyName": "pipeline_id",
+        "isRequired": true,
+        "isRemovable": false
+      },
+      {
+        "propertyName": "target_stage_id",
+        "isRequired": true,
+        "isRemovable": false
+      }
+    ],
+    "settings": {
+      "hasRecordPage": false,
+      "allowsUserCreatedRecords": false,
+      "hasEngagements": false
+    }
+  }
+}
