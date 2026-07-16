@@ -10,7 +10,6 @@ import {
   Heading,
   LoadingSpinner,
   Select,
-  StatusTag,
   Text,
   hubspot,
   useExtensionActions,
@@ -310,14 +309,10 @@ function EvaluationSummary({
 
   return (
     <Flex direction="column" gap="small">
-      <Flex direction="row" gap="small" align="center">
-        <StatusTag variant={evaluation.ready ? "success" : "danger"}>
-          {evaluation.ready ? "Ready" : "Blocked"}
-        </StatusTag>
-        <Text>
-          {passedCount} of {evaluation.results.length} requirements passed
-        </Text>
-      </Flex>
+      <Heading>{evaluationTitle(evaluation)}</Heading>
+      <Text>
+        {passedCount} of {evaluation.results.length} requirements passed
+      </Text>
       {evaluation.results.length === 0 ? (
         <Alert title="No rules for this transition" variant="warning">
           The selected source and target stages have no enabled CloseReady
@@ -329,34 +324,31 @@ function EvaluationSummary({
             {evaluation.ready ? "Requirements" : "Readiness details"}
           </Heading>
           {orderedResults.map((result) => (
-            <Flex
-              key={result.rule.id}
-              direction="row"
-              gap="small"
-              align="start"
-            >
-              <StatusTag
-                variant={
-                  result.passed
-                    ? "success"
-                    : result.rule.severity === "blocker"
-                      ? "danger"
-                      : "warning"
-                }
-              >
+            <Flex key={result.rule.id} direction="column" gap="extra-small">
+              <Text>{result.rule.label}</Text>
+              <Text variant="microcopy">
                 {result.passed
-                  ? "Pass"
-                  : result.rule.severity === "blocker"
-                    ? "Blocker"
-                    : "Warning"}
-              </StatusTag>
-              <Text>{result.message}</Text>
+                  ? "Complete"
+                  : result.rule.severity === "warning"
+                    ? `Warning: ${result.message}`
+                    : result.message}
+              </Text>
             </Flex>
           ))}
         </Flex>
       )}
     </Flex>
   );
+}
+
+function evaluationTitle(evaluation: ReadinessEvaluation): string {
+  if (evaluation.blockers.length) {
+    return `${evaluation.blockers.length} ${evaluation.blockers.length === 1 ? "blocker" : "blockers"} to resolve`;
+  }
+  if (evaluation.warnings.length) {
+    return `Ready with ${evaluation.warnings.length} ${evaluation.warnings.length === 1 ? "warning" : "warnings"}`;
+  }
+  return "Ready to move";
 }
 
 function defaultTargetStage(

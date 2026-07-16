@@ -131,9 +131,9 @@ describe("evaluateReadiness", () => {
     const correctLabel = snapshot({
       contacts: [{ id: "1", labels: ["decision MAKER"], properties: {} }],
     });
-    expect(
-      evaluateReadiness([rule], wrongLabel).blockers[0]?.message,
-    ).toContain("labeled “Decision maker”");
+    expect(evaluateReadiness([rule], wrongLabel).blockers[0]?.message).toBe(
+      "Associate a contact labeled “Decision maker”. Current count: 0.",
+    );
     expect(evaluateReadiness([rule], correctLabel).ready).toBe(true);
   });
 
@@ -184,16 +184,21 @@ describe("evaluateReadiness", () => {
   });
 
   it("fails associated-property rules clearly when no labeled record exists", () => {
-    const rule = configuredRule({
-      kind: "associated_record_property",
-      objectType: "contacts",
-      associationLabel: "Decision maker",
-      propertyName: "phone",
-      quantifier: "any",
-    });
+    const rule = {
+      ...configuredRule({
+        kind: "associated_record_property",
+        objectType: "contacts",
+        associationLabel: "Decision maker",
+        propertyName: "phone",
+        quantifier: "any",
+      }),
+      label: "Decision maker: Phone",
+    };
     const result = evaluateReadiness([rule], snapshot());
     expect(result.ready).toBe(false);
-    expect(result.blockers[0]?.message).toContain("but none was found");
+    expect(result.blockers[0]?.message).toBe(
+      "Associate a contact labeled “Decision maker”, then complete Phone.",
+    );
   });
 
   it("does not let warnings block a transition", () => {

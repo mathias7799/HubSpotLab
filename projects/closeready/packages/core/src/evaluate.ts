@@ -281,10 +281,15 @@ function failureMessage(
     const label = rule.subject.associationLabel
       ? ` labeled “${rule.subject.associationLabel}”`
       : "";
-    return `${rule.label} needs more associated ${rule.subject.objectType}${label}; found ${String(actual ?? 0)}.`;
+    const expected = Number(rule.expectedValue ?? 1);
+    const target =
+      expected === 1
+        ? `a ${singular(rule.subject.objectType)}`
+        : `at least ${expected} ${rule.subject.objectType}`;
+    return `Associate ${target}${label}. Current count: ${String(actual ?? 0)}.`;
   }
-  if (rule.operator === "present") return `${rule.label} is missing.`;
-  return `${rule.label} expected ${String(rule.expectedValue)}, received ${String(actual ?? "nothing")}.`;
+  if (rule.operator === "present") return `Complete ${rule.label}.`;
+  return `${rule.label} must be ${String(rule.expectedValue)}. Current value: ${String(actual ?? "empty")}.`;
 }
 
 function associatedPropertyFailure(
@@ -293,16 +298,24 @@ function associatedPropertyFailure(
   records: readonly AssociatedRecordSnapshot[],
   failingCount: number,
 ): string {
-  const label = subject.associationLabel
-    ? ` labeled “${subject.associationLabel}”`
-    : "";
+  const object = singular(subject.objectType);
+  const field = ruleFieldLabel(rule.label);
   if (records.length === 0) {
-    return `${rule.label} needs an associated ${singular(subject.objectType)}${label}, but none was found.`;
+    const label = subject.associationLabel
+      ? ` labeled “${subject.associationLabel}”`
+      : "";
+    return `Associate a ${object}${label}, then complete ${field}.`;
   }
   if (subject.quantifier === "any") {
-    return `${rule.label} is missing on every matching ${singular(subject.objectType)}.`;
+    return `Complete ${field} on at least one matching ${object}.`;
   }
-  return `${rule.label} is missing or invalid on ${failingCount} of ${records.length} matching ${subject.objectType}.`;
+  return `Complete ${field} on ${failingCount} of ${records.length} matching ${subject.objectType}.`;
+}
+
+function ruleFieldLabel(label: string): string {
+  return label.includes(":")
+    ? label.slice(label.indexOf(":") + 1).trim()
+    : label;
 }
 
 function normalize(value: string): string {
