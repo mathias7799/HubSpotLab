@@ -27,6 +27,7 @@ import {
   loadCatalog,
   loadRules,
   provision,
+  updateRule,
   type CatalogPipeline,
   type PortalCatalog,
   type StorageStatus,
@@ -37,6 +38,7 @@ import type {
   RuleOperator,
   RuleSubject,
 } from "./model.ts";
+import { findDuplicateRule } from "./rules.ts";
 
 type RuleKind = RuleSubject["kind"];
 type LoadState = "loading" | "idle" | "saving" | "error";
@@ -55,6 +57,7 @@ export function SettingsPage(): React.ReactElement {
   const [catalog, setCatalog] = useState<PortalCatalog | null>(null);
   const [rules, setRules] = useState<ReadinessRule[]>([]);
   const [pipelineId, setPipelineId] = useState("");
+  const [editingRule, setEditingRule] = useState<ReadinessRule | null>(null);
 
   const refresh = useCallback(
     async (preferredPipeline?: string) => {
@@ -120,6 +123,13 @@ export function SettingsPage(): React.ReactElement {
   }
 
   async function addRule(rule: ReadinessRule): Promise<void> {
+    const duplicate = findDuplicateRule(rule, rules);
+    if (duplicate) {
+      setError(
+        `This transition already requires ${duplicate.label}. Edit the existing requirement instead.`,
+      );
+      return;
+    }
     setState("saving");
     setError(null);
     try {
@@ -135,6 +145,38 @@ export function SettingsPage(): React.ReactElement {
       setState("error");
       setError(messageFrom(cause));
     }
+  }
+
+  async function saveRule(rule: ReadinessRule): Promise<void> {
+    const duplicate = findDuplicateRule(rule, rules);
+    if (duplicate) {
+      setError(
+        `This transition already requires ${duplicate.label}. Combine the settings with that requirement instead.`,
+      );
+      return;
+    }
+    setState("saving");
+    setError(null);
+    try {
+      const saved = await updateRule(portalId, rule);
+      setRules((current) =>
+        current.map((item) => (item.id === saved.id ? saved : item)),
+      );
+      setEditingRule(null);
+      setState("idle");
+      actions.addAlert({
+        type: "success",
+        title: "CloseReady",
+        message: "The transition requirement was updated.",
+      });
+    } catch (cause) {
+      setState("error");
+      setError(messageFrom(cause));
+    }
+  }
+
+  async function toggleRule(rule: ReadinessRule): Promise<void> {
+    await saveRule({ ...rule, enabled: !rule.enabled });
   }
 
   async function removeRule(rule: ReadinessRule): Promise<void> {
@@ -219,12 +261,15 @@ export function SettingsPage(): React.ReactElement {
 
           {pipeline ? (
             <RuleBuilder
-              key={pipeline.id}
+              key={`${pipeline.id}-${editingRule?.id ?? "new"}`}
               pipeline={pipeline}
               catalog={catalog}
               busy={busy}
               canSave={storageReady}
+              editingRule={editingRule}
               onCreate={addRule}
+              onUpdate={saveRule}
+              onCancel={() => setEditingRule(null)}
             />
           ) : (
             <EmptyState title="No deal pipeline found" layout="vertical">
@@ -239,6 +284,8 @@ export function SettingsPage(): React.ReactElement {
             pipeline={pipeline}
             busy={busy}
             canDelete={storageReady}
+            onEdit={setEditingRule}
+            onToggle={toggleRule}
             onDelete={removeRule}
           />
         </>
@@ -252,28 +299,57 @@ function RuleBuilder({
   catalog,
   busy,
   canSave,
+  editingRule,
   onCreate,
+  onUpdate,
+  onCancel,
 }: {
   pipeline: CatalogPipeline;
   catalog: PortalCatalog;
   busy: boolean;
   canSave: boolean;
+  editingRule: ReadinessRule | null;
   onCreate: (rule: ReadinessRule) => Promise<void>;
+  onUpdate: (rule: ReadinessRule) => Promise<void>;
+  onCancel: () => void;
 }): React.ReactElement {
-  const [fromStageId, setFromStageId] = useState("*");
-  const [targetStageId, setTargetStageId] = useState(
-    pipeline.stages.at(-1)?.id ?? "",
+  const [fromStageId, setFromStageId] = useState(
+    editingRule?.fromStageId ?? "*",
   );
-  const [kind, setKind] = useState<RuleKind>("deal_property");
-  const [objectType, setObjectType] =
-    useState<AssociatedObjectType>("contacts");
-  const [propertyName, setPropertyName] = useState("amount");
-  const [associationLabel, setAssociationLabel] = useState("*");
-  const [quantifier, setQuantifier] = useState<"any" | "all">("any");
-  const [operator, setOperator] = useState<RuleOperator>("present");
-  const [expectedValue, setExpectedValue] = useState(1);
-  const [severity, setSeverity] = useState<"blocker" | "warning">("blocker");
-  const [nativeEnforcement, setNativeEnforcement] = useState(false);
+  const [targetStageId, setTargetStageId] = useState(
+    editingRule?.targetStageId ?? pipeline.stages.at(-1)?.id ?? "",
+  );
+  const [kind, setKind] = useState<RuleKind>(
+    editingRule?.subject.kind ?? "deal_property",
+  );
+  const [objectType, setObjectType] = useState<AssociatedObjectType>(
+    subjectObjectType(editingRule),
+  );
+  const [propertyName, setPropertyName] = useState(
+    subjectPropertyName(editingRule),
+  );
+  const [associationLabel, setAssociationLabel] = useState(
+    subjectAssociationLabel(editingRule),
+  );
+  const [quantifier, setQuantifier] = useState<"any" | "all">(
+    editingRule?.subject.kind === "associated_record_property"
+      ? editingRule.subject.quantifier
+      : "any",
+  );
+  const [operator, setOperator] = useState<RuleOperator>(
+    editingRule?.operator ?? "present",
+  );
+  const [expectedValue, setExpectedValue] = useState(
+    typeof editingRule?.expectedValue === "number"
+      ? editingRule.expectedValue
+      : 1,
+  );
+  const [severity, setSeverity] = useState<"blocker" | "warning">(
+    editingRule?.severity ?? "blocker",
+  );
+  const [nativeEnforcement, setNativeEnforcement] = useState(
+    editingRule?.nativeEnforcement ?? false,
+  );
 
   const propertyOptions = useMemo(() => {
     const properties =
@@ -330,8 +406,8 @@ function RuleBuilder({
       quantifier,
     });
     const label = describeSubject(subject, propertyOptions);
-    await onCreate({
-      id: `new-${Date.now()}`,
+    const rule: ReadinessRule = {
+      id: editingRule?.id ?? `new-${Date.now()}`,
       pipelineId: pipeline.id,
       fromStageId,
       targetStageId,
@@ -342,12 +418,18 @@ function RuleBuilder({
       severity,
       enabled: true,
       nativeEnforcement: kind === "deal_property" && nativeEnforcement,
-    });
+    };
+    if (editingRule) await onUpdate(rule);
+    else await onCreate(rule);
   }
 
   return (
     <Flex direction="column" gap="medium">
-      <Heading>Add a transition requirement</Heading>
+      <Heading>
+        {editingRule
+          ? "Edit transition requirement"
+          : "Add a transition requirement"}
+      </Heading>
       <Text>
         When a deal moves from one stage to another, require the selected CRM
         data before allowing the guarded transition.
@@ -536,8 +618,13 @@ function RuleBuilder({
           disabled={busy || !canSave || !targetStageId || !propertyName}
           onClick={() => void submit()}
         >
-          Add requirement
+          {editingRule ? "Save changes" : "Add requirement"}
         </Button>
+        {editingRule ? (
+          <Button disabled={busy} onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
       </ButtonRow>
     </Flex>
   );
@@ -548,14 +635,19 @@ function RuleList({
   pipeline,
   busy,
   canDelete,
+  onEdit,
+  onToggle,
   onDelete,
 }: {
   rules: ReadinessRule[];
   pipeline?: CatalogPipeline;
   busy: boolean;
   canDelete: boolean;
+  onEdit: (rule: ReadinessRule) => void;
+  onToggle: (rule: ReadinessRule) => Promise<void>;
   onDelete: (rule: ReadinessRule) => Promise<void>;
 }): React.ReactElement {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   if (!rules.length) {
     return (
       <EmptyState
@@ -606,14 +698,37 @@ function RuleList({
                 </StatusTag>
               </TableCell>
               <TableCell>
-                <Button
-                  size="xs"
-                  variant="destructive"
-                  disabled={busy || !canDelete}
-                  onClick={() => void onDelete(rule)}
-                >
-                  Delete
-                </Button>
+                <Flex direction="row" gap="extra-small" wrap="wrap">
+                  <Button
+                    size="xs"
+                    disabled={busy}
+                    onClick={() => onEdit(rule)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="xs"
+                    disabled={busy || !canDelete}
+                    onClick={() => void onToggle(rule)}
+                  >
+                    {rule.enabled ? "Pause" : "Enable"}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="destructive"
+                    disabled={busy || !canDelete}
+                    onClick={() => {
+                      if (confirmDeleteId === rule.id) {
+                        setConfirmDeleteId(null);
+                        void onDelete(rule);
+                      } else {
+                        setConfirmDeleteId(rule.id);
+                      }
+                    }}
+                  >
+                    {confirmDeleteId === rule.id ? "Confirm delete" : "Delete"}
+                  </Button>
+                </Flex>
               </TableCell>
             </TableRow>
           ))}
@@ -621,6 +736,31 @@ function RuleList({
       </Table>
     </Flex>
   );
+}
+
+function subjectObjectType(rule: ReadinessRule | null): AssociatedObjectType {
+  return rule?.subject.kind === "associated_record_count" ||
+    rule?.subject.kind === "associated_record_property"
+    ? rule.subject.objectType
+    : "contacts";
+}
+
+function subjectPropertyName(rule: ReadinessRule | null): string {
+  if (
+    rule?.subject.kind === "deal_property" ||
+    rule?.subject.kind === "associated_record_property"
+  ) {
+    return rule.subject.propertyName;
+  }
+  if (rule?.subject.kind === "metric") return rule.subject.metric;
+  return "amount";
+}
+
+function subjectAssociationLabel(rule: ReadinessRule | null): string {
+  return rule?.subject.kind === "associated_record_count" ||
+    rule?.subject.kind === "associated_record_property"
+    ? (rule.subject.associationLabel ?? "*")
+    : "*";
 }
 
 function buildSubject(input: {

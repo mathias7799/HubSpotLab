@@ -75,6 +75,19 @@ export async function createRule(
   });
 }
 
+export async function updateRule(
+  portalId: number,
+  rule: ReadinessRule,
+): Promise<ReadinessRule> {
+  return request(
+    `/api/rules/${encodeURIComponent(rule.id)}?portalId=${portalId}`,
+    {
+      method: "PATCH",
+      body: { ...rule },
+    },
+  );
+}
+
 export async function deleteRule(
   portalId: number,
   ruleId: string,

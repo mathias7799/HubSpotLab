@@ -187,6 +187,12 @@ export function HomePage(): React.ReactElement {
 
       {pipeline ? (
         <>
+          <SetupHealth
+            catalogReady={Boolean(catalog)}
+            storageReady={storageReady}
+            ruleCount={enabledRules.length}
+          />
+
           <Table bordered density="compact">
             <TableHead>
               <TableRow>
@@ -237,6 +243,58 @@ export function HomePage(): React.ReactElement {
           </Text>
         </EmptyState>
       ) : null}
+    </Flex>
+  );
+}
+
+function SetupHealth({
+  catalogReady,
+  storageReady,
+  ruleCount,
+}: {
+  catalogReady: boolean;
+  storageReady: boolean;
+  ruleCount: number;
+}): React.ReactElement {
+  const complete = [catalogReady, storageReady, ruleCount > 0].filter(
+    Boolean,
+  ).length;
+  return (
+    <Flex direction="column" gap="small">
+      <Flex direction="row" gap="small" align="center">
+        <Heading>Setup health</Heading>
+        <StatusTag variant={complete === 3 ? "success" : "warning"}>
+          {complete}/3 ready
+        </StatusTag>
+      </Flex>
+      <Table bordered density="compact">
+        <TableHead>
+          <TableRow>
+            <TableHeader>Portal access</TableHeader>
+            <TableHeader>Rule storage</TableHeader>
+            <TableHeader>Active rules</TableHeader>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          <TableRow>
+            <TableCell>
+              <StatusTag variant={catalogReady ? "success" : "warning"}>
+                {catalogReady ? "Connected" : "Needs attention"}
+              </StatusTag>
+            </TableCell>
+            <TableCell>
+              <StatusTag variant={storageReady ? "success" : "warning"}>
+                {storageReady ? "Ready" : "Needs attention"}
+              </StatusTag>
+            </TableCell>
+            <TableCell>
+              <StatusTag variant={ruleCount ? "success" : "warning"}>
+                {ruleCount ? `${ruleCount} enabled` : "Add a rule"}
+              </StatusTag>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </Flex>
   );
 }

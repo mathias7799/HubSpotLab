@@ -73,6 +73,7 @@ function CloseReadyCard(): React.ReactElement {
     "evaluate" | "transition" | null
   >(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState(false);
 
   async function loadContext(): Promise<void> {
     setLoading(true);
@@ -92,6 +93,7 @@ function CloseReadyCard(): React.ReactElement {
       setCatalog(nextCatalog);
       setDeal(nextDeal);
       setEvaluation(null);
+      setLastChecked(false);
       const nextStages = orderedStages(
         nextCatalog.pipelines.find(
           (pipeline) => pipeline.id === nextDeal.pipelineId,
@@ -128,11 +130,13 @@ function CloseReadyCard(): React.ReactElement {
         { method: "POST", body: { targetStageId } },
       );
       setEvaluation(result);
+      setLastChecked(true);
       if (action === "transition" && result.ready) {
         const completedStageId = targetStageId;
         setDeal({ ...deal, currentStageId: completedStageId });
         setTargetStageId(defaultTargetStage(stages, completedStageId));
         setEvaluation(null);
+        setLastChecked(false);
         actions.refreshObjectProperties();
         actions.addAlert({
           type: "success",
@@ -209,11 +213,18 @@ function CloseReadyCard(): React.ReactElement {
         onChange={(value) => {
           setTargetStageId(String(value));
           setEvaluation(null);
+          setLastChecked(false);
           setError(null);
         }}
       />
 
       {evaluation ? <EvaluationSummary evaluation={evaluation} /> : null}
+
+      {evaluation && !evaluation.ready && evaluation.blockers.length ? (
+        <Alert title="Complete the blockers on this deal" variant="warning">
+          Update the missing deal or associated-record data, then check again.
+        </Alert>
+      ) : null}
 
       <PrimaryAction
         evaluation={evaluation}
@@ -225,6 +236,11 @@ function CloseReadyCard(): React.ReactElement {
       />
 
       <Divider size="extra-small" />
+      {lastChecked ? (
+        <Text variant="microcopy">
+          Checked against live HubSpot data just now.
+        </Text>
+      ) : null}
       <Text variant="microcopy">
         Native HubSpot stage changes bypass app rules. Use this card for a
         governed move.
@@ -248,6 +264,9 @@ function PrimaryAction({
   onEvaluate: () => void;
   onTransition: () => void;
 }): React.ReactElement {
+  if (evaluation && evaluation.results.length === 0) {
+    return <Button disabled>Configure rules before moving</Button>;
+  }
   if (evaluation?.ready) {
     return (
       <Button
@@ -305,26 +324,36 @@ function EvaluationSummary({
           requirements.
         </Alert>
       ) : (
-        orderedResults.map((result) => (
-          <Flex key={result.rule.id} direction="row" gap="small" align="start">
-            <StatusTag
-              variant={
-                result.passed
-                  ? "success"
-                  : result.rule.severity === "blocker"
-                    ? "danger"
-                    : "warning"
-              }
+        <Flex direction="column" gap="small">
+          <Heading>
+            {evaluation.ready ? "Requirements" : "Readiness details"}
+          </Heading>
+          {orderedResults.map((result) => (
+            <Flex
+              key={result.rule.id}
+              direction="row"
+              gap="small"
+              align="start"
             >
-              {result.passed
-                ? "Pass"
-                : result.rule.severity === "blocker"
-                  ? "Blocker"
-                  : "Warning"}
-            </StatusTag>
-            <Text>{result.message}</Text>
-          </Flex>
-        ))
+              <StatusTag
+                variant={
+                  result.passed
+                    ? "success"
+                    : result.rule.severity === "blocker"
+                      ? "danger"
+                      : "warning"
+                }
+              >
+                {result.passed
+                  ? "Pass"
+                  : result.rule.severity === "blocker"
+                    ? "Blocker"
+                    : "Warning"}
+              </StatusTag>
+              <Text>{result.message}</Text>
+            </Flex>
+          ))}
+        </Flex>
       )}
     </Flex>
   );
