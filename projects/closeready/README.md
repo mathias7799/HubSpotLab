@@ -39,9 +39,27 @@ The HubSpot experience is split into three focused surfaces:
 
 ![CloseReady pipeline overview](docs/images/overview.png)
 
-![CloseReady rule settings](docs/images/rule-settings.png)
+The overview confirms portal access, storage readiness, active rules, and stage
+coverage before administrators begin relying on the guarded workflow.
+
+![CloseReady rule builder](docs/images/configuration-page.png)
+
+Rules can target any source stage or one exact transition. Administrators can
+require deal properties, labeled contact or company associations, fields on
+associated records, line items, approved quotes, or open tasks. Existing rules
+can be edited, paused, re-enabled, or deleted with confirmation.
+
+![CloseReady blocked deal transition](docs/images/deal-blocked.png)
+
+On a deal, the rep selects a target stage and checks live readiness. CloseReady
+lists every pass, warning, and blocker. The move action only appears when all
+blocking requirements pass; an unconfigured transition cannot be moved through
+the card.
 
 ![CloseReady native app settings](docs/images/native-settings.png)
+
+See the [visual product tour](docs/product-tour.md) for the complete workflow
+and supported rule types.
 
 ## Storage that fits the portal
 
