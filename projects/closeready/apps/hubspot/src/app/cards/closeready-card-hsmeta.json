@@ -1,0 +1,11 @@
+{
+  "uid": "closeready_deal_card",
+  "type": "card",
+  "config": {
+    "name": "CloseReady",
+    "description": "Evaluate deal readiness and perform guarded stage transitions.",
+    "location": "crm.record.sidebar",
+    "entrypoint": "/app/cards/CloseReadyCard.tsx",
+    "objectTypes": ["deals"]
+  }
+}

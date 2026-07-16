@@ -129,6 +129,7 @@ describe("CloseReadyHubSpotClient", () => {
     expect(await client.ensureRuleSchema()).toEqual({
       objectTypeId: "2-123",
       fullyQualifiedName: "p1_closeready_rule",
+      propertyNames: [...ruleObjectDefinition.properties],
     });
     expect(requests.some((item) => item.init?.method === "POST")).toBe(false);
   });
@@ -151,6 +152,7 @@ describe("CloseReadyHubSpotClient", () => {
     expect(await client.ensureRuleSchema()).toEqual({
       objectTypeId: "2-456",
       fullyQualifiedName: "p1_closeready_rule",
+      propertyNames: [...ruleObjectDefinition.properties],
     });
     const create = requests.find((item) => item.init?.method === "POST");
     const definition = JSON.parse(String(create?.init?.body)) as {
@@ -161,6 +163,86 @@ describe("CloseReadyHubSpotClient", () => {
     expect(definition.properties.map((property) => property.name)).toEqual(
       ruleObjectDefinition.properties,
     );
+  });
+
+  it("uses the primary property when an administrator created a minimal object", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const compactRule = { ...decisionMakerEmail, id: "stored" };
+    const client = new CloseReadyHubSpotClient(
+      "token",
+      mockHubSpot(requests, {
+        "/crm-object-schemas/v3/schemas": {
+          results: [
+            {
+              name: "closeready_rule",
+              labels: {
+                singular: "CloseReady rule",
+                plural: "CloseReady rules",
+              },
+              objectTypeId: "2-789",
+              fullyQualifiedName: "p1_closeready_rule",
+              properties: [{ name: "rule_name" }],
+            },
+          ],
+        },
+        "/crm/v3/objects/p1_closeready_rule/search": {
+          results: [
+            {
+              id: "crm-record-id",
+              properties: { rule_name: JSON.stringify(compactRule) },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(await client.listRules("default")).toEqual([
+      { ...decisionMakerEmail, id: "crm-record-id" },
+    ]);
+    const search = requests.find((item) => item.url.endsWith("/search"));
+    expect(JSON.parse(String(search?.init?.body))).toMatchObject({
+      filterGroups: [],
+      properties: ["rule_name"],
+    });
+  });
+
+  it("creates and parses a compact rule record", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const client = new CloseReadyHubSpotClient(
+      "token",
+      mockHubSpot(requests, {
+        "/crm-object-schemas/v3/schemas": {
+          results: [
+            {
+              name: "closeready_rule",
+              labels: { singular: "CloseReady rule" },
+              objectTypeId: "2-789",
+              fullyQualifiedName: "p1_closeready_rule",
+              properties: [{ name: "rule_name" }],
+            },
+          ],
+        },
+        "/crm/v3/objects/p1_closeready_rule": {
+          id: "crm-record-id",
+          properties: {
+            rule_name: JSON.stringify({
+              ...decisionMakerEmail,
+              id: "stored",
+            }),
+          },
+        },
+      }),
+    );
+
+    expect(await client.createRule(decisionMakerEmail)).toEqual({
+      ...decisionMakerEmail,
+      id: "crm-record-id",
+    });
+    const create = requests.find((item) =>
+      item.url.endsWith("/p1_closeready_rule"),
+    );
+    const properties = JSON.parse(String(create?.init?.body)).properties;
+    expect(Object.keys(properties)).toEqual(["rule_name"]);
   });
 });
 

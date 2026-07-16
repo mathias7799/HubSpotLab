@@ -59,6 +59,16 @@ export function createApp(dependencies: AppDependencies) {
       if (request.method === "GET" && url.pathname === "/api/catalog") {
         return json(await hubspot.catalog());
       }
+      const dealContextRoute = url.pathname.match(
+        /^\/api\/deals\/([^/]+)\/context$/,
+      );
+      if (dealContextRoute && request.method === "GET") {
+        return json(
+          await hubspot.dealContext(
+            decodeURIComponent(dealContextRoute[1] as string),
+          ),
+        );
+      }
       if (request.method === "GET" && url.pathname === "/api/rules") {
         const mode = await storageMode(portalId, hubspot);
         return json({

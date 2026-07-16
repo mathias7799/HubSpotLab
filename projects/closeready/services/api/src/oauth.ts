@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import type { AppConfig } from "./config.js";
+import { defaultScopes, type AppConfig } from "./config.js";
 import { sign, verifySignature } from "./crypto.js";
 import type { Installation, TokenStore } from "./token-store.js";
 
@@ -27,7 +27,16 @@ export class OAuthService {
     const url = new URL("https://app.hubspot.com/oauth/authorize");
     url.searchParams.set("client_id", this.config.clientId);
     url.searchParams.set("redirect_uri", this.callbackUrl);
-    url.searchParams.set("scope", this.config.scopes.join(" "));
+    const required = this.config.scopes.filter((scope) =>
+      defaultScopes.includes(scope as (typeof defaultScopes)[number]),
+    );
+    const optional = this.config.scopes.filter(
+      (scope) => !required.includes(scope),
+    );
+    url.searchParams.set("scope", required.join(" "));
+    if (optional.length) {
+      url.searchParams.set("optional_scope", optional.join(" "));
+    }
     url.searchParams.set("state", this.createState(returnTo));
     return url.toString();
   }

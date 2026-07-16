@@ -45,6 +45,12 @@ use the checked-in
 the one-time portal bootstrap. Standard portals need no bootstrap and use the
 portable store automatically.
 
+Some portals expose manual custom-object creation while withholding schema-write
+API permissions. In that case, create `closeready_rule` with `rule_name` as its
+primary property. The API detects the minimal schema and stores the complete
+validated rule as compact JSON in `rule_name`, avoiding a long manual property
+setup.
+
 The default OAuth scope set is intentionally universal. To opt an Enterprise
 installation into native rule storage, add `crm.schemas.custom.read`,
 `crm.objects.custom.read`, and `crm.objects.custom.write` to `HUBSPOT_SCOPES`;

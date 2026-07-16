@@ -8,7 +8,7 @@
     "api:test": "pnpm --filter @hubspotlab/closeready-api test",
     "api:typecheck": "pnpm --filter @hubspotlab/closeready-api typecheck",
     "app:test": "pnpm --dir apps/hubspot/src/app/pages test",
-    "app:typecheck": "pnpm --dir apps/hubspot/src/app/pages typecheck && pnpm --dir apps/hubspot/src/app/settings typecheck",
+    "app:typecheck": "pnpm --dir apps/hubspot/src/app/pages typecheck && pnpm --dir apps/hubspot/src/app/settings typecheck && pnpm --dir apps/hubspot/src/app/cards typecheck",
     "test": "pnpm --filter './packages/**' --filter './services/**' test && pnpm app:test",
     "typecheck": "pnpm --filter './packages/**' --filter './services/**' typecheck && pnpm app:typecheck"
   }

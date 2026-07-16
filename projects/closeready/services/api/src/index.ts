@@ -2,6 +2,7 @@ export {
   CloseReadyHubSpotClient,
   HubSpotApiError,
   type AssociationLabel,
+  type DealContext,
   type PortalCatalog,
   type RuleSchema,
 } from "./hubspot.js";

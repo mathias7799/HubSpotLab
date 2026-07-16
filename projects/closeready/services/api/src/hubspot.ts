@@ -14,6 +14,13 @@ import {
 export interface RuleSchema {
   objectTypeId: string;
   fullyQualifiedName: string;
+  propertyNames: string[];
+}
+
+export interface DealContext {
+  dealId: string;
+  pipelineId: string;
+  currentStageId: string;
 }
 
 export interface PortalCatalog {
@@ -109,21 +116,25 @@ export class CloseReadyHubSpotClient {
 
   async listRules(pipelineId?: string): Promise<ReadinessRule[]> {
     const schema = await this.ensureRuleSchema();
+    const compact = usesCompactRuleStorage(schema);
     const body = {
-      filterGroups: pipelineId
-        ? [
-            {
-              filters: [
-                {
-                  propertyName: "pipeline_id",
-                  operator: "EQ",
-                  value: pipelineId,
-                },
-              ],
-            },
-          ]
-        : [],
-      properties: [...ruleObjectDefinition.properties],
+      filterGroups:
+        pipelineId && !compact
+          ? [
+              {
+                filters: [
+                  {
+                    propertyName: "pipeline_id",
+                    operator: "EQ",
+                    value: pipelineId,
+                  },
+                ],
+              },
+            ]
+          : [],
+      properties: compact
+        ? [ruleObjectDefinition.primaryDisplayProperty]
+        : [...ruleObjectDefinition.properties],
       limit: 100,
     };
     const response = await this.request<{ results?: CrmRecord[] }>(
@@ -131,10 +142,9 @@ export class CloseReadyHubSpotClient {
       { method: "POST", body: JSON.stringify(body) },
     );
     return (response.results ?? [])
-      .map((record) =>
-        deserializeRule(record.id, record.properties as RuleRecordProperties),
-      )
-      .filter((rule): rule is ReadinessRule => rule !== null);
+      .map((record) => deserializeStoredRuleOrNull(record, compact))
+      .filter((rule): rule is ReadinessRule => rule !== null)
+      .filter((rule) => !pipelineId || rule.pipelineId === pipelineId);
   }
 
   async createRule(rule: ReadinessRule): Promise<ReadinessRule> {
@@ -144,10 +154,12 @@ export class CloseReadyHubSpotClient {
       `/crm/v3/objects/${encodeURIComponent(schema.fullyQualifiedName)}`,
       {
         method: "POST",
-        body: JSON.stringify({ properties: serializeRule(rule) }),
+        body: JSON.stringify({
+          properties: storedRuleProperties(rule, schema),
+        }),
       },
     );
-    return deserializeStoredRule(record);
+    return deserializeStoredRule(record, usesCompactRuleStorage(schema));
   }
 
   async updateRule(rule: ReadinessRule): Promise<ReadinessRule> {
@@ -157,10 +169,12 @@ export class CloseReadyHubSpotClient {
       `/crm/v3/objects/${encodeURIComponent(schema.fullyQualifiedName)}/${encodeURIComponent(rule.id)}`,
       {
         method: "PATCH",
-        body: JSON.stringify({ properties: serializeRule(rule) }),
+        body: JSON.stringify({
+          properties: storedRuleProperties(rule, schema),
+        }),
       },
     );
-    return deserializeStoredRule(record);
+    return deserializeStoredRule(record, usesCompactRuleStorage(schema));
   }
 
   async deleteRule(ruleId: string): Promise<void> {
@@ -186,6 +200,18 @@ export class CloseReadyHubSpotClient {
       relevant,
     );
     return evaluateReadiness(relevant, snapshot);
+  }
+
+  async dealContext(dealId: string): Promise<DealContext> {
+    const deal = await this.readRecord("deals", dealId, [
+      "pipeline",
+      "dealstage",
+    ]);
+    return {
+      dealId,
+      pipelineId: deal.properties.pipeline ?? "",
+      currentStageId: deal.properties.dealstage ?? "",
+    };
   }
 
   async guardedTransition(
@@ -472,14 +498,51 @@ function visibleProperties(results: unknown[] | undefined): unknown[] {
   return (results ?? []).filter((item) => !asObject(item).hidden);
 }
 
-function deserializeStoredRule(record: CrmRecord): ReadinessRule {
-  const rule = deserializeRule(
-    record.id,
-    record.properties as RuleRecordProperties,
-  );
+function deserializeStoredRule(
+  record: CrmRecord,
+  compact: boolean,
+): ReadinessRule {
+  const rule = deserializeStoredRuleOrNull(record, compact);
   if (!rule)
     throw new HubSpotApiError(502, "HubSpot returned an invalid rule record.");
   return rule;
+}
+
+function deserializeStoredRuleOrNull(
+  record: CrmRecord,
+  compact: boolean,
+): ReadinessRule | null {
+  if (compact) {
+    const value =
+      record.properties[ruleObjectDefinition.primaryDisplayProperty];
+    if (!value) return null;
+    try {
+      const parsed = JSON.parse(value) as ReadinessRule;
+      const rule = { ...parsed, id: record.id };
+      return validateRule(rule).length ? null : rule;
+    } catch {
+      return null;
+    }
+  }
+  return deserializeRule(record.id, record.properties as RuleRecordProperties);
+}
+
+function storedRuleProperties(
+  rule: ReadinessRule,
+  schema: RuleSchema,
+): Record<string, string> {
+  return usesCompactRuleStorage(schema)
+    ? {
+        [ruleObjectDefinition.primaryDisplayProperty]: JSON.stringify({
+          ...rule,
+          id: "stored",
+        }),
+      }
+    : serializeRule(rule);
+}
+
+function usesCompactRuleStorage(schema: RuleSchema): boolean {
+  return !schema.propertyNames.includes("pipeline_id");
 }
 
 function assertValidRule(rule: ReadinessRule): void {
@@ -505,6 +568,12 @@ function normalizeSchema(schema: Record<string, unknown>): RuleSchema {
   return {
     objectTypeId: schema.objectTypeId,
     fullyQualifiedName: schema.fullyQualifiedName,
+    propertyNames: Array.isArray(schema.properties)
+      ? schema.properties
+          .map(asObject)
+          .map((property) => String(property.name ?? ""))
+          .filter(Boolean)
+      : [...ruleObjectDefinition.properties],
   };
 }
 

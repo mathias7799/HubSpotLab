@@ -15,7 +15,8 @@ describe("HubSpot request signatures", () => {
     async (representation) => {
       const url = "https://api.example.com/api/rules/new%3A123?portalId=1";
       const timestamp = String(Date.now());
-      const signedUrl = representation === "decoded" ? url.replace("%3A", ":") : url;
+      const signedUrl =
+        representation === "decoded" ? url.replace("%3A", ":") : url;
       const source = `DELETE${signedUrl}${timestamp}`;
       const signature = createHmac("sha256", config.clientSecret)
         .update(source)

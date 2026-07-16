@@ -29,6 +29,8 @@ HubSpot serverless when available.
 
 The HubSpot experience is split into three focused surfaces:
 
+- the deal sidebar card checks a selected transition and performs the guarded
+  move only when every blocker passes;
 - the app overview shows target-stage coverage, blockers, warnings, and rule
   types per pipeline;
 - the app's `/settings` route owns transition-rule configuration;
@@ -73,6 +75,18 @@ they do not block installation on Standard portals. Otherwise leave
 `RULE_STORAGE=auto`; setup remains ready and selects the encrypted portable
 store. Operators can force a mode with `RULE_STORAGE=hubspot` or
 `RULE_STORAGE=external`.
+
+When a portal allows custom objects in HubSpot's Data Model UI but does not
+grant schema-write API access, create one object named `CloseReady rule` with
+internal name `closeready_rule` and primary property `rule_name`. CloseReady
+detects this minimal administrator-created object and stores each validated rule
+as a compact JSON record in that primary property; no additional custom
+properties or second object are required.
+
+After the first deployment, add the **CloseReady** card to the standard deal
+record layout: **Settings > Objects > Deals > Record customization > Standard
+view > Add card > Card library > CloseReady**. Save the layout once; every deal
+then gets the guarded transition flow.
 
 ```bash
 pnpm --filter @hubspotlab/closeready-core test

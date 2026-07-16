@@ -32,6 +32,12 @@ shown prominently in the deal card and pipeline dashboard. They cannot prevent
 a sufficiently privileged user from changing the native deal stage elsewhere
 in HubSpot.
 
+The deal sidebar card is therefore the enforcement entry point: choose a target
+stage, check readiness, and use the resulting **Move to [stage]** action. The
+backend evaluates fresh HubSpot data and writes `dealstage` only when no blocker
+fails. HubSpot does not expose an extension hook that can cancel a stage change
+performed with the native deal-stage control.
+
 The UI must always label this distinction clearly:
 
 - **HubSpot requirement** — native stage transition is blocked.
