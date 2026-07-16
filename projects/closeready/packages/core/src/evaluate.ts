@@ -288,7 +288,7 @@ function failureMessage(
         : `at least ${expected} ${rule.subject.objectType}`;
     return `Associate ${target}${label}. Current count: ${String(actual ?? 0)}.`;
   }
-  if (rule.operator === "present") return `Complete ${rule.label}.`;
+  if (rule.operator === "present") return `Fill in ${rule.label}.`;
   return `${rule.label} must be ${String(rule.expectedValue)}. Current value: ${String(actual ?? "empty")}.`;
 }
 
@@ -304,12 +304,12 @@ function associatedPropertyFailure(
     const label = subject.associationLabel
       ? ` labeled “${subject.associationLabel}”`
       : "";
-    return `Associate a ${object}${label}, then complete ${field}.`;
+    return `Associate a ${object}${label}, then fill in its ${field} field.`;
   }
   if (subject.quantifier === "any") {
-    return `Complete ${field} on at least one matching ${object}.`;
+    return `Fill in the ${field} field on at least one matching ${object}.`;
   }
-  return `Complete ${field} on ${failingCount} of ${records.length} matching ${subject.objectType}.`;
+  return `Fill in the ${field} field on ${failingCount} of ${records.length} matching ${subject.objectType}.`;
 }
 
 function ruleFieldLabel(label: string): string {

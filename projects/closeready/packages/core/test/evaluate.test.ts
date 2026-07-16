@@ -197,7 +197,7 @@ describe("evaluateReadiness", () => {
     const result = evaluateReadiness([rule], snapshot());
     expect(result.ready).toBe(false);
     expect(result.blockers[0]?.message).toBe(
-      "Associate a contact labeled “Decision maker”, then complete Phone.",
+      "Associate a contact labeled “Decision maker”, then fill in its Phone field.",
     );
   });
 
