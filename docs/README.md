@@ -6,3 +6,8 @@ describe.
 
 - [Architecture](architecture.md)
 - [Decision records](decisions/README.md)
+
+Product documentation stays with the product:
+
+- [CloseReady](../projects/closeready/README.md)
+- [TidsHub](../projects/tidshub/README.md)

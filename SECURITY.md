@@ -19,5 +19,6 @@ revision on `main`.
 - Use a dedicated HubSpot developer test account for local and browser tests.
 - Rotate a credential immediately if it appears in a terminal log, screenshot,
   issue, or commit.
-- Production TidsHub deployments must use the encrypted durable token store.
-  The in-memory store and unsigned requests are local-development features.
+- Production OAuth services, including TidsHub and CloseReady, must use their
+  encrypted durable token stores. In-memory stores and unsigned requests are
+  local-development features only.

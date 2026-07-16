@@ -1,8 +1,9 @@
 # CloseReady API
 
 This package contains the HubSpot gateway and a web-standard `Request` to
-`Response` handler. The same handler can be wrapped by Node, AWS Lambda, Azure
-Functions, or HubSpot serverless adapters.
+`Response` handler. A Node adapter is included. AWS Lambda, Azure Functions, or
+other HTTP runtimes can use thin adapters around the same handler; those
+adapters are not currently shipped in this project.
 
 Implemented capabilities:
 
@@ -19,16 +20,50 @@ OAuth, AES-256-GCM encrypted Upstash token persistence, HubSpot signature v3
 verification, and a local Node adapter are included. The core HTTP handler still
 injects these boundaries so cloud-specific adapters remain small.
 
-For local API work:
+## Local development
 
 ```bash
 pnpm --dir projects/closeready/services/api dev:local
 curl http://localhost:8788/health
 ```
 
-The local command uses in-memory token and rule stores and accepts unsigned requests
-only on `localhost`/`127.0.0.1`. A durable encrypted store is mandatory outside
-development.
+The local command uses in-memory token and rule stores and accepts unsigned
+requests only on `localhost`/`127.0.0.1`. A durable encrypted store is mandatory
+outside development. For a real OAuth flow, copy `.env.example`, configure the
+credentials and public HTTPS origin, run `pnpm --filter
+@hubspotlab/closeready-api dev`, then open `{PUBLIC_URL}/oauth/install`.
+
+## Production configuration
+
+| Variable                   | Purpose                                    |
+| -------------------------- | ------------------------------------------ |
+| `HUBSPOT_CLIENT_ID`        | OAuth app client ID                        |
+| `HUBSPOT_CLIENT_SECRET`    | OAuth and HubSpot request-signature secret |
+| `HUBSPOT_SCOPES`           | Space- or comma-separated scope override   |
+| `PUBLIC_URL`               | Public API origin without a trailing slash |
+| `TOKEN_ENCRYPTION_KEY`     | Encrypts durable OAuth and rule records    |
+| `UPSTASH_REDIS_REST_URL`   | Durable REST Redis endpoint                |
+| `UPSTASH_REDIS_REST_TOKEN` | REST Redis bearer token                    |
+| `RULE_STORAGE`             | `auto`, `hubspot`, or `external`           |
+
+Production startup requires encrypted durable token storage.
+
+## Routes
+
+| Method   | Route                                  | Purpose                                       |
+| -------- | -------------------------------------- | --------------------------------------------- |
+| `GET`    | `/health`                              | Process health                                |
+| `GET`    | `/oauth/install`                       | Begin OAuth installation                      |
+| `GET`    | `/oauth/callback`                      | Exchange and store OAuth tokens               |
+| `POST`   | `/api/provision?portalId=…`            | Select or initialize rule storage             |
+| `GET`    | `/api/catalog?portalId=…`              | Pipelines, properties, and association labels |
+| `GET`    | `/api/rules?portalId=…`                | List rules, optionally by pipeline            |
+| `POST`   | `/api/rules?portalId=…`                | Create a rule                                 |
+| `PATCH`  | `/api/rules/:id?portalId=…`            | Update a rule                                 |
+| `DELETE` | `/api/rules/:id?portalId=…`            | Delete a rule                                 |
+| `GET`    | `/api/deals/:id/context?portalId=…`    | Current pipeline and stage                    |
+| `POST`   | `/api/deals/:id/evaluate?portalId=…`   | Evaluate a target stage                       |
+| `POST`   | `/api/deals/:id/transition?portalId=…` | Re-evaluate and perform a guarded move        |
 
 With `RULE_STORAGE=auto` (the default), CloseReady uses the same idempotent
 provisioning model as TidsHub. A setup check lists the portal's custom schemas,

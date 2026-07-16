@@ -16,3 +16,10 @@ projects/example/
 
 Code shared by multiple projects belongs in `packages/`. Repository-wide
 conventions and architectural decisions belong in `docs/`.
+
+## Active projects
+
+| Project    | Product surface                                              | Documentation                 |
+| ---------- | ------------------------------------------------------------ | ----------------------------- |
+| CloseReady | Deal-readiness app page, rule settings, and deal card        | [Guide](closeready/README.md) |
+| TidsHub    | Time-registration app page, CRM cards, and approval workflow | [Guide](tidshub/README.md)    |

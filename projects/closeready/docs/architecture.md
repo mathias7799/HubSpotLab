@@ -2,16 +2,15 @@
 
 ```mermaid
 flowchart LR
-  Card[Deal record card] --> API[Portable signed API]
-  Page[CloseReady app page] --> API
+  Card[Deal record card] -->|HubSpot signature v3| API[Portable OAuth API]
+  Page[App page and settings] -->|HubSpot signature v3| API
   API --> Pipelines[HubSpot pipelines and properties]
   API --> Deals[Deals and associations]
+  API --> Engine[Shared rule engine]
   API --> Choice{Custom objects available?}
   Choice -->|Yes| Rules[(One CloseReady rule object)]
   Choice -->|No| Portable[(Encrypted portable rule store)]
-  Card --> Engine[Shared rule engine]
-  Page --> Engine
-  API --> Engine
+  API --> Tokens[(Encrypted OAuth token store)]
 ```
 
 ## Capability-based persistence
@@ -29,21 +28,22 @@ written to CRM.
 
 ## API contract
 
-| Method   | Route                        | Purpose                                       |
-| -------- | ---------------------------- | --------------------------------------------- |
-| `POST`   | `/api/provision`             | Select and report the portal's storage mode   |
-| `GET`    | `/api/catalog`               | Pipelines, CRM properties, association labels |
-| `GET`    | `/api/rules?pipelineId=…`    | List pipeline rules                           |
-| `POST`   | `/api/rules`                 | Create a validated rule                       |
-| `PATCH`  | `/api/rules/:id`             | Update a validated rule                       |
-| `DELETE` | `/api/rules/:id`             | Archive a rule                                |
-| `POST`   | `/api/deals/:id/evaluate`    | Evaluate against a target stage               |
-| `POST`   | `/api/deals/:id/transition`  | Guard and perform an allowed transition       |
-| `GET`    | `/api/overview?pipelineId=…` | Pipeline readiness dashboard                  |
+| Method   | Route                       | Purpose                                       |
+| -------- | --------------------------- | --------------------------------------------- |
+| `POST`   | `/api/provision`            | Select and report the portal's storage mode   |
+| `GET`    | `/api/catalog`              | Pipelines, CRM properties, association labels |
+| `GET`    | `/api/rules?pipelineId=…`   | List pipeline rules                           |
+| `POST`   | `/api/rules`                | Create a validated rule                       |
+| `PATCH`  | `/api/rules/:id`            | Update a validated rule                       |
+| `DELETE` | `/api/rules/:id`            | Archive a rule                                |
+| `POST`   | `/api/deals/:id/evaluate`   | Evaluate against a target stage               |
+| `POST`   | `/api/deals/:id/transition` | Guard and perform an allowed transition       |
+| `GET`    | `/api/deals/:id/context`    | Read the deal's current pipeline and stage    |
 
-Every `/api/*` request uses HubSpot signature v3. The service rechecks rules
-and current deal facts during a guarded transition; it never trusts readiness
-results supplied by the UI.
+Every production `/api/*` request uses HubSpot signature v3. Explicit localhost
+development may accept unsigned requests. The service rechecks rules and current
+deal facts during a guarded transition; it never trusts readiness results
+supplied by the UI.
 
 ## Snapshot collection
 

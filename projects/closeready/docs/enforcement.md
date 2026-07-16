@@ -10,8 +10,8 @@ entering Closed won until the required fields are populated.
 
 CloseReady can mark compatible wildcard-source property rules as
 `nativeEnforcement`. Native required fields apply to every move into a target
-stage, so an exact source-stage rule cannot be represented natively. The setup
-assistant links the administrator to:
+stage, so an exact source-stage rule cannot be represented natively. Configure
+the matching rule in HubSpot's pipeline settings for the selected pipeline:
 
 ```text
 /pipelines-settings/{portalId}/object/0-3/{pipelineId}
@@ -28,7 +28,7 @@ CloseReady mutated pipeline settings.
 
 Conditions involving associations, tasks, quotes, line items, or compound logic
 are evaluated by CloseReady. They block CloseReady's guarded transition and are
-shown prominently in the deal card and pipeline dashboard. They cannot prevent
+shown prominently in the deal card. They cannot prevent
 a sufficiently privileged user from changing the native deal stage elsewhere
 in HubSpot.
 

@@ -51,7 +51,9 @@ The result is intentionally actionable:
 
 - passed requirements are confirmed;
 - warnings remain visible but do not prevent the guarded move;
-- blockers explain the missing data;
+- the summary uses a readable count such as **2 blockers to resolve**;
+- each blocker separates the rule name from a short instruction, such as
+  **Associate a company labeled “Primary”, then fill in its City field**;
 - **Check again** refreshes the evaluation after the rep fixes the deal;
 - **Move to [stage]** only appears when every blocker passes;
 - transitions without configured rules remain unavailable through the card.

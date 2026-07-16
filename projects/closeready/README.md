@@ -6,9 +6,12 @@ stage, then explains exactly what prevents a deal from progressing or closing.
 
 ## Product surfaces
 
-- **Deal card:** readiness score, blockers, warnings, and direct remediation.
-- **App page:** pipeline health, blocked deals, and readiness by owner/stage.
-- **Configuration:** per-pipeline and per-stage required data points.
+- **Deal card:** target-stage selection, live checks, concise blockers and
+  warnings, and a guarded move when requirements pass.
+- **App page:** installation health, active-rule totals, and target-stage
+  coverage for each pipeline.
+- **Configuration:** create, edit, pause, enable, and safely delete transition
+  requirements.
 - **Guarded transition:** validates every CloseReady blocker before moving a
   deal to its target stage.
 
@@ -21,11 +24,11 @@ move into a target stage. See the [product plan](docs/product-plan.md) and
 
 ## Current foundation
 
-CloseReady now contains the deterministic engine, a portable HubSpot API client,
-the web-standard HTTP contract, and the first native HubSpot configuration page.
-The runtime adapters and OAuth token store are intentionally separate from the
-business logic so the same service can run on Node, Lambda, Azure Functions, or
-HubSpot serverless when available.
+CloseReady contains a deterministic rule engine, portable HubSpot API client,
+web-standard HTTP contract, Node runtime adapter, encrypted token and rule
+stores, and native HubSpot UI extensions. The HTTP handler is intentionally
+hosting-neutral; additional cloud adapters can wrap it without changing the
+rule engine.
 
 The HubSpot experience is split into three focused surfaces:
 
@@ -60,6 +63,20 @@ the card.
 
 See the [visual product tour](docs/product-tour.md) for the complete workflow
 and supported rule types.
+
+## Prerequisites
+
+- Node.js 24 or newer and pnpm 11;
+- a HubSpot developer project with the checked-in app components uploaded;
+- an HTTPS API origin reachable by HubSpot;
+- OAuth client credentials and a long random token-encryption key;
+- Upstash REST Redis for durable production token storage and portable rule
+  storage.
+
+Copy `services/api/.env.example`, configure the values, run the API with
+`pnpm --filter @hubspotlab/closeready-api dev`, and open `/oauth/install` on the
+public API origin to connect a portal. Local health-check development is
+available with `pnpm --filter @hubspotlab/closeready-api dev:local`.
 
 ## Storage that fits the portal
 
@@ -107,11 +124,8 @@ view > Add card > Card library > CloseReady**. Save the layout once; every deal
 then gets the guarded transition flow.
 
 ```bash
-pnpm --filter @hubspotlab/closeready-core test
-pnpm --filter @hubspotlab/closeready-core typecheck
-pnpm --filter @hubspotlab/closeready-api test
-pnpm --filter @hubspotlab/closeready-api typecheck
-pnpm --dir projects/closeready/apps/hubspot/src/app/pages typecheck
+pnpm --dir projects/closeready test
+pnpm --dir projects/closeready typecheck
 ```
 
 The placeholder `closeready.example.com` origin in the HubSpot app metadata and

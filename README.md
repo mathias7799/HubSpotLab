@@ -1,7 +1,8 @@
 # HubSpotLab
 
-HubSpotLab is an MIT-licensed monorepo for reusable HubSpot apps, developer
-tools, shared libraries, automation, agent skills, examples, and documentation.
+HubSpotLab is an MIT-licensed monorepo for production-oriented HubSpot apps,
+developer tools, shared libraries, automation, agent skills, examples, and
+documentation.
 
 The repository is intentionally language-agnostic at the root. Each project
 owns its runtime, dependencies, tests, and release process while following the
@@ -33,23 +34,31 @@ pnpm test
 Use Node.js 24 or newer. Choose the narrowest matching top-level area for new
 work and keep each project independently understandable and deployable.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for repository conventions and
-[docs/architecture.md](docs/architecture.md) for the design principles behind
-the monorepo. The [TidsHub project](projects/tidshub/README.md) documents the
-first complete product and its trust boundaries.
-
 ## Current projects
 
-| Project               | Purpose                                                     |
-| --------------------- | ----------------------------------------------------------- |
-| `projects/tidshub`    | Time registration with a HubSpot app and portable OAuth API |
-| `projects/closeready` | Pipeline-specific deal readiness and close governance       |
+| Project    | Purpose                                                        | Start here                                     |
+| ---------- | -------------------------------------------------------------- | ---------------------------------------------- |
+| TidsHub    | Time registration, CRM associations, and weekly approvals      | [Project guide](projects/tidshub/README.md)    |
+| CloseReady | Configurable deal-transition readiness and guarded stage moves | [Project guide](projects/closeready/README.md) |
+
+Validate one product without running unrelated work:
+
+```bash
+pnpm --dir projects/tidshub validate
+pnpm --dir projects/closeready test
+pnpm --dir projects/closeready typecheck
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for repository conventions,
+[docs/architecture.md](docs/architecture.md) for monorepo design principles,
+and [projects/README.md](projects/README.md) for the product-owned layout.
 
 ## Status
 
-TidsHub is the first production-oriented reference application. It uses native
-HubSpot UI extensions, one custom object, signed API requests, portable OAuth,
-and an encrypted durable token store.
+HubSpotLab is pre-1.0. TidsHub and CloseReady are functional reference products,
+but deployments still require operator-owned HubSpot credentials, a public API
+origin, and production-grade encrypted token persistence. Each project README
+documents its own prerequisites, trust boundary, and validation commands.
 
 See [SECURITY.md](SECURITY.md) for private vulnerability reporting and
 [LICENSE](LICENSE) for reuse terms.

@@ -29,13 +29,19 @@ set to another pipeline, then edit the copy independently.
 
 ### Deal record card
 
-- current readiness score and target stage;
-- blockers before warnings;
-- direct links or actions to complete missing data;
-- guarded stage transition after all blockers pass;
-- clear indication when a property is also hard-blocked by HubSpot.
+- current and target stages;
+- concise blockers before warnings;
+- actionable instructions for missing data;
+- guarded stage transition after all blockers pass.
 
-### App page
+### App page: current
+
+- portal, storage, and active-rule setup health;
+- blocker, warning, and governed-stage totals;
+- target-stage coverage by pipeline;
+- requirement-type mix.
+
+### App page: future analytics
 
 - blocked deals by pipeline, stage, owner, and closing period;
 - readiness distribution and recent regressions;
@@ -45,19 +51,24 @@ set to another pipeline, then edit the copy independently.
 ### Settings
 
 - installation health and one-object provisioning;
-- default Closed won starter pack;
-- links to HubSpot pipeline settings for native required fields.
+- per-rule status for requirements an administrator has mirrored in HubSpot;
+- explanatory guidance for CloseReady versus native HubSpot enforcement.
+
+Future settings work includes a native-rule setup checklist and direct pipeline
+settings links.
 
 ## Delivery sequence
 
 1. Deterministic rule engine and validation. Complete.
-2. One-object rule persistence and portable API contract. Core complete; OAuth
-   runtime adapters remain.
-3. Pipeline, stage, property, and association-label discovery. Complete.
-4. Configuration app page. Initial implementation complete.
-5. Deal card and live readiness evaluation. Collector complete; card remains.
-6. Pipeline dashboard and guarded transition.
-7. Native-enforcement setup assistant and documentation.
+2. One-object rule persistence and encrypted portable fallback. Complete.
+3. OAuth, signed requests, token refresh, and Node runtime. Complete.
+4. Pipeline, property, and association-label discovery. Complete.
+5. Rule configuration with edit, pause, enable, duplicate protection, and
+   confirmed deletion. Complete.
+6. Deal card, live readiness evaluation, and guarded transition. Complete.
+7. Pipeline coverage overview and setup health. Complete.
+8. Native-enforcement setup guidance. Documented; deep-link workflow remains.
+9. Deal-level analytics, owner rollups, and regression history. Planned.
 
 ## Deliberate constraints
 
