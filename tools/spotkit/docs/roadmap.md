@@ -15,7 +15,7 @@
 - [x] encrypted Upstash and local-only memory token-store adapters;
 - [x] generated OAuth and health endpoints;
 - [x] JSON and strict production diagnostics;
-- [ ] migration path for TidsHub and CloseReady.
+- [x] incremental migration path validated against TidsHub and CloseReady.
 
 ## 0.3: persistence and hosting
 

@@ -34,6 +34,13 @@ pnpm validate
 pnpm upload
 ```
 
+SpotKit also validates the product's OAuth metadata, production configuration,
+and deployment boundary:
+
+```bash
+pnpm spotkit doctor projects/tidshub --strict
+```
+
 See the [HubSpot app guide](apps/hubspot/README.md),
 [API guide](services/api/README.md), and
 [architecture guide](docs/architecture.md) for component-specific details.

@@ -3,6 +3,11 @@
 All notable changes to SpotKit are documented here. SpotKit follows semantic
 versioning while it is published under the `@hubspotlab/spotkit` package.
 
+## Unreleased
+
+- document incremental adoption for existing HubSpot apps and validate the
+  path against TidsHub and CloseReady.
+
 ## 0.6.0
 
 - publish SpotKit as a self-contained npm package with templates, runtime

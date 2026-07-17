@@ -79,7 +79,8 @@ validation, confirmation-gated build uploads, and deployed HTTP/OAuth smoke
 checks. The publishable npm artifact is tested from its packed tarball in CI
 and released with provenance. A metadata-safe documentation refresh command
 turns reviewed test-portal PNG captures into a deterministic screenshot gallery
-and hash manifest.
+and hash manifest. Existing apps can adopt the same diagnostics and release
+workflow incrementally without replacing product-specific code.
 
 ## Status
 

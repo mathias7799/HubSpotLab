@@ -126,7 +126,10 @@ then gets the guarded transition flow.
 ```bash
 pnpm --dir projects/closeready test
 pnpm --dir projects/closeready typecheck
+pnpm spotkit doctor projects/closeready
 ```
 
 The placeholder `closeready.example.com` origin in the HubSpot app metadata and
-page client must be replaced with the deployed API origin before upload.
+page client must be replaced with the deployed API origin before upload. Until
+then, SpotKit reports the expected placeholder warning and strict release checks
+remain blocked.

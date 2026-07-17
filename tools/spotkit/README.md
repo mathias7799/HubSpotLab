@@ -199,5 +199,6 @@ and coordinated local-development workflow remain included.
 
 See [architecture](docs/architecture.md), [features](docs/features.md),
 [hosting](docs/hosting.md), [local development](docs/local-development.md), and
-the [release guide](docs/releasing.md), [smoke-testing guide](docs/smoke-testing.md),
+the [existing-app adoption guide](docs/adopting-existing-apps.md),
+[release guide](docs/releasing.md), [smoke-testing guide](docs/smoke-testing.md),
 [changelog](CHANGELOG.md), and [roadmap](docs/roadmap.md).
