@@ -62,13 +62,14 @@ flowchart LR
 
 ## What ships today
 
-| Product                     | What it demonstrates                                                                                                             | Start here                                          |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| **TidsHub**                 | Weekly time registration, CRM associations, project/task context, editing, approvals, and operational dashboards                 | [Product guide](projects/tidshub/README.md)         |
-| **CloseReady**              | Pipeline-specific readiness rules, associated-record requirements, guarded deal transitions, configuration, and clear blocker UX | [Product guide](projects/closeready/README.md)      |
-| **SpotKit 0.7**             | HubSpot project generator, feature catalog, diagnostics, lifecycle management, release tooling, and interactive terminal UI      | [Tool guide](tools/spotkit/README.md)               |
-| **SpotKit runtime**         | Portable OAuth, signature v3, encrypted token/configuration storage, idempotency, and cloud adapters                             | [Package guide](packages/spotkit-runtime/README.md) |
-| **Build HubSpot App skill** | Agentic planning, implementation, adoption, verification, and release workflow backed by SpotKit                                 | [Skill source](skills/build-hubspot-app/SKILL.md)   |
+| Product                      | What it demonstrates                                                                                                             | Start here                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **TidsHub**                  | Weekly time registration, CRM associations, project/task context, editing, approvals, and operational dashboards                 | [Product guide](projects/tidshub/README.md)         |
+| **CloseReady**               | Pipeline-specific readiness rules, associated-record requirements, guarded deal transitions, configuration, and clear blocker UX | [Product guide](projects/closeready/README.md)      |
+| **SpotKit 0.7**              | HubSpot project generator, feature catalog, diagnostics, lifecycle management, release tooling, and interactive terminal UI      | [Tool guide](tools/spotkit/README.md)               |
+| **SpotKit runtime**          | Portable OAuth, signature v3, encrypted token/configuration storage, idempotency, and cloud adapters                             | [Package guide](packages/spotkit-runtime/README.md) |
+| **Build HubSpot App skill**  | Agentic planning, implementation, adoption, verification, and release workflow backed by SpotKit                                 | [Skill source](skills/build-hubspot-app/SKILL.md)   |
+| **Review HubSpot App skill** | Read-only correctness, security, platform, CRM, UX, operations, and release-readiness audit                                      | [Skill source](skills/review-hubspot-app/SKILL.md)  |
 
 ## SpotKit at a glance
 
@@ -101,11 +102,13 @@ Install the skill into Codex when developing outside this repository:
 
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-cp -R skills/build-hubspot-app "${CODEX_HOME:-$HOME/.codex}/skills/"
+cp -R skills/build-hubspot-app skills/review-hubspot-app \
+  "${CODEX_HOME:-$HOME/.codex}/skills/"
 ```
 
-Then invoke it as `$build-hubspot-app`. See the [skills catalog](skills/README.md)
-for the agentic-development roadmap.
+Then invoke `$build-hubspot-app` to implement or `$review-hubspot-app` for a
+read-only production audit. See the [skills catalog](skills/README.md) for the
+agentic-development roadmap.
 
 ## Choose the right architecture
 

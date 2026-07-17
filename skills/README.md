@@ -6,22 +6,26 @@ decide and orchestrate; SpotKit performs deterministic project operations.
 
 ## Available
 
-| Skill                                             | Use it for                                                                                     |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [`build-hubspot-app`](build-hubspot-app/SKILL.md) | Plan, scaffold, extend, adopt, diagnose, verify, and release a production-oriented HubSpot app |
+| Skill                                               | Use it for                                                                                                 |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| [`build-hubspot-app`](build-hubspot-app/SKILL.md)   | Plan, scaffold, extend, adopt, diagnose, verify, and release a production-oriented HubSpot app             |
+| [`review-hubspot-app`](review-hubspot-app/SKILL.md) | Audit correctness, security, tenant isolation, scopes, entitlements, UX, operations, and release readiness |
 
-The skill supports pure HubSpot projects, OAuth marketplace apps, private-static
+The skills support pure HubSpot projects, OAuth marketplace apps, private-static
 components, the complete SpotKit feature catalog, one-object persistence,
-portable hosting, and existing-project adoption.
+portable hosting, existing-project adoption, and evidence-based production
+review.
 
 ## Install and invoke
 
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-cp -R skills/build-hubspot-app "${CODEX_HOME:-$HOME/.codex}/skills/"
+cp -R skills/build-hubspot-app skills/review-hubspot-app \
+  "${CODEX_HOME:-$HOME/.codex}/skills/"
 ```
 
-Invoke it as `$build-hubspot-app` with a concrete product or maintenance request.
+Invoke `$build-hubspot-app` for implementation and `$review-hubspot-app` for a
+read-only audit.
 Inside this repository, point the agent at the skill source if repository-local
 skills are not discovered automatically.
 
@@ -45,8 +49,6 @@ execution layer. The likely next set is:
    tools, idempotency, and rate-limit decisions;
 3. **model-hubspot-crm** — objects, properties, associations, labels, pipelines,
    and the one-app-object constraint;
-4. **review-hubspot-app** — security, entitlements, scopes, UX, release gates,
-   and marketplace-readiness review.
 
 Keep each skill concise and self-contained. Store detailed decision tables in
 `references/`, deterministic repeated operations in `scripts/`, and output

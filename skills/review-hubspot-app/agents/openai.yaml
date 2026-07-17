@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review HubSpot App"
+  short_description: "Audit HubSpot apps for production readiness"
+  default_prompt: "Use $review-hubspot-app to audit this HubSpot app and prioritize production-readiness findings."
