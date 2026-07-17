@@ -259,4 +259,65 @@ describe("SpotKit", () => {
     ).rejects.toThrow("already installed");
     expect(normalizeFeature("workflow-actions")).toBe("workflow-action");
   });
+
+  it("adds the gated app-object, association, and app-event recipes", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "crm-features-2026",
+      directory: parent,
+      displayName: "CRM Features",
+      apiOrigin: "https://api.example.net",
+    });
+    await expect(
+      addFeature({
+        feature: "app-object-association",
+        directory: result.targetDirectory,
+      }),
+    ).rejects.toThrow("before app-object-association");
+    expect(
+      (
+        await addFeature({
+          feature: "app-object",
+          directory: result.targetDirectory,
+        })
+      ).filesCreated,
+    ).toBe(2);
+    const objectMetadata = JSON.parse(
+      await readFile(
+        path.join(
+          result.targetDirectory,
+          "apps/hubspot/src/app/app-objects/spotkit-record-hsmeta.json",
+        ),
+        "utf8",
+      ),
+    ) as { config: { name: string } };
+    expect(objectMetadata.config.name).toMatch(/^[A-Z]+(?:_[A-Z]+)*$/);
+    expect(
+      (
+        await addFeature({
+          feature: "app-object-association",
+          directory: result.targetDirectory,
+        })
+      ).filesCreated,
+    ).toBe(2);
+    expect(
+      (
+        await addFeature({
+          feature: "app-event",
+          directory: result.targetDirectory,
+        })
+      ).filesCreated,
+    ).toBe(4);
+    expect(
+      (
+        await addFeature({
+          feature: "agent-tool",
+          directory: result.targetDirectory,
+        })
+      ).filesCreated,
+    ).toBe(4);
+    expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
+    expect(normalizeFeature("app-events")).toBe("app-event");
+    expect(normalizeFeature("agent-tools")).toBe("agent-tool");
+  });
 });

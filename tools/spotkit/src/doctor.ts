@@ -344,11 +344,34 @@ async function inspectFeatureComponents(
   const api = (await exists(path.join(root, apiFile)))
     ? await readFile(path.join(root, apiFile), "utf8")
     : "";
+  const components: Array<{
+    relative: string;
+    document: Record<string, unknown> | undefined;
+  }> = [];
   for (const absolute of (await walk(appDirectory)).filter((file) =>
     file.endsWith("-hsmeta.json"),
   )) {
     const relative = path.relative(root, absolute);
     const document = await jsonFile(absolute, diagnostics, relative);
+    components.push({ relative, document });
+  }
+  const appObjects = components.filter(
+    ({ document }) => document?.type === "app-object",
+  );
+  if (appObjects.length > 1) {
+    diagnostics.push({
+      level: "error",
+      code: "app-object-limit",
+      message: "SpotKit projects may define at most one app object.",
+    });
+  }
+  const appObjectConfig = objectValue(appObjects[0]?.document?.config);
+  const appObjectName =
+    typeof appObjectConfig?.name === "string"
+      ? appObjectConfig.name
+      : undefined;
+
+  for (const { relative, document } of components) {
     const config = objectValue(document?.config);
     if (document?.type === "webhooks") {
       const settings = objectValue(config?.settings);
@@ -388,9 +411,18 @@ async function inspectFeatureComponents(
       }
     }
     if (document?.type === "workflow-action") {
+      const clients = Array.isArray(config?.supportedClients)
+        ? config.supportedClients
+            .map(objectValue)
+            .map((client) => client?.client)
+            .filter((client): client is string => typeof client === "string")
+        : [];
+      const agentTool = clients.includes("AGENTS");
       validateFeatureTarget(
         config?.actionUrl,
-        "/workflow-actions/example",
+        agentTool
+          ? "/workflow-actions/agent-tool"
+          : "/workflow-actions/example",
         permitted,
         diagnostics,
         relative,
@@ -415,10 +447,15 @@ async function inspectFeatureComponents(
           file: relative,
         });
       }
-      const handler = "services/api/src/features/workflow-action.ts";
+      const handler = agentTool
+        ? "services/api/src/features/agent-tool.ts"
+        : "services/api/src/features/workflow-action.ts";
+      const handlerName = agentTool
+        ? "handleExampleAgentTool"
+        : "handleExampleWorkflowAction";
       if (
         !(await exists(path.join(root, handler))) ||
-        !api.includes("handleExampleWorkflowAction")
+        !api.includes(handlerName)
       ) {
         diagnostics.push({
           level: "error",
@@ -426,6 +463,89 @@ async function inspectFeatureComponents(
           message:
             "Workflow action metadata must have its generated API handler wired in.",
           file: handler,
+        });
+      }
+      if (agentTool && !clients.includes("WORKFLOWS")) {
+        diagnostics.push({
+          level: "error",
+          code: "agent-tool-clients",
+          message: "Agent tools must support both AGENTS and WORKFLOWS.",
+          file: relative,
+        });
+      }
+    }
+    if (document?.type === "app-object") {
+      const properties = Array.isArray(config?.properties)
+        ? config.properties
+        : [];
+      const propertyNames = new Set(
+        properties
+          .map(objectValue)
+          .map((property) => property?.name)
+          .filter((name): name is string => typeof name === "string"),
+      );
+      const primary = config?.primaryDisplayLabelPropertyName;
+      if (
+        typeof config?.name !== "string" ||
+        typeof primary !== "string" ||
+        !propertyNames.has(primary)
+      ) {
+        diagnostics.push({
+          level: "error",
+          code: "app-object-schema",
+          message:
+            "App object needs a name and a primary display property present in properties.",
+          file: relative,
+        });
+      }
+    }
+    if (document?.type === "app-object-association") {
+      if (!appObjectName) {
+        diagnostics.push({
+          level: "error",
+          code: "app-object-association-dependency",
+          message:
+            "App-object association requires an app object in this project.",
+          file: relative,
+        });
+      } else if (config?.firstObjectType !== appObjectName) {
+        diagnostics.push({
+          level: "error",
+          code: "app-object-association-type",
+          message: `Association firstObjectType must match ${appObjectName}.`,
+          file: relative,
+        });
+      }
+      if (typeof config?.secondObjectType !== "string") {
+        diagnostics.push({
+          level: "error",
+          code: "app-object-association-type",
+          message: "Association secondObjectType is required.",
+          file: relative,
+        });
+      }
+    }
+    if (document?.type === "app-event") {
+      if (
+        typeof config?.name !== "string" ||
+        typeof config?.objectType !== "string" ||
+        !Array.isArray(config?.properties) ||
+        config.properties.length === 0
+      ) {
+        diagnostics.push({
+          level: "error",
+          code: "app-event-definition",
+          message: "App event requires a name, object type, and properties.",
+          file: relative,
+        });
+      }
+      const helper = "services/api/src/features/app-events.ts";
+      if (!(await exists(path.join(root, helper)))) {
+        diagnostics.push({
+          level: "error",
+          code: "app-event-helper",
+          message: "App event metadata must include the generated send helper.",
+          file: helper,
         });
       }
     }

@@ -11,10 +11,10 @@ capabilities they use.
 | Settings                  | Included         | Signed encrypted configuration UI                         |
 | Webhooks                  | Addable          | Verified, batched, retry-safe receiver                    |
 | Workflow action           | Addable          | Unpublished secure action starter                         |
-| App object                | Planned          | Will preserve the one-object project policy               |
-| App object association    | Planned          | Depends on the app-object recipe                          |
-| App events                | Planned          | Event definitions and send helper                         |
-| Agent tool                | Planned/gated    | Requires HubSpot account feature access                   |
+| App object                | Gated/addable    | Enforces the one-object project policy                    |
+| App object association    | Gated/addable    | Requires the generated app object                         |
+| App events                | Gated/addable    | Event definition and authenticated sender                 |
+| Agent tool                | Gated/addable    | Verified and idempotent workflow/agent tool               |
 | App function              | Private-app only | HubSpot-hosted functions are deliberately not required    |
 | SCIM                      | Private-app only | Not compatible with the default OAuth marketplace profile |
 
@@ -34,3 +34,14 @@ releases its claim so HubSpot can retry it.
 Actions start with `isPublished: false`. Customize fields, labels, output fields,
 supported object types, and domain logic before publication. Callback IDs are
 deduplicated for seven days and failures remain retryable.
+
+## Gated marketplace components
+
+App objects and app events require HubSpot approval. SpotKit generates exactly
+one compact app object, validates its primary property, and prevents an
+association from being added first. App events include a tested helper for
+`/events/v3/send`; use the fully qualified event name assigned after upload.
+
+Agent tools support both `WORKFLOWS` and `AGENTS` and remain unpublished until
+explicitly enabled. Treat every model-supplied input as untrusted and require
+human confirmation before destructive or externally visible actions.

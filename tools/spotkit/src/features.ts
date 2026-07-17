@@ -2,7 +2,13 @@ import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type AddableFeature = "webhooks" | "workflow-action";
+export type AddableFeature =
+  | "webhooks"
+  | "workflow-action"
+  | "app-object"
+  | "app-object-association"
+  | "app-event"
+  | "agent-tool";
 
 export interface AddFeatureOptions {
   feature: AddableFeature;
@@ -21,10 +27,10 @@ export const featureCatalog = [
   { name: "settings", availability: "included" },
   { name: "webhooks", availability: "addable" },
   { name: "workflow-action", availability: "addable" },
-  { name: "app-object", availability: "planned" },
-  { name: "app-object-association", availability: "planned" },
-  { name: "app-event", availability: "planned" },
-  { name: "agent-tool", availability: "gated-planned" },
+  { name: "app-object", availability: "gated-addable" },
+  { name: "app-object-association", availability: "gated-addable" },
+  { name: "app-event", availability: "gated-addable" },
+  { name: "agent-tool", availability: "gated-addable" },
   { name: "app-function", availability: "private-app-only" },
   { name: "scim", availability: "private-app-only" },
 ] as const;
@@ -33,9 +39,8 @@ const FEATURE_TEMPLATE_DIRECTORY = fileURLToPath(
   new URL("../templates/features", import.meta.url),
 );
 
-const integrations: Record<
-  AddableFeature,
-  { importLine: string; routeBlock: string }
+const integrations: Partial<
+  Record<AddableFeature, { importLine: string; routeBlock: string }>
 > = {
   webhooks: {
     importLine:
@@ -49,6 +54,12 @@ const integrations: Record<
     routeBlock: `        const workflowActionResponse = await handleExampleWorkflowAction(request, context);
         if (workflowActionResponse) return workflowActionResponse;`,
   },
+  "agent-tool": {
+    importLine:
+      'import { handleExampleAgentTool } from "./features/agent-tool.js";',
+    routeBlock: `        const agentToolResponse = await handleExampleAgentTool(request, context);
+        if (agentToolResponse) return agentToolResponse;`,
+  },
 };
 
 export function normalizeFeature(value: string): AddableFeature {
@@ -56,6 +67,15 @@ export function normalizeFeature(value: string): AddableFeature {
   if (value === "workflow-action" || value === "workflow-actions") {
     return "workflow-action";
   }
+  if (value === "app-object" || value === "app-objects") return "app-object";
+  if (
+    value === "app-object-association" ||
+    value === "app-object-associations"
+  ) {
+    return "app-object-association";
+  }
+  if (value === "app-event" || value === "app-events") return "app-event";
+  if (value === "agent-tool" || value === "agent-tools") return "agent-tool";
   throw new Error(
     `Unknown addable feature '${value}'. Run spotkit features to see the catalog.`,
   );
@@ -76,15 +96,31 @@ export async function addFeature(
     }
   }
   const appSource = await readFile(appFile, "utf8");
-  for (const marker of [
-    "// spotkit:feature-imports",
-    "// spotkit:feature-routes",
-  ]) {
-    if (!appSource.includes(marker)) {
-      throw new Error(
-        `SpotKit integration marker is missing from services/api/src/app.ts: ${marker}`,
-      );
+  const integration = integrations[options.feature];
+  if (integration) {
+    for (const marker of [
+      "// spotkit:feature-imports",
+      "// spotkit:feature-routes",
+    ]) {
+      if (!appSource.includes(marker)) {
+        throw new Error(
+          `SpotKit integration marker is missing from services/api/src/app.ts: ${marker}`,
+        );
+      }
     }
+  }
+  if (
+    options.feature === "app-object-association" &&
+    !(await exists(
+      path.join(
+        root,
+        "apps/hubspot/src/app/app-objects/spotkit-record-hsmeta.json",
+      ),
+    ))
+  ) {
+    throw new Error(
+      "Add the app-object feature before app-object-association.",
+    );
   }
 
   const metadata = JSON.parse(await readFile(metadataFile, "utf8")) as {
@@ -107,6 +143,8 @@ export async function addFeature(
     ["__SPOTKIT_DISPLAY_NAME_JSON__", jsonContent(displayName)],
     ["__SPOTKIT_API_ORIGIN__", apiOrigin],
     ["__SPOTKIT_API_ORIGIN_JSON__", jsonContent(apiOrigin)],
+    ["__SPOTKIT_OBJECT_NAME__", objectName(slug)],
+    ["__SPOTKIT_APP_PREFIX__", appPrefix(slug)],
   ]);
   const source = path.join(FEATURE_TEMPLATE_DIRECTORY, options.feature);
   const files = await templateFiles(source);
@@ -131,17 +169,18 @@ export async function addFeature(
     );
     filesCreated += 1;
   }
-  const integration = integrations[options.feature];
-  const nextApp = appSource
-    .replace(
-      "// spotkit:feature-imports",
-      `${integration.importLine}\n// spotkit:feature-imports`,
-    )
-    .replace(
-      "        // spotkit:feature-routes",
-      `${integration.routeBlock}\n        // spotkit:feature-routes`,
-    );
-  await writeFile(appFile, nextApp, "utf8");
+  if (integration) {
+    const nextApp = appSource
+      .replace(
+        "// spotkit:feature-imports",
+        `${integration.importLine}\n// spotkit:feature-imports`,
+      )
+      .replace(
+        "        // spotkit:feature-routes",
+        `${integration.routeBlock}\n        // spotkit:feature-routes`,
+      );
+    await writeFile(appFile, nextApp, "utf8");
+  }
   return { feature: options.feature, root, filesCreated };
 }
 
@@ -185,4 +224,24 @@ function replace(
 
 function jsonContent(value: string): string {
   return JSON.stringify(value).slice(1, -1);
+}
+
+function objectName(slug: string): string {
+  const base = slug
+    .split("-")
+    .map((part) => part.replace(/[^a-z]/g, ""))
+    .filter(Boolean)
+    .join("_")
+    .toUpperCase()
+    .slice(0, 41)
+    .replace(/_+$/, "");
+  return `${base}_RECORD`;
+}
+
+function appPrefix(slug: string): string {
+  return slug
+    .split("-")
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join("")
+    .slice(0, 24);
 }

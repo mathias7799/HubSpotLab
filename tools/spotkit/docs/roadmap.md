@@ -33,9 +33,9 @@
 - [x] official 2026.03 webhook metadata and secure receiver;
 - [x] official 2026.03 workflow-action metadata and secure execution endpoint;
 - [x] atomic idempotency with retry release;
-- [ ] app objects and app-object associations;
-- [ ] app events;
-- [ ] gated agent-tool recipe;
+- [x] app objects and app-object associations;
+- [x] app events and authenticated send helper;
+- [x] gated agent-tool recipe;
 - [ ] private-app profiles for app functions and SCIM.
 
 ## 0.5: local development

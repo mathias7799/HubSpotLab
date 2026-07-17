@@ -50,3 +50,10 @@ The build emits generic Node, AWS Lambda, and Azure Functions entry points. See
 
 See [storage](docs/storage.md) to choose between the default zero-object model
 and the encrypted, optional one-custom-object configuration recipe.
+
+## Optional HubSpot features
+
+From HubSpotLab, run `pnpm spotkit features` and `pnpm spotkit add <feature>
+<this-project>` to install webhooks, workflow actions, one app object, its
+association, app events, or a gated agent tool. Each installed feature includes
+its own guide under `docs/features`.

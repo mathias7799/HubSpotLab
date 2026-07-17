@@ -70,6 +70,11 @@ partial overwrites. Webhooks and workflow actions share signature verification
 and a hashed atomic idempotency store; handlers release failed claims so provider
 retries remain useful.
 
+Metadata-only features use the same non-overwriting installer. Doctor enforces
+the one-app-object policy, association dependencies, event definitions,
+generated send helpers, and agent-tool client compatibility. Gated metadata is
+also checked with HubSpot's official project validator during releases.
+
 ## Diagnostic model
 
 Doctor returns structured diagnostics with `success`, `warning`, or `error`

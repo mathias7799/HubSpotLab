@@ -68,7 +68,8 @@ API, and a tested OAuth/security runtime with encrypted production token
 storage. Its doctor checks metadata, scopes, origins, and deployment safety and
 supports strict CI and JSON output. Generated production bundles target generic
 Node, containers, AWS Lambda, and Azure Functions. Its additive feature catalog
-currently includes retry-safe webhooks and custom workflow actions.
+includes retry-safe webhooks, workflow actions, one app object and association,
+app events, and gated agent tools.
 
 ## Status
 

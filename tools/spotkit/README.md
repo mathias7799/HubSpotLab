@@ -73,6 +73,10 @@ stable diagnostic codes for automation.
 pnpm spotkit features
 pnpm spotkit add webhooks projects/handoff-ready
 pnpm spotkit add workflow-action projects/handoff-ready
+pnpm spotkit add app-object projects/handoff-ready
+pnpm spotkit add app-object-association projects/handoff-ready
+pnpm spotkit add app-event projects/handoff-ready
+pnpm spotkit add agent-tool projects/handoff-ready
 ```
 
 Feature installation is additive and refuses to overwrite existing files. The
@@ -81,6 +85,11 @@ payload validation, atomic retry idempotency, failure release, and tests. The
 workflow action is generated unpublished with the same security and retry
 boundaries. `doctor` validates each feature's metadata, handler wiring, target
 URL, permitted origin, concurrency, publication flag, and object types.
+
+The gated catalog supports one app object per project, an association for that
+object, app-event definitions with an authenticated sender, and unpublished
+agent tools with input validation and idempotency. HubSpot approval is still
+required before uploading gated components.
 
 ## Develop SpotKit
 
@@ -97,9 +106,10 @@ TypeScript checks.
 ## Current milestone: 0.4
 
 Version 0.4 adds an extensible HubSpot feature catalog with production-ready
-webhooks and workflow actions. Generic Node, containers, AWS Lambda, and Azure
-Functions remain supported deployment targets. App objects, associations, app
-events, and gated agent tools are the next catalog additions.
+webhooks, workflow actions, a one-app-object policy, object associations, app
+events, and gated agent tools. Generic Node, containers, AWS Lambda, and Azure
+Functions remain supported deployment targets. Private-app profiles are next
+for app functions and SCIM.
 
 See [architecture](docs/architecture.md), [features](docs/features.md),
 [hosting](docs/hosting.md), and the [roadmap](docs/roadmap.md).
