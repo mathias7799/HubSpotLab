@@ -67,6 +67,21 @@ Errors return a non-zero exit code. Warnings are actionable by default;
 `--strict` also makes them fail CI. `--json` emits the complete report with
 stable diagnostic codes for automation.
 
+### Add HubSpot features
+
+```bash
+pnpm spotkit features
+pnpm spotkit add webhooks projects/handoff-ready
+pnpm spotkit add workflow-action projects/handoff-ready
+```
+
+Feature installation is additive and refuses to overwrite existing files. The
+webhook recipe generates inactive subscriptions, signature verification,
+payload validation, atomic retry idempotency, failure release, and tests. The
+workflow action is generated unpublished with the same security and retry
+boundaries. `doctor` validates each feature's metadata, handler wiring, target
+URL, permitted origin, concurrency, publication flag, and object types.
+
 ## Develop SpotKit
 
 ```bash
@@ -79,12 +94,12 @@ An end-to-end generated project is also validated during development by
 installing it outside the repository and running its API test and all four
 TypeScript checks.
 
-## Current milestone: 0.3
+## Current milestone: 0.4
 
-Version 0.3 adds deployable generic Node, container, AWS Lambda, and Azure
-Functions targets. Each scaffold includes a local runtime workspace and emits
-self-contained Node.js 24 bundles without relying on an unpublished registry
-package. Tunnel and release automation remain future milestones.
+Version 0.4 adds an extensible HubSpot feature catalog with production-ready
+webhooks and workflow actions. Generic Node, containers, AWS Lambda, and Azure
+Functions remain supported deployment targets. App objects, associations, app
+events, and gated agent tools are the next catalog additions.
 
-See [architecture](docs/architecture.md), [hosting](docs/hosting.md), and the
-[roadmap](docs/roadmap.md).
+See [architecture](docs/architecture.md), [features](docs/features.md),
+[hosting](docs/hosting.md), and the [roadmap](docs/roadmap.md).

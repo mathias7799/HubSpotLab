@@ -17,6 +17,12 @@ export {
   HubSpotObjectConfigurationStore,
   type HubSpotObjectConfigurationStoreOptions,
 } from "./hubspot-object-configuration-store.js";
+export {
+  createIdempotencyStore,
+  MemoryIdempotencyStore,
+  UpstashIdempotencyStore,
+  type IdempotencyStore,
+} from "./idempotency-store.js";
 export { OAuthError, OAuthService, type OAuthState } from "./oauth.js";
 export { createOAuthRouter, HttpError } from "./router.js";
 export {

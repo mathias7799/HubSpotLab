@@ -15,6 +15,7 @@ SpotKit-generated HubSpot apps. It provides:
 - web-standard `Request`/`Response` routing independent of a hosting vendor.
 - adapters for AWS API Gateway v2 and Azure Functions HTTP requests, including
   binary bodies and response cookies.
+- atomic, expiring idempotency claims for webhook and workflow retry safety.
 
 ## Use
 

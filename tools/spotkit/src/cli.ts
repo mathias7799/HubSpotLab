@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { createProject } from "./create.js";
 import { diagnoseProject } from "./doctor.js";
+import { addFeature, featureCatalog, normalizeFeature } from "./features.js";
 import path from "node:path";
 
-const VERSION = "0.1.0";
+const VERSION = "0.4.0";
 const INVOCATION_DIRECTORY = process.env.INIT_CWD ?? process.cwd();
 
 export async function run(argv = process.argv.slice(2)): Promise<number> {
@@ -25,6 +26,8 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
   try {
     if (command === "create") return await createCommand(args);
     if (command === "doctor") return await doctorCommand(args);
+    if (command === "add") return await addCommand(args);
+    if (command === "features") return featuresCommand();
     console.error(`Unknown command: ${command}`);
     printHelp();
     return 1;
@@ -32,6 +35,31 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     console.error(cause instanceof Error ? cause.message : String(cause));
     return 1;
   }
+}
+
+async function addCommand(args: string[]): Promise<number> {
+  const name = args.find((value) => !value.startsWith("-"));
+  if (!name) throw new Error("Usage: spotkit add <feature> [directory]");
+  const remaining = args.filter(
+    (value) => value !== name && !value.startsWith("-"),
+  );
+  const result = await addFeature({
+    feature: normalizeFeature(name),
+    directory: path.resolve(INVOCATION_DIRECTORY, remaining[0] ?? "."),
+  });
+  console.log(
+    `Added ${result.feature} (${result.filesCreated} files) to ${result.root}`,
+  );
+  console.log(`Next: pnpm spotkit doctor ${result.root}`);
+  return 0;
+}
+
+function featuresCommand(): number {
+  console.log("SpotKit feature catalog:");
+  for (const feature of featureCatalog) {
+    console.log(`${feature.name.padEnd(24)} ${feature.availability}`);
+  }
+  return 0;
 }
 
 async function createCommand(args: string[]): Promise<number> {
@@ -108,6 +136,8 @@ function printHelp(): void {
 
 Usage:
   spotkit create <slug> [options]
+  spotkit add <feature> [directory]
+  spotkit features
   spotkit doctor [directory] [--strict] [--json]
 
 Create options:

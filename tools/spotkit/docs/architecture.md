@@ -62,6 +62,14 @@ The container receives only the Node bundle. The Lambda adapter keeps response
 cookies separate from ordinary headers, while both cloud adapters preserve
 binary request and response bodies.
 
+## Feature boundary
+
+`spotkit add` copies an official-shape component recipe and integrates its route
+at explicit markers in the generated API. It preflights every output and refuses
+partial overwrites. Webhooks and workflow actions share signature verification
+and a hashed atomic idempotency store; handlers release failed claims so provider
+retries remain useful.
+
 ## Diagnostic model
 
 Doctor returns structured diagnostics with `success`, `warning`, or `error`

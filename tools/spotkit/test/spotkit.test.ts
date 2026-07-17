@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createProject } from "../src/create.js";
 import { diagnoseProject } from "../src/doctor.js";
+import { addFeature, normalizeFeature } from "../src/features.js";
 
 describe("SpotKit", () => {
   it("creates a complete HubSpot project skeleton", async () => {
@@ -199,5 +200,63 @@ describe("SpotKit", () => {
         }),
       ]),
     );
+  });
+
+  it("adds webhook and workflow-action features without overwriting", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "feature-check",
+      directory: parent,
+      displayName: "Feature Check",
+      apiOrigin: "https://api.example.net",
+    });
+    const webhook = await addFeature({
+      feature: "webhooks",
+      directory: result.targetDirectory,
+    });
+    const workflow = await addFeature({
+      feature: "workflow-action",
+      directory: result.targetDirectory,
+    });
+    expect(webhook.filesCreated).toBe(4);
+    expect(workflow.filesCreated).toBe(4);
+    const app = await readFile(
+      path.join(result.targetDirectory, "services/api/src/app.ts"),
+      "utf8",
+    );
+    expect(app).toContain("handleHubSpotWebhooks");
+    expect(app).toContain("handleExampleWorkflowAction");
+    const webhookMetadata = JSON.parse(
+      await readFile(
+        path.join(
+          result.targetDirectory,
+          "apps/hubspot/src/app/webhooks/webhooks-hsmeta.json",
+        ),
+        "utf8",
+      ),
+    ) as { config: { settings: { targetUrl: string } } };
+    expect(webhookMetadata.config.settings.targetUrl).toBe(
+      "https://api.example.net/webhooks/hubspot",
+    );
+    expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
+    webhookMetadata.config.settings.targetUrl =
+      "http://unsafe.example.net/hook";
+    await writeFile(
+      path.join(
+        result.targetDirectory,
+        "apps/hubspot/src/app/webhooks/webhooks-hsmeta.json",
+      ),
+      JSON.stringify(webhookMetadata),
+      "utf8",
+    );
+    expect(
+      (await diagnoseProject(result.targetDirectory)).diagnostics,
+    ).toContainEqual(
+      expect.objectContaining({ code: "feature-target", level: "error" }),
+    );
+    await expect(
+      addFeature({ feature: "webhooks", directory: result.targetDirectory }),
+    ).rejects.toThrow("already installed");
+    expect(normalizeFeature("workflow-actions")).toBe("workflow-action");
   });
 });

@@ -1,4 +1,5 @@
 import { createSpotKitRuntime, HttpError } from "@hubspotlab/spotkit-runtime";
+// spotkit:feature-imports
 
 export function createApp(
   env: Record<string, string | undefined> = process.env,
@@ -10,9 +11,9 @@ export function createApp(
     requiredScopes: ["oauth", "crm.objects.deals.read"],
     env,
     fetcher,
-    createApi:
-      ({ accessTokenForPortal, configuration, verifyRequest }) =>
-      async (request) => {
+    createApi: (context) => {
+      const { accessTokenForPortal, configuration, verifyRequest } = context;
+      return async (request) => {
         const url = new URL(request.url);
         if (request.method === "GET" && url.pathname === "/health") {
           return Response.json({ ok: true, service: "__SPOTKIT_SLUG__-api" });
@@ -43,8 +44,10 @@ export function createApp(
             return Response.json(settings);
           }
         }
+        // spotkit:feature-routes
         return Response.json({ error: "Not found" }, { status: 404 });
-      },
+      };
+    },
   }).app;
 }
 

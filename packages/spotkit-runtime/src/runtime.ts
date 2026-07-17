@@ -8,6 +8,10 @@ import {
   type ConfigurationStore,
 } from "./configuration-store.js";
 import { OAuthService } from "./oauth.js";
+import {
+  createIdempotencyStore,
+  type IdempotencyStore,
+} from "./idempotency-store.js";
 import { createOAuthRouter } from "./router.js";
 import { assertHubSpotRequest } from "./security.js";
 import { createTokenStore, type TokenStore } from "./token-store.js";
@@ -18,6 +22,7 @@ export interface RuntimeApiContext {
   verifyRequest: (request: Request, rawBody: string) => Promise<void>;
   fetcher: typeof fetch;
   configuration: ConfigurationStore;
+  idempotency: IdempotencyStore;
 }
 
 export interface CreateSpotKitRuntimeOptions extends Omit<
@@ -28,6 +33,7 @@ export interface CreateSpotKitRuntimeOptions extends Omit<
   fetcher?: typeof fetch;
   tokenStore?: TokenStore;
   configurationStore?: ConfigurationStore;
+  idempotencyStore?: IdempotencyStore;
   createApi: (
     context: RuntimeApiContext,
   ) => (request: Request) => Promise<Response>;
@@ -48,6 +54,8 @@ export function createSpotKitRuntime(options: CreateSpotKitRuntimeOptions) {
   const store = options.tokenStore ?? createTokenStore(config, fetcher);
   const configuration =
     options.configurationStore ?? createConfigurationStore(config, fetcher);
+  const idempotency =
+    options.idempotencyStore ?? createIdempotencyStore(config, fetcher);
   const oauth = new OAuthService(config, store, fetcher);
   const api = options.createApi({
     config,
@@ -56,6 +64,7 @@ export function createSpotKitRuntime(options: CreateSpotKitRuntimeOptions) {
       assertHubSpotRequest(request, config, rawBody),
     fetcher,
     configuration,
+    idempotency,
   });
   return {
     app: createOAuthRouter(config, oauth, api),
@@ -63,5 +72,6 @@ export function createSpotKitRuntime(options: CreateSpotKitRuntimeOptions) {
     oauth,
     store,
     configuration,
+    idempotency,
   };
 }

@@ -51,6 +51,7 @@ export async function diagnoseProject(directory = "."): Promise<DoctorReport> {
   await inspectBackendOrigins(root, diagnostics);
   await inspectEnvironment(root, diagnostics);
   await inspectExtensionComponents(root, diagnostics);
+  await inspectFeatureComponents(root, diagnostics);
   await inspectHosting(root, diagnostics);
   await inspectObjectStorageRecipe(root, diagnostics);
 
@@ -322,6 +323,152 @@ async function inspectExtensionComponents(
         message: `HubSpot component metadata for type '${type}' is missing.`,
       });
     }
+  }
+}
+
+async function inspectFeatureComponents(
+  root: string,
+  diagnostics: Diagnostic[],
+): Promise<void> {
+  const appDirectory = path.join(root, "apps/hubspot/src/app");
+  if (!(await exists(appDirectory))) return;
+  const appMetadata = await jsonFile(
+    path.join(appDirectory, "app-hsmeta.json"),
+    diagnostics,
+    "apps/hubspot/src/app/app-hsmeta.json",
+  );
+  const permitted = stringArray(
+    objectValue(objectValue(appMetadata?.config)?.permittedUrls)?.fetch,
+  );
+  const apiFile = "services/api/src/app.ts";
+  const api = (await exists(path.join(root, apiFile)))
+    ? await readFile(path.join(root, apiFile), "utf8")
+    : "";
+  for (const absolute of (await walk(appDirectory)).filter((file) =>
+    file.endsWith("-hsmeta.json"),
+  )) {
+    const relative = path.relative(root, absolute);
+    const document = await jsonFile(absolute, diagnostics, relative);
+    const config = objectValue(document?.config);
+    if (document?.type === "webhooks") {
+      const settings = objectValue(config?.settings);
+      validateFeatureTarget(
+        settings?.targetUrl,
+        "/webhooks/hubspot",
+        permitted,
+        diagnostics,
+        relative,
+      );
+      const concurrency = settings?.maxConcurrentRequests;
+      if (
+        typeof concurrency !== "number" ||
+        !Number.isInteger(concurrency) ||
+        concurrency < 1 ||
+        concurrency > 100
+      ) {
+        diagnostics.push({
+          level: "error",
+          code: "webhook-concurrency",
+          message: "Webhook maxConcurrentRequests must be between 1 and 100.",
+          file: relative,
+        });
+      }
+      const handler = "services/api/src/features/webhooks.ts";
+      if (
+        !(await exists(path.join(root, handler))) ||
+        !api.includes("handleHubSpotWebhooks")
+      ) {
+        diagnostics.push({
+          level: "error",
+          code: "webhook-handler",
+          message:
+            "Webhook metadata must have its generated API handler wired in.",
+          file: handler,
+        });
+      }
+    }
+    if (document?.type === "workflow-action") {
+      validateFeatureTarget(
+        config?.actionUrl,
+        "/workflow-actions/example",
+        permitted,
+        diagnostics,
+        relative,
+      );
+      if (typeof config?.isPublished !== "boolean") {
+        diagnostics.push({
+          level: "error",
+          code: "workflow-published",
+          message:
+            "Workflow action isPublished must be explicitly true or false.",
+          file: relative,
+        });
+      }
+      if (
+        !Array.isArray(config?.objectTypes) ||
+        config.objectTypes.length === 0
+      ) {
+        diagnostics.push({
+          level: "error",
+          code: "workflow-object-types",
+          message: "Workflow action must support at least one object type.",
+          file: relative,
+        });
+      }
+      const handler = "services/api/src/features/workflow-action.ts";
+      if (
+        !(await exists(path.join(root, handler))) ||
+        !api.includes("handleExampleWorkflowAction")
+      ) {
+        diagnostics.push({
+          level: "error",
+          code: "workflow-handler",
+          message:
+            "Workflow action metadata must have its generated API handler wired in.",
+          file: handler,
+        });
+      }
+    }
+  }
+}
+
+function validateFeatureTarget(
+  value: unknown,
+  expectedPath: string,
+  permitted: string[],
+  diagnostics: Diagnostic[],
+  file: string,
+): void {
+  if (typeof value !== "string") {
+    diagnostics.push({
+      level: "error",
+      code: "feature-target",
+      message: `Feature target URL is missing; expected ${expectedPath}.`,
+      file,
+    });
+    return;
+  }
+  const parsed = safeUrl(value);
+  if (
+    !parsed ||
+    parsed.protocol !== "https:" ||
+    parsed.pathname !== expectedPath
+  ) {
+    diagnostics.push({
+      level: "error",
+      code: "feature-target",
+      message: `Feature target must be HTTPS and end at ${expectedPath}: ${value}`,
+      file,
+    });
+    return;
+  }
+  if (!permitted.includes(parsed.origin)) {
+    diagnostics.push({
+      level: "error",
+      code: "feature-permitted-origin",
+      message: `permittedUrls.fetch must include feature origin ${parsed.origin}.`,
+      file,
+    });
   }
 }
 

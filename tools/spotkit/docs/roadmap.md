@@ -27,14 +27,25 @@
 - [x] production hosting diagnostics;
 - [x] clean-room bundle, Lambda invocation, and container smoke tests.
 
-## 0.4: local development
+## 0.4: feature catalog
+
+- [x] safe additive `spotkit add` command and catalog;
+- [x] official 2026.03 webhook metadata and secure receiver;
+- [x] official 2026.03 workflow-action metadata and secure execution endpoint;
+- [x] atomic idempotency with retry release;
+- [ ] app objects and app-object associations;
+- [ ] app events;
+- [ ] gated agent-tool recipe;
+- [ ] private-app profiles for app functions and SCIM.
+
+## 0.5: local development
 
 - coordinated API and HubSpot upload workflow;
 - temporary Cloudflare Tunnel or ngrok integration;
 - callback and permitted-origin synchronization;
 - OAuth reconnect command with explicit confirmation boundaries.
 
-## 0.5: release workflow
+## 0.6: release workflow
 
 - build and upload command;
 - secret and temporary-origin leak checks;
