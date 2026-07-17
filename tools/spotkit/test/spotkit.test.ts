@@ -13,6 +13,9 @@ import {
   prepareTunnelDevelopment,
 } from "../src/tunnel.js";
 import { oauthReconnectUrl } from "../src/reconnect.js";
+import { checkRelease, uploadHubSpotProject } from "../src/release.js";
+import { smokeApplication } from "../src/smoke.js";
+import { refreshDocumentation } from "../src/docs-refresh.js";
 
 describe("SpotKit", () => {
   it("creates a complete HubSpot project skeleton", async () => {
@@ -529,5 +532,123 @@ describe("SpotKit", () => {
     await expect(oauthReconnectUrl(result.targetDirectory)).resolves.toBe(
       "https://reconnect.example.net/oauth/install?returnTo=%2Finstalled",
     );
+  });
+
+  it("blocks secrets and reserved deployment origins before release", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "release-check",
+      directory: parent,
+      apiOrigin: "https://api.release-check.com",
+    });
+    expect((await checkRelease({ directory: result.targetDirectory })).ok).toBe(
+      true,
+    );
+    const source = path.join(
+      result.targetDirectory,
+      "services/api/src/leak.ts",
+    );
+    await writeFile(
+      source,
+      'export const leaked = "pat-eu1-abcdefghijklmnopqrstuvwxyz123456";\n',
+      "utf8",
+    );
+    const report = await checkRelease({ directory: result.targetDirectory });
+    expect(report.issues).toContainEqual(
+      expect.objectContaining({
+        code: "secret",
+        file: "services/api/src/leak.ts",
+      }),
+    );
+    await expect(
+      uploadHubSpotProject({
+        directory: result.targetDirectory,
+        confirm: false,
+      }),
+    ).rejects.toThrow("--confirm");
+  });
+
+  it("smoke-tests deployed security and OAuth boundaries", async () => {
+    const mockFetch = (async (input: string | URL | Request) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/health") return Response.json({ ok: true });
+      if (path === "/installed") {
+        return new Response("connected", {
+          headers: {
+            "Content-Security-Policy": "default-src 'none'",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location:
+            "https://app.hubspot.com/oauth/authorize?client_id=test&state=signed",
+          "Set-Cookie":
+            "spotkit_state=signed; HttpOnly; Secure; SameSite=Lax; Path=/oauth",
+        },
+      });
+    }) as typeof fetch;
+    const report = await smokeApplication(
+      "https://api.release-check.com",
+      mockFetch,
+    );
+    expect(report.ok).toBe(true);
+    expect(report.checks).toHaveLength(3);
+  });
+
+  it("normalizes screenshots and deterministically refreshes documentation", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "spotkit-docs-"));
+    const source = path.join(root, "captured.png");
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    );
+    const endOffset = png.indexOf(Buffer.from("IEND")) - 4;
+    const privateText = Buffer.concat([
+      Buffer.from([0, 0, 0, 13]),
+      Buffer.from("tEXtSecret=portal"),
+      Buffer.alloc(4),
+    ]);
+    await writeFile(
+      source,
+      Buffer.concat([
+        png.subarray(0, endOffset),
+        privateText,
+        png.subarray(endOffset),
+      ]),
+    );
+    const preview = await refreshDocumentation({
+      directory: root,
+      screenshots: [{ label: "Deal overview", file: source }],
+    });
+    expect(preview.changed).toBe(true);
+    expect(preview.written).toBe(false);
+    const written = await refreshDocumentation({
+      directory: root,
+      screenshots: [{ label: "Deal overview", file: source }],
+      write: true,
+    });
+    expect(written.assets).toEqual([
+      expect.objectContaining({
+        label: "Deal overview",
+        file: "deal-overview.png",
+        width: 1,
+        height: 1,
+      }),
+    ]);
+    expect(
+      await readFile(path.join(root, "docs/screenshots/README.md"), "utf8"),
+    ).toContain("![Deal overview](./deal-overview.png)");
+    expect(
+      await readFile(path.join(root, "docs/screenshots/deal-overview.png")),
+    ).not.toContain(Buffer.from("Secret=portal"));
+    expect(
+      await refreshDocumentation({
+        directory: root,
+        screenshots: [{ label: "Deal overview", file: source }],
+      }),
+    ).toMatchObject({ changed: false, written: false });
   });
 });

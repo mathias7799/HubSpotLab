@@ -10,9 +10,12 @@ import {
   type TunnelProvider,
 } from "./tunnel.js";
 import { oauthReconnectUrl, openOAuthReconnect } from "./reconnect.js";
+import { checkRelease, uploadHubSpotProject } from "./release.js";
+import { smokeApplication } from "./smoke.js";
+import { refreshDocumentation } from "./docs-refresh.js";
 import path from "node:path";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 const INVOCATION_DIRECTORY = process.env.INIT_CWD ?? process.cwd();
 
 export async function run(argv = process.argv.slice(2)): Promise<number> {
@@ -40,6 +43,10 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     if (command === "dev") return await devCommand(args);
     if (command === "tunnel") return await tunnelCommand(args);
     if (command === "reconnect") return await reconnectCommand(args);
+    if (command === "release-check") return await releaseCheckCommand(args);
+    if (command === "upload") return await uploadCommand(args);
+    if (command === "smoke") return await smokeCommand(args);
+    if (command === "docs-refresh") return await docsRefreshCommand(args);
     console.error(`Unknown command: ${command}`);
     printHelp();
     return 1;
@@ -47,6 +54,90 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     console.error(cause instanceof Error ? cause.message : String(cause));
     return 1;
   }
+}
+
+async function docsRefreshCommand(args: string[]): Promise<number> {
+  const write = args.includes("--confirm");
+  const check = args.includes("--check");
+  if (write && check)
+    throw new Error("Use either --confirm or --check, not both.");
+  if (!write && !check) {
+    throw new Error(
+      "Review screenshots, then pass --confirm to write or --check to verify.",
+    );
+  }
+  const screenshots = options(args, "--screenshot").map((value) => {
+    const separator = value.indexOf("=");
+    if (separator < 1 || separator === value.length - 1) {
+      throw new Error("--screenshot must use <label=png-path>.");
+    }
+    return {
+      label: value.slice(0, separator),
+      file: path.resolve(INVOCATION_DIRECTORY, value.slice(separator + 1)),
+    };
+  });
+  const result = await refreshDocumentation({
+    directory: commandDirectory(args, ["--screenshot"]),
+    screenshots,
+    write,
+  });
+  console.log(`SpotKit documentation refresh: ${result.root}`);
+  for (const file of result.files)
+    console.log(`${write ? "WROTE" : "DRIFT"} ${file}`);
+  if (!result.changed) console.log("Screenshot documentation is current.");
+  return check && result.changed ? 1 : 0;
+}
+
+async function smokeCommand(args: string[]): Promise<number> {
+  const origin = args.find((value) => !value.startsWith("-"));
+  if (!origin) throw new Error("Usage: spotkit smoke <https-origin>");
+  const report = await smokeApplication(origin);
+  console.log(`SpotKit smoke test: ${report.origin}`);
+  for (const check of report.checks) {
+    console.log(
+      `${check.ok ? "PASS" : "FAIL"} [${check.name}] ${check.message}`,
+    );
+  }
+  return report.ok ? 0 : 1;
+}
+
+async function releaseCheckCommand(args: string[]): Promise<number> {
+  const directory = commandDirectory(args, ["--account", "--profile"]);
+  const report = await checkRelease({
+    directory,
+    hubspot: args.includes("--hubspot"),
+  });
+  console.log(`SpotKit release check: ${report.root}`);
+  for (const issue of report.issues) {
+    console.log(
+      `FAIL [${issue.code}] ${issue.file ? `${issue.file}: ` : ""}${issue.message}`,
+    );
+  }
+  if (report.hubspotValidated) console.log("PASS HubSpot project validation");
+  console.log(
+    report.ok
+      ? "Release checks passed."
+      : `${report.issues.length} release issue(s).`,
+  );
+  return report.ok ? 0 : 1;
+}
+
+async function uploadCommand(args: string[]): Promise<number> {
+  return await uploadHubSpotProject({
+    directory: commandDirectory(args, ["--message", "--account", "--profile"]),
+    confirm: args.includes("--confirm"),
+    ...optional("message", option(args, "--message")),
+    ...optional("account", option(args, "--account")),
+    ...optional("profile", option(args, "--profile")),
+  });
+}
+
+function commandDirectory(args: string[], valuedOptions: string[]): string {
+  const positional = args.filter(
+    (value, index) =>
+      !value.startsWith("-") && !valuedOptions.includes(args[index - 1] ?? ""),
+  );
+  return path.resolve(INVOCATION_DIRECTORY, positional[0] ?? ".");
 }
 
 async function reconnectCommand(args: string[]): Promise<number> {
@@ -222,6 +313,12 @@ function option(args: string[], name: string): string | undefined {
   return value;
 }
 
+function options(args: string[], name: string): string[] {
+  return args.flatMap((value, index) =>
+    args[index - 1] === name ? [value] : [],
+  );
+}
+
 function optional<Key extends string>(
   key: Key,
   value: string | undefined,
@@ -248,6 +345,10 @@ Usage:
   spotkit dev [directory] [--origin <https-origin>] [--api-only] [--check]
   spotkit tunnel [directory] [--provider cloudflare|ngrok] [--check]
   spotkit reconnect [directory] [--open]
+  spotkit release-check [directory] [--hubspot]
+  spotkit upload [directory] --confirm [--message <text>]
+  spotkit smoke <https-origin>
+  spotkit docs-refresh [directory] --screenshot <label=png-path> [--screenshot ...] --confirm|--check
   spotkit doctor [directory] [--strict] [--json]
 
 Create options:

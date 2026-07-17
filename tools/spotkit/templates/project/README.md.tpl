@@ -42,6 +42,26 @@ pnpm typecheck
 pnpm spotkit doctor projects/__SPOTKIT_SLUG__
 ```
 
+Before release, replace every placeholder origin and run the strict release
+gate. Upload requires explicit confirmation and creates a HubSpot build without
+deploying it:
+
+```bash
+pnpm spotkit release-check <this-project> --hubspot
+pnpm spotkit upload <this-project> --confirm --message "Release candidate"
+pnpm spotkit smoke __SPOTKIT_API_ORIGIN__
+```
+
+Run `smoke` after deploying the API and HubSpot build. Complete the authenticated
+test-portal recipe in SpotKit's
+[smoke-testing guide](https://github.com/mathias7799/HubSpotLab/blob/main/tools/spotkit/docs/smoke-testing.md)
+before production promotion.
+
+Capture reviewed test-portal screenshots as PNG files and refresh the product
+gallery with `pnpm spotkit docs-refresh <this-project> --screenshot
+"App overview=./captures/overview.png" --confirm`. The command strips common
+metadata and writes stable assets under `docs/screenshots`.
+
 ## Build and host
 
 ```bash

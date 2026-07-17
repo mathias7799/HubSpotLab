@@ -48,8 +48,10 @@
 
 ## 0.6: release workflow
 
-- build and upload command;
-- secret and temporary-origin leak checks;
-- authenticated browser smoke-test recipe;
-- screenshot and documentation refresh command;
-- publishable package and `pnpm dlx` installation.
+- [x] strict release check and confirmation-gated HubSpot upload;
+- [x] secret, reserved-origin, and temporary-origin leak checks;
+- [x] deployed HTTP/OAuth smoke-test command;
+- [x] authenticated browser smoke-test recipe;
+- [x] metadata-safe screenshot and documentation refresh command;
+- [x] self-contained publishable package and tested `pnpm dlx` installation;
+- [x] npm provenance release workflow.

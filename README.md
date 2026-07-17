@@ -74,6 +74,12 @@ optional HubSpot app functions and SCIM without adding serverless requirements
 to marketplace applications. Local tooling synchronizes every public origin,
 coordinates API and HubSpot development, manages optional Cloudflare/ngrok
 tunnels, and keeps OAuth reconnect review-first.
+Release tooling adds strict secret and origin scans, official HubSpot project
+validation, confirmation-gated build uploads, and deployed HTTP/OAuth smoke
+checks. The publishable npm artifact is tested from its packed tarball in CI
+and released with provenance. A metadata-safe documentation refresh command
+turns reviewed test-portal PNG captures into a deterministic screenshot gallery
+and hash manifest.
 
 ## Status
 

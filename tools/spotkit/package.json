@@ -1,21 +1,39 @@
 {
   "name": "@hubspotlab/spotkit",
-  "version": "0.5.0",
-  "private": true,
+  "version": "0.6.0",
+  "private": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mathias7799/HubSpotLab.git",
+    "directory": "tools/spotkit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "spotkit": "dist/cli.js"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
     "dist",
+    "runtime",
     "templates",
-    "README.md"
+    "docs",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsx scripts/sync-runtime.ts && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm test && pnpm typecheck",
     "start": "tsx src/cli.ts",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit"

@@ -4,6 +4,16 @@ SpotKit is HubSpotLab's CLI for creating and validating HubSpot-native app
 projects. Its conventions are extracted from the working TidsHub and CloseReady
 applications.
 
+Run the published CLI without installing it globally:
+
+```bash
+pnpm dlx @hubspotlab/spotkit --help
+pnpm dlx @hubspotlab/spotkit create handoff-ready \
+  --name "HandoffReady" \
+  --api-origin https://handoff.example.com \
+  --support-email support@example.com
+```
+
 ## Current commands
 
 ### Create a project
@@ -136,6 +146,38 @@ Temporary origins intentionally remain visible after the process exits, so
 `doctor --strict` prevents accidental release until a stable origin is restored.
 `spotkit reconnect` prints the OAuth URL for review; only `--open` launches it.
 
+### Check and smoke-test a release
+
+```bash
+pnpm spotkit release-check projects/handoff-ready --hubspot
+pnpm spotkit upload projects/handoff-ready --confirm \
+  --message "Release candidate"
+pnpm spotkit smoke https://api.handoff.example.com
+```
+
+Release check combines strict SpotKit diagnostics, secret and deployment-origin
+scanning, and optional official HubSpot validation. `upload` refuses to run
+without `--confirm`; it creates a HubSpot project build but never deploys that
+build. After deployment, `smoke` checks the health, browser-security, and OAuth
+boundaries without installing the app or mutating CRM data.
+
+### Refresh product screenshots
+
+Capture authenticated HubSpot views in a test portal, review them for customer
+data, then let SpotKit normalize and index the PNG files:
+
+```bash
+pnpm spotkit docs-refresh projects/handoff-ready \
+  --screenshot "App overview=./captures/overview.png" \
+  --screenshot "Deal card=./captures/deal-card.png" \
+  --confirm
+```
+
+The command strips common PNG metadata, creates stable file names, and writes a
+deterministic `docs/screenshots/README.md` gallery and SHA-256 manifest. Run the
+same command with `--check` in CI to detect stale documentation. It never opens
+an authenticated browser or reuses browser cookies.
+
 ## Develop SpotKit
 
 ```bash
@@ -148,13 +190,14 @@ An end-to-end generated project is also validated during development by
 installing it outside the repository and running its API test and all four
 TypeScript checks.
 
-## Current milestone: 0.5
+## Current milestone: 0.6
 
-Version 0.5 adds synchronized origins, coordinated API and HubSpot development,
-optional Cloudflare/ngrok lifecycle management, and review-first OAuth
-reconnect. The complete 2026.03 feature catalog and both marketplace and
-private-static profiles remain available from 0.4.
+Version 0.6 adds a self-contained npm artifact, packed-install CI, strict release
+scanning, official HubSpot validation, confirmation-gated upload, and npm
+provenance publishing. The complete 2026.03 feature catalog, portable hosting,
+and coordinated local-development workflow remain included.
 
 See [architecture](docs/architecture.md), [features](docs/features.md),
 [hosting](docs/hosting.md), [local development](docs/local-development.md), and
-the [roadmap](docs/roadmap.md).
+the [release guide](docs/releasing.md), [smoke-testing guide](docs/smoke-testing.md),
+[changelog](CHANGELOG.md), and [roadmap](docs/roadmap.md).

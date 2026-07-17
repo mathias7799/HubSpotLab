@@ -18,8 +18,8 @@
     },
     "support": {
       "supportEmail": "__SPOTKIT_SUPPORT_EMAIL_JSON__",
-      "documentationUrl": "https://example.com/docs",
-      "supportUrl": "https://example.com/support"
+      "documentationUrl": "https://github.com/mathias7799/HubSpotLab/tree/main/tools/spotkit",
+      "supportUrl": "https://github.com/mathias7799/HubSpotLab/issues"
     }
   }
 }

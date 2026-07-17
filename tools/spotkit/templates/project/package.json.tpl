@@ -2,8 +2,7 @@
   "name": "@spotkit-generated/__SPOTKIT_SLUG__",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=24" },
-  "packageManager": "pnpm@11.6.0",
+  "engines": { "node": ">=24", "pnpm": ">=11.6.0" },
   "scripts": {
     "build": "pnpm --filter '@spotkit-generated/__SPOTKIT_SLUG__-api' build",
     "test": "pnpm --filter '@hubspotlab/spotkit-runtime' test && pnpm --filter '@spotkit-generated/__SPOTKIT_SLUG__-api' test",

@@ -26,3 +26,15 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @hubspotlab/tidshub-api build
+      - run: pnpm --dir tools/spotkit build
+      - name: Verify packed SpotKit artifact
+        run: |
+          mkdir -p /tmp/spotkit-pack
+          pnpm --dir tools/spotkit pack --pack-destination /tmp/spotkit-pack
+          pnpm dlx /tmp/spotkit-pack/*.tgz create ci-packed-app --directory /tmp --api-origin https://api.ci-packed-app.com
+          pnpm dlx /tmp/spotkit-pack/*.tgz add webhooks /tmp/ci-packed-app
+          pnpm dlx /tmp/spotkit-pack/*.tgz doctor /tmp/ci-packed-app --strict
+          pnpm --dir /tmp/ci-packed-app install
+          pnpm --dir /tmp/ci-packed-app test
+          pnpm --dir /tmp/ci-packed-app typecheck
+          pnpm --dir /tmp/ci-packed-app build

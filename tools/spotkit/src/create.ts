@@ -26,6 +26,9 @@ const PRIVATE_TEMPLATE_DIRECTORY = fileURLToPath(
 const RUNTIME_DIRECTORY = fileURLToPath(
   new URL("../../../packages/spotkit-runtime", import.meta.url),
 );
+const BUNDLED_RUNTIME_DIRECTORY = fileURLToPath(
+  new URL("../runtime", import.meta.url),
+);
 
 export async function createProject(
   options: CreateProjectOptions,
@@ -64,8 +67,16 @@ export async function createProject(
     replacements,
   );
   if (profile === "marketplace") {
+    const runtimeDirectory = (await exists(RUNTIME_DIRECTORY))
+      ? RUNTIME_DIRECTORY
+      : BUNDLED_RUNTIME_DIRECTORY;
+    if (!(await exists(runtimeDirectory))) {
+      throw new Error(
+        "SpotKit runtime templates are missing. Reinstall or rebuild the SpotKit package.",
+      );
+    }
     filesCreated += await copyRuntime(
-      RUNTIME_DIRECTORY,
+      runtimeDirectory,
       path.join(target, "packages/spotkit-runtime"),
     );
   }
@@ -161,4 +172,13 @@ function titleCase(slug: string): string {
 
 function jsonContent(value: string): string {
   return JSON.stringify(value).slice(1, -1);
+}
+
+async function exists(value: string): Promise<boolean> {
+  try {
+    await access(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

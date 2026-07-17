@@ -38,3 +38,23 @@ export {
   type TunnelProvider,
 } from "./tunnel.js";
 export { oauthReconnectUrl, openOAuthReconnect } from "./reconnect.js";
+export {
+  checkRelease,
+  uploadHubSpotProject,
+  type ReleaseCheckOptions,
+  type ReleaseCheckReport,
+  type ReleaseIssue,
+  type UploadOptions,
+} from "./release.js";
+export {
+  smokeApplication,
+  type SmokeCheck,
+  type SmokeReport,
+} from "./smoke.js";
+export {
+  refreshDocumentation,
+  type DocumentationAsset,
+  type DocumentationScreenshot,
+  type RefreshDocumentationOptions,
+  type RefreshDocumentationResult,
+} from "./docs-refresh.js";
