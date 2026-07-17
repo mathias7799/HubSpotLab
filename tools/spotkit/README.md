@@ -16,6 +16,15 @@ pnpm spotkit create handoff-ready \
   --support-email support@example.com
 ```
 
+For HubSpot-only components that require a static private app:
+
+```bash
+pnpm spotkit create identity-ops \
+  --directory projects \
+  --name "Identity Ops" \
+  --profile private-static
+```
+
 The generated project is independently installable and contains:
 
 - HubSpot platform `2026.03` app metadata with OAuth and permitted URLs;
@@ -91,6 +100,11 @@ object, app-event definitions with an authenticated sender, and unpublished
 agent tools with input validation and idempotency. HubSpot approval is still
 required before uploading gated components.
 
+Private-static projects can add `app-function-endpoint`,
+`app-function-private`, and `scim`. SpotKit rejects these components in an OAuth
+marketplace project and rejects marketplace-only app objects or events in the
+private profile. App functions remain entirely optional.
+
 ## Develop SpotKit
 
 ```bash
@@ -108,8 +122,8 @@ TypeScript checks.
 Version 0.4 adds an extensible HubSpot feature catalog with production-ready
 webhooks, workflow actions, a one-app-object policy, object associations, app
 events, and gated agent tools. Generic Node, containers, AWS Lambda, and Azure
-Functions remain supported deployment targets. Private-app profiles are next
-for app functions and SCIM.
+Functions remain supported deployment targets. A separate private-static
+profile supports optional app functions and SCIM.
 
 See [architecture](docs/architecture.md), [features](docs/features.md),
 [hosting](docs/hosting.md), and the [roadmap](docs/roadmap.md).

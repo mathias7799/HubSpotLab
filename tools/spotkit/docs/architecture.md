@@ -75,6 +75,17 @@ the one-app-object policy, association dependencies, event definitions,
 generated send helpers, and agent-tool client compatibility. Gated metadata is
 also checked with HubSpot's official project validator during releases.
 
+## Project profiles
+
+The default `marketplace` profile owns OAuth, portable hosting, encrypted token
+storage, and customer-account installation. The `private-static` profile is a
+separate minimal project for HubSpot-hosted app functions and SCIM. It does not
+pretend to have an OAuth backend or copy the SpotKit runtime.
+
+Feature installation reads the app's distribution and auth type before writing
+files. Invalid cross-profile combinations fail early and serverless functions
+remain optional.
+
 ## Diagnostic model
 
 Doctor returns structured diagnostics with `success`, `warning`, or `error`

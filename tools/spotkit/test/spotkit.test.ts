@@ -320,4 +320,51 @@ describe("SpotKit", () => {
     expect(normalizeFeature("app-events")).toBe("app-event");
     expect(normalizeFeature("agent-tools")).toBe("agent-tool");
   });
+
+  it("creates a private-static profile with compatible functions and SCIM", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "identity-ops",
+      directory: parent,
+      displayName: "Identity Ops",
+      profile: "private-static",
+    });
+    const metadata = JSON.parse(
+      await readFile(
+        path.join(
+          result.targetDirectory,
+          "apps/hubspot/src/app/app-hsmeta.json",
+        ),
+        "utf8",
+      ),
+    ) as { config: { distribution: string; auth: { type: string } } };
+    expect(metadata.config).toMatchObject({
+      distribution: "private",
+      auth: { type: "static" },
+    });
+    expect(
+      (
+        await addFeature({
+          feature: "app-function-endpoint",
+          directory: result.targetDirectory,
+        })
+      ).filesCreated,
+    ).toBe(3);
+    expect(
+      (
+        await addFeature({
+          feature: "app-function-private",
+          directory: result.targetDirectory,
+        })
+      ).filesCreated,
+    ).toBe(3);
+    expect(
+      (await addFeature({ feature: "scim", directory: result.targetDirectory }))
+        .filesCreated,
+    ).toBe(2);
+    expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
+    await expect(
+      addFeature({ feature: "app-event", directory: result.targetDirectory }),
+    ).rejects.toThrow("OAuth marketplace");
+  });
 });

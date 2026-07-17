@@ -57,3 +57,7 @@ From HubSpotLab, run `pnpm spotkit features` and `pnpm spotkit add <feature>
 <this-project>` to install webhooks, workflow actions, one app object, its
 association, app events, or a gated agent tool. Each installed feature includes
 its own guide under `docs/features`.
+
+This is an OAuth marketplace profile. App functions and SCIM belong in a
+separate project created with `--profile private-static`; SpotKit prevents them
+from being added here.

@@ -25,7 +25,6 @@ export async function diagnoseProject(directory = "."): Promise<DoctorReport> {
     "package.json",
     "apps/hubspot/hsproject.json",
     "apps/hubspot/src/app/app-hsmeta.json",
-    "services/api/.env.example",
   ];
   for (const file of requiredFiles) {
     if (!(await exists(path.join(root, file)))) {
@@ -149,15 +148,19 @@ async function inspectAppMetadata(
   const auth = objectValue(config?.auth);
   const redirects = stringArray(auth?.redirectUrls);
   const fetchUrls = stringArray(objectValue(config?.permittedUrls)?.fetch);
-  if (auth?.type !== "oauth") {
+  const oauth = auth?.type === "oauth";
+  const privateStatic =
+    auth?.type === "static" && config?.distribution === "private";
+  if (!oauth && !privateStatic) {
     diagnostics.push({
       level: "error",
-      code: "oauth-required",
-      message: "The app metadata must use OAuth authentication.",
+      code: "authentication-profile",
+      message:
+        "App metadata must use OAuth marketplace or static private authentication.",
       file,
     });
   }
-  if (redirects.length === 0) {
+  if (oauth && redirects.length === 0) {
     diagnostics.push({
       level: "error",
       code: "oauth-redirect",
@@ -165,7 +168,7 @@ async function inspectAppMetadata(
       file,
     });
   }
-  for (const redirect of redirects) {
+  for (const redirect of oauth ? redirects : []) {
     const parsed = safeUrl(redirect);
     if (!parsed || parsed.protocol !== "https:") {
       diagnostics.push({
@@ -217,7 +220,23 @@ async function inspectEnvironment(
 ): Promise<void> {
   const file = "services/api/.env.example";
   const absolute = path.join(root, file);
-  if (!(await exists(absolute))) return;
+  if (!(await exists(absolute))) {
+    const metadata = await jsonFile(
+      path.join(root, "apps/hubspot/src/app/app-hsmeta.json"),
+      diagnostics,
+      "apps/hubspot/src/app/app-hsmeta.json",
+    );
+    const auth = objectValue(objectValue(metadata?.config)?.auth);
+    if (auth?.type === "oauth") {
+      diagnostics.push({
+        level: "error",
+        code: "missing-file",
+        message: `Required file is missing: ${file}`,
+        file,
+      });
+    }
+    return;
+  }
   const content = await readFile(absolute, "utf8");
   const environment = parseEnvironment(content);
   for (const variable of [
@@ -315,6 +334,13 @@ async function inspectExtensionComponents(
     const document = await jsonFile(absolute, diagnostics, relative);
     if (typeof document?.type === "string") types.add(document.type);
   }
+  const appDocument = await jsonFile(
+    path.join(directory, "app-hsmeta.json"),
+    diagnostics,
+    "apps/hubspot/src/app/app-hsmeta.json",
+  );
+  const auth = objectValue(objectValue(appDocument?.config)?.auth);
+  if (auth?.type === "static") return;
   for (const type of ["page", "card", "settings"]) {
     if (!types.has(type)) {
       diagnostics.push({
@@ -340,6 +366,10 @@ async function inspectFeatureComponents(
   const permitted = stringArray(
     objectValue(objectValue(appMetadata?.config)?.permittedUrls)?.fetch,
   );
+  const rootConfig = objectValue(appMetadata?.config);
+  const rootAuth = objectValue(rootConfig?.auth);
+  const privateStatic =
+    rootConfig?.distribution === "private" && rootAuth?.type === "static";
   const apiFile = "services/api/src/app.ts";
   const api = (await exists(path.join(root, apiFile)))
     ? await readFile(path.join(root, apiFile), "utf8")
@@ -475,6 +505,14 @@ async function inspectFeatureComponents(
       }
     }
     if (document?.type === "app-object") {
+      if (privateStatic) {
+        diagnostics.push({
+          level: "error",
+          code: "feature-profile",
+          message: "App objects require an OAuth marketplace profile.",
+          file: relative,
+        });
+      }
       const properties = Array.isArray(config?.properties)
         ? config.properties
         : [];
@@ -526,6 +564,14 @@ async function inspectFeatureComponents(
       }
     }
     if (document?.type === "app-event") {
+      if (privateStatic) {
+        diagnostics.push({
+          level: "error",
+          code: "feature-profile",
+          message: "App events require an OAuth marketplace profile.",
+          file: relative,
+        });
+      }
       if (
         typeof config?.name !== "string" ||
         typeof config?.objectType !== "string" ||
@@ -546,6 +592,77 @@ async function inspectFeatureComponents(
           code: "app-event-helper",
           message: "App event metadata must include the generated send helper.",
           file: helper,
+        });
+      }
+    }
+    if (document?.type === "app-function") {
+      if (!privateStatic) {
+        diagnostics.push({
+          level: "error",
+          code: "feature-profile",
+          message: "App functions require a static private profile.",
+          file: relative,
+        });
+      }
+      const entrypoint = config?.entrypoint;
+      if (typeof entrypoint !== "string" || !entrypoint.startsWith("/app/")) {
+        diagnostics.push({
+          level: "error",
+          code: "app-function-entrypoint",
+          message: "App function entrypoint must be an absolute /app path.",
+          file: relative,
+        });
+      } else {
+        const source = path.join(root, "apps/hubspot/src", entrypoint.slice(1));
+        if (!(await exists(source))) {
+          diagnostics.push({
+            level: "error",
+            code: "app-function-entrypoint",
+            message: `App function entrypoint is missing: ${entrypoint}`,
+            file: relative,
+          });
+        }
+      }
+      if (!Array.isArray(config?.secretKeys)) {
+        diagnostics.push({
+          level: "error",
+          code: "app-function-secrets",
+          message: "App function must explicitly declare secretKeys.",
+          file: relative,
+        });
+      }
+      const endpoint = objectValue(config?.endpoint);
+      if (
+        endpoint &&
+        (typeof endpoint.path !== "string" ||
+          !endpoint.path.startsWith("/api/") ||
+          !Array.isArray(endpoint.methods) ||
+          endpoint.methods.length === 0)
+      ) {
+        diagnostics.push({
+          level: "error",
+          code: "app-function-endpoint",
+          message:
+            "Endpoint functions need an /api path and at least one method.",
+          file: relative,
+        });
+      }
+    }
+    if (document?.type === "scim") {
+      if (!privateStatic) {
+        diagnostics.push({
+          level: "error",
+          code: "feature-profile",
+          message: "SCIM requires a static private profile.",
+          file: relative,
+        });
+      }
+      if (typeof config?.roleSyncEnabled !== "boolean") {
+        diagnostics.push({
+          level: "error",
+          code: "scim-role-sync",
+          message: "SCIM roleSyncEnabled must be explicitly true or false.",
+          file: relative,
         });
       }
     }

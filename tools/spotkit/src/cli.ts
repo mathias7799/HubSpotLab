@@ -75,6 +75,7 @@ async function createCommand(args: string[]): Promise<number> {
     ...optional("description", option(args, "--description")),
     ...optional("apiOrigin", option(args, "--api-origin")),
     ...optional("supportEmail", option(args, "--support-email")),
+    profile: profile(option(args, "--profile")),
   });
   console.log(
     `Created ${result.filesCreated} files in ${result.targetDirectory}`,
@@ -131,6 +132,12 @@ function optional<Key extends string>(
     : ({ [key]: value } as { [Property in Key]: string });
 }
 
+function profile(value: string | undefined): "marketplace" | "private-static" {
+  if (value === undefined || value === "marketplace") return "marketplace";
+  if (value === "private-static") return value;
+  throw new Error("--profile must be marketplace or private-static.");
+}
+
 function printHelp(): void {
   console.log(`SpotKit ${VERSION}
 
@@ -146,6 +153,7 @@ Create options:
   --description <text>     App description
   --api-origin <https URL> Public API origin
   --support-email <email>  Support contact
+  --profile <profile>      marketplace or private-static
 
 Doctor options:
   --strict                 Fail when warnings are present

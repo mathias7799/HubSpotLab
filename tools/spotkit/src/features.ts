@@ -8,7 +8,10 @@ export type AddableFeature =
   | "app-object"
   | "app-object-association"
   | "app-event"
-  | "agent-tool";
+  | "agent-tool"
+  | "app-function-endpoint"
+  | "app-function-private"
+  | "scim";
 
 export interface AddFeatureOptions {
   feature: AddableFeature;
@@ -31,8 +34,9 @@ export const featureCatalog = [
   { name: "app-object-association", availability: "gated-addable" },
   { name: "app-event", availability: "gated-addable" },
   { name: "agent-tool", availability: "gated-addable" },
-  { name: "app-function", availability: "private-app-only" },
-  { name: "scim", availability: "private-app-only" },
+  { name: "app-function-endpoint", availability: "private-addable" },
+  { name: "app-function-private", availability: "private-addable" },
+  { name: "scim", availability: "private-addable" },
 ] as const;
 
 const FEATURE_TEMPLATE_DIRECTORY = fileURLToPath(
@@ -76,6 +80,11 @@ export function normalizeFeature(value: string): AddableFeature {
   }
   if (value === "app-event" || value === "app-events") return "app-event";
   if (value === "agent-tool" || value === "agent-tools") return "agent-tool";
+  if (value === "app-function-endpoint") return value;
+  if (value === "app-function-private" || value === "app-function") {
+    return "app-function-private";
+  }
+  if (value === "scim") return "scim";
   throw new Error(
     `Unknown addable feature '${value}'. Run spotkit features to see the catalog.`,
   );
@@ -88,15 +97,22 @@ export async function addFeature(
   const appFile = path.join(root, "services/api/src/app.ts");
   const metadataFile = path.join(root, "apps/hubspot/src/app/app-hsmeta.json");
   const packageFile = path.join(root, "package.json");
-  for (const file of [appFile, metadataFile, packageFile]) {
+  for (const file of [metadataFile, packageFile]) {
     if (!(await exists(file))) {
       throw new Error(
         `Not a SpotKit project; required file is missing: ${file}`,
       );
     }
   }
-  const appSource = await readFile(appFile, "utf8");
   const integration = integrations[options.feature];
+  if (integration && !(await exists(appFile))) {
+    throw new Error(
+      `Feature '${options.feature}' requires the marketplace API profile.`,
+    );
+  }
+  const appSource = (await exists(appFile))
+    ? await readFile(appFile, "utf8")
+    : "";
   if (integration) {
     for (const marker of [
       "// spotkit:feature-imports",
@@ -124,7 +140,11 @@ export async function addFeature(
   }
 
   const metadata = JSON.parse(await readFile(metadataFile, "utf8")) as {
-    config?: { name?: string; auth?: { redirectUrls?: string[] } };
+    config?: {
+      name?: string;
+      distribution?: string;
+      auth?: { type?: string; redirectUrls?: string[] };
+    };
   };
   const packageDocument = JSON.parse(await readFile(packageFile, "utf8")) as {
     name?: string;
@@ -132,10 +152,33 @@ export async function addFeature(
   const slug = packageDocument.name?.split("/").at(-1);
   const displayName = metadata.config?.name;
   const redirect = metadata.config?.auth?.redirectUrls?.[0];
-  if (!slug || !displayName || !redirect) {
+  if (!slug || !displayName) {
     throw new Error("SpotKit project metadata is incomplete.");
   }
-  const apiOrigin = new URL(redirect).origin;
+  const privateStatic =
+    metadata.config?.distribution === "private" &&
+    metadata.config.auth?.type === "static";
+  const privateOnly = [
+    "app-function-endpoint",
+    "app-function-private",
+    "scim",
+  ].includes(options.feature);
+  if (privateOnly && !privateStatic) {
+    throw new Error(
+      `Feature '${options.feature}' requires a private-static SpotKit profile.`,
+    );
+  }
+  if (
+    ["app-object", "app-object-association", "app-event"].includes(
+      options.feature,
+    ) &&
+    privateStatic
+  ) {
+    throw new Error(
+      `Feature '${options.feature}' requires the OAuth marketplace profile.`,
+    );
+  }
+  const apiOrigin = redirect ? new URL(redirect).origin : "";
   const replacements = new Map([
     ["__SPOTKIT_SLUG__", slug],
     ["__SPOTKIT_UID__", slug.replaceAll("-", "_")],

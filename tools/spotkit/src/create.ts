@@ -9,6 +9,7 @@ export interface CreateProjectOptions {
   description?: string;
   apiOrigin?: string;
   supportEmail?: string;
+  profile?: "marketplace" | "private-static";
 }
 
 export interface CreateProjectResult {
@@ -18,6 +19,9 @@ export interface CreateProjectResult {
 
 const TEMPLATE_DIRECTORY = fileURLToPath(
   new URL("../templates/project", import.meta.url),
+);
+const PRIVATE_TEMPLATE_DIRECTORY = fileURLToPath(
+  new URL("../templates/private-project", import.meta.url),
 );
 const RUNTIME_DIRECTORY = fileURLToPath(
   new URL("../../../packages/spotkit-runtime", import.meta.url),
@@ -39,6 +43,7 @@ export async function createProject(
   const apiOrigin =
     options.apiOrigin?.trim() || `https://${options.slug}.example.com`;
   const supportEmail = options.supportEmail?.trim() || "support@example.com";
+  const profile = options.profile ?? "marketplace";
   const replacements = new Map([
     ["__SPOTKIT_SLUG__", options.slug],
     ["__SPOTKIT_UID__", options.slug.replaceAll("-", "_")],
@@ -52,14 +57,18 @@ export async function createProject(
     ["__SPOTKIT_SUPPORT_EMAIL_JSON__", jsonContent(supportEmail)],
   ]);
   let filesCreated = await copyTemplate(
-    TEMPLATE_DIRECTORY,
+    profile === "private-static"
+      ? PRIVATE_TEMPLATE_DIRECTORY
+      : TEMPLATE_DIRECTORY,
     target,
     replacements,
   );
-  filesCreated += await copyRuntime(
-    RUNTIME_DIRECTORY,
-    path.join(target, "packages/spotkit-runtime"),
-  );
+  if (profile === "marketplace") {
+    filesCreated += await copyRuntime(
+      RUNTIME_DIRECTORY,
+      path.join(target, "packages/spotkit-runtime"),
+    );
+  }
   return { targetDirectory: target, filesCreated };
 }
 

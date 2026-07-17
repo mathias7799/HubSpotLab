@@ -36,7 +36,8 @@
 - [x] app objects and app-object associations;
 - [x] app events and authenticated send helper;
 - [x] gated agent-tool recipe;
-- [ ] private-app profiles for app functions and SCIM.
+- [x] private-static profile with optional endpoint and private app functions;
+- [x] SCIM recipe with profile and prerequisite enforcement.
 
 ## 0.5: local development
 

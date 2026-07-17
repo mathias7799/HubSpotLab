@@ -69,7 +69,9 @@ storage. Its doctor checks metadata, scopes, origins, and deployment safety and
 supports strict CI and JSON output. Generated production bundles target generic
 Node, containers, AWS Lambda, and Azure Functions. Its additive feature catalog
 includes retry-safe webhooks, workflow actions, one app object and association,
-app events, and gated agent tools.
+app events, and gated agent tools. A separate private-static profile supports
+optional HubSpot app functions and SCIM without adding serverless requirements
+to marketplace applications.
 
 ## Status
 
