@@ -58,3 +58,4 @@ export {
   type RefreshDocumentationOptions,
   type RefreshDocumentationResult,
 } from "./docs-refresh.js";
+export { inspectProject, type ProjectInventory } from "./inspect.js";

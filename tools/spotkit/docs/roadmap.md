@@ -55,3 +55,11 @@
 - [x] metadata-safe screenshot and documentation refresh command;
 - [x] self-contained publishable package and tested `pnpm dlx` installation;
 - [x] npm provenance release workflow.
+
+## 0.7: lifecycle management
+
+- [x] read-only project, profile, feature, object, and readiness inventory;
+- [ ] machine-readable project manifest without duplicating HubSpot metadata;
+- [ ] review-first template and runtime upgrade planner;
+- [ ] monorepo-wide inventory and compatibility report;
+- [ ] migration fixtures for older SpotKit project versions.

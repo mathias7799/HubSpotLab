@@ -5,6 +5,8 @@ versioning while it is published under the `@hubspotlab/spotkit` package.
 
 ## Unreleased
 
+- add read-only project inventory with profile, feature, object, diagnostics,
+  and release-readiness reporting;
 - document incremental adoption for existing HubSpot apps and validate the
   path against TidsHub and CloseReady.
 

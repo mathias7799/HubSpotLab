@@ -81,6 +81,8 @@ and released with provenance. A metadata-safe documentation refresh command
 turns reviewed test-portal PNG captures into a deterministic screenshot gallery
 and hash manifest. Existing apps can adopt the same diagnostics and release
 workflow incrementally without replacing product-specific code.
+Lifecycle inventory reports each app's profile, HubSpot platform, installed
+features, app-object count, and release readiness from the checked-in metadata.
 
 ## Status
 

@@ -13,6 +13,7 @@ import { oauthReconnectUrl, openOAuthReconnect } from "./reconnect.js";
 import { checkRelease, uploadHubSpotProject } from "./release.js";
 import { smokeApplication } from "./smoke.js";
 import { refreshDocumentation } from "./docs-refresh.js";
+import { inspectProject } from "./inspect.js";
 import path from "node:path";
 
 const VERSION = "0.6.0";
@@ -47,6 +48,7 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     if (command === "upload") return await uploadCommand(args);
     if (command === "smoke") return await smokeCommand(args);
     if (command === "docs-refresh") return await docsRefreshCommand(args);
+    if (command === "inspect") return await inspectCommand(args);
     console.error(`Unknown command: ${command}`);
     printHelp();
     return 1;
@@ -54,6 +56,30 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     console.error(cause instanceof Error ? cause.message : String(cause));
     return 1;
   }
+}
+
+async function inspectCommand(args: string[]): Promise<number> {
+  const inventory = await inspectProject(
+    path.resolve(
+      INVOCATION_DIRECTORY,
+      args.find((value) => !value.startsWith("-")) ?? ".",
+    ),
+  );
+  if (args.includes("--json")) {
+    console.log(JSON.stringify(inventory, null, 2));
+    return 0;
+  }
+  console.log(`${inventory.name} (${inventory.profile})`);
+  console.log(`Root: ${inventory.root}`);
+  console.log(`Platform: ${inventory.platformVersion}`);
+  console.log(`API origin: ${inventory.apiOrigin ?? "none"}`);
+  console.log(`Features: ${inventory.features.join(", ") || "none"}`);
+  console.log(`App objects: ${inventory.appObjectCount}`);
+  console.log(
+    `Diagnostics: ${inventory.errors} errors, ${inventory.warnings} warnings`,
+  );
+  console.log(`Release ready: ${inventory.releaseReady ? "yes" : "no"}`);
+  return 0;
 }
 
 async function docsRefreshCommand(args: string[]): Promise<number> {
@@ -349,6 +375,7 @@ Usage:
   spotkit upload [directory] --confirm [--message <text>]
   spotkit smoke <https-origin>
   spotkit docs-refresh [directory] --screenshot <label=png-path> [--screenshot ...] --confirm|--check
+  spotkit inspect [directory] [--json]
   spotkit doctor [directory] [--strict] [--json]
 
 Create options:

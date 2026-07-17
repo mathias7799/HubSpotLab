@@ -16,6 +16,7 @@ import { oauthReconnectUrl } from "../src/reconnect.js";
 import { checkRelease, uploadHubSpotProject } from "../src/release.js";
 import { smokeApplication } from "../src/smoke.js";
 import { refreshDocumentation } from "../src/docs-refresh.js";
+import { inspectProject } from "../src/inspect.js";
 
 describe("SpotKit", () => {
   it("creates a complete HubSpot project skeleton", async () => {
@@ -329,6 +330,25 @@ describe("SpotKit", () => {
     expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
     expect(normalizeFeature("app-events")).toBe("app-event");
     expect(normalizeFeature("agent-tools")).toBe("agent-tool");
+    expect(await inspectProject(result.targetDirectory)).toMatchObject({
+      name: "CRM Features",
+      profile: "marketplace",
+      platformVersion: "2026.03",
+      apiOrigin: "https://api.example.net",
+      appObjectCount: 1,
+      errors: 0,
+      warnings: 0,
+      releaseReady: true,
+      features: [
+        "agent-tool",
+        "app-event",
+        "app-object",
+        "app-object-association",
+        "card",
+        "page",
+        "settings",
+      ],
+    });
   });
 
   it("creates a private-static profile with compatible functions and SCIM", async () => {
@@ -373,6 +393,12 @@ describe("SpotKit", () => {
         .filesCreated,
     ).toBe(2);
     expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
+    expect(await inspectProject(result.targetDirectory)).toMatchObject({
+      profile: "private-static",
+      features: ["app-function-endpoint", "app-function-private", "scim"],
+      appObjectCount: 0,
+      releaseReady: true,
+    });
     await expect(
       addFeature({ feature: "app-event", directory: result.targetDirectory }),
     ).rejects.toThrow("OAuth marketplace");

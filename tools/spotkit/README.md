@@ -82,6 +82,18 @@ Doctor currently validates:
 - Lambda runtime, handler, and unsigned-request policy;
 - placeholder origins that must not reach deployment.
 
+Inventory an app without changing it:
+
+```bash
+pnpm spotkit inspect projects/closeready
+pnpm spotkit inspect projects/closeready --json
+```
+
+`inspect` reports the app profile, HubSpot platform, API origin, installed
+component features, app-object count, diagnostic totals, and strict release
+readiness. It derives the inventory from HubSpot metadata, so generated and
+adopted projects use the same source of truth.
+
 Errors return a non-zero exit code. Warnings are actionable by default;
 `--strict` also makes them fail CI. `--json` emits the complete report with
 stable diagnostic codes for automation.
@@ -190,12 +202,12 @@ An end-to-end generated project is also validated during development by
 installing it outside the repository and running its API test and all four
 TypeScript checks.
 
-## Current milestone: 0.6
+## Current milestone: 0.7
 
-Version 0.6 adds a self-contained npm artifact, packed-install CI, strict release
-scanning, official HubSpot validation, confirmation-gated upload, and npm
-provenance publishing. The complete 2026.03 feature catalog, portable hosting,
-and coordinated local-development workflow remain included.
+Version 0.6 delivered a self-contained npm artifact, strict release and smoke
+workflows, and provenance publishing. The 0.7 lifecycle milestone starts with
+read-only inventory for generated and adopted apps, then adds explicit project
+manifests, review-first upgrades, and monorepo compatibility reporting.
 
 See [architecture](docs/architecture.md), [features](docs/features.md),
 [hosting](docs/hosting.md), [local development](docs/local-development.md), and
