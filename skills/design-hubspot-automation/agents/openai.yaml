@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design HubSpot Automation"
+  short_description: "Design reliable HubSpot automation and agent tools"
+  default_prompt: "Use $design-hubspot-automation to design a reliable HubSpot automation workflow for this requirement."
