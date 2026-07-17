@@ -2,9 +2,17 @@
 import { createProject } from "./create.js";
 import { diagnoseProject } from "./doctor.js";
 import { addFeature, featureCatalog, normalizeFeature } from "./features.js";
+import { synchronizeOrigin } from "./origin.js";
+import { prepareDevelopment, runDevelopment } from "./dev.js";
+import {
+  prepareTunnelDevelopment,
+  runTunnelDevelopment,
+  type TunnelProvider,
+} from "./tunnel.js";
+import { oauthReconnectUrl, openOAuthReconnect } from "./reconnect.js";
 import path from "node:path";
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 const INVOCATION_DIRECTORY = process.env.INIT_CWD ?? process.cwd();
 
 export async function run(argv = process.argv.slice(2)): Promise<number> {
@@ -28,6 +36,10 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     if (command === "doctor") return await doctorCommand(args);
     if (command === "add") return await addCommand(args);
     if (command === "features") return featuresCommand();
+    if (command === "sync-origin") return await originCommand(args);
+    if (command === "dev") return await devCommand(args);
+    if (command === "tunnel") return await tunnelCommand(args);
+    if (command === "reconnect") return await reconnectCommand(args);
     console.error(`Unknown command: ${command}`);
     printHelp();
     return 1;
@@ -35,6 +47,93 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     console.error(cause instanceof Error ? cause.message : String(cause));
     return 1;
   }
+}
+
+async function reconnectCommand(args: string[]): Promise<number> {
+  const directory = path.resolve(
+    INVOCATION_DIRECTORY,
+    args.find((value) => !value.startsWith("-")) ?? ".",
+  );
+  const url = await oauthReconnectUrl(directory);
+  console.log(`OAuth reconnect URL: ${url}`);
+  if (args.includes("--open")) {
+    openOAuthReconnect(url);
+    console.log("Opened the reconnect URL after explicit --open confirmation.");
+  } else {
+    console.log("Review the URL, then rerun with --open to launch it.");
+  }
+  return 0;
+}
+
+async function tunnelCommand(args: string[]): Promise<number> {
+  const provider = option(args, "--provider") ?? "cloudflare";
+  if (provider !== "cloudflare" && provider !== "ngrok") {
+    throw new Error("--provider must be cloudflare or ngrok.");
+  }
+  const positional = args.filter(
+    (value, index) =>
+      !value.startsWith("-") && args[index - 1] !== "--provider",
+  );
+  const options = {
+    directory: path.resolve(INVOCATION_DIRECTORY, positional[0] ?? "."),
+    provider: provider as TunnelProvider,
+    check: args.includes("--check"),
+  };
+  const plan = await prepareTunnelDevelopment(options);
+  console.log(
+    `${plan.command.label}: ${plan.command.command} ${plan.command.args.join(" ")}`,
+  );
+  return options.check ? 0 : await runTunnelDevelopment(options);
+}
+
+async function devCommand(args: string[]): Promise<number> {
+  const origin = option(args, "--origin");
+  const positional = args.filter(
+    (value, index) => !value.startsWith("-") && args[index - 1] !== "--origin",
+  );
+  const directory = path.resolve(INVOCATION_DIRECTORY, positional[0] ?? ".");
+  const options = {
+    directory,
+    ...optional("origin", origin),
+    apiOnly: args.includes("--api-only"),
+    check: args.includes("--check"),
+  };
+  const plan = await prepareDevelopment(options);
+  console.log(`SpotKit development: ${plan.root}`);
+  for (const change of plan.originChanges) {
+    console.log(`Origin ${change.file}: ${change.reasons.join(", ")}`);
+  }
+  for (const command of plan.commands) {
+    console.log(
+      `${command.label}: ${command.command} ${command.args.join(" ")}`,
+    );
+  }
+  return options.check ? 0 : await runDevelopment(options, plan);
+}
+
+async function originCommand(args: string[]): Promise<number> {
+  const values = args.filter((value) => !value.startsWith("-"));
+  const origin = values[0];
+  if (!origin) {
+    throw new Error(
+      "Usage: spotkit sync-origin <https-origin> [directory] [--check]",
+    );
+  }
+  const check = args.includes("--check");
+  const result = await synchronizeOrigin({
+    origin,
+    directory: path.resolve(INVOCATION_DIRECTORY, values[1] ?? "."),
+    write: !check,
+  });
+  console.log(
+    `${check ? "Would update" : "Updated"} ${result.changes.length} files for ${result.origin}`,
+  );
+  for (const change of result.changes) {
+    console.log(`${change.file}: ${change.reasons.join(", ")}`);
+  }
+  if (!result.changed)
+    console.log("Origin configuration is already synchronized.");
+  return 0;
 }
 
 async function addCommand(args: string[]): Promise<number> {
@@ -145,6 +244,10 @@ Usage:
   spotkit create <slug> [options]
   spotkit add <feature> [directory]
   spotkit features
+  spotkit sync-origin <https-origin> [directory] [--check]
+  spotkit dev [directory] [--origin <https-origin>] [--api-only] [--check]
+  spotkit tunnel [directory] [--provider cloudflare|ngrok] [--check]
+  spotkit reconnect [directory] [--open]
   spotkit doctor [directory] [--strict] [--json]
 
 Create options:

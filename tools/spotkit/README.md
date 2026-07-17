@@ -105,6 +105,37 @@ Private-static projects can add `app-function-endpoint`,
 marketplace project and rejects marketplace-only app objects or events in the
 private profile. App functions remain entirely optional.
 
+### Develop with a public origin
+
+```bash
+cp projects/handoff-ready/services/api/.env.example \
+  projects/handoff-ready/services/api/.env
+# Add real local OAuth credentials, then:
+pnpm spotkit sync-origin https://your-stable-or-tunnel.example \
+  projects/handoff-ready --check
+pnpm spotkit sync-origin https://your-stable-or-tunnel.example \
+  projects/handoff-ready
+pnpm spotkit dev projects/handoff-ready --check
+pnpm spotkit dev projects/handoff-ready
+```
+
+`sync-origin` updates OAuth callbacks, permitted fetch URLs, both UI backend
+constants, API environment files, webhooks, workflow actions, and agent tools.
+`--check` previews without writing. `dev` loads the ignored API `.env`, starts
+the API and `hs project dev`, and supervises both processes.
+
+With `cloudflared` or `ngrok` installed, SpotKit can discover and synchronize a
+temporary URL automatically:
+
+```bash
+pnpm spotkit tunnel projects/handoff-ready --provider cloudflare
+pnpm spotkit tunnel projects/handoff-ready --provider ngrok
+```
+
+Temporary origins intentionally remain visible after the process exits, so
+`doctor --strict` prevents accidental release until a stable origin is restored.
+`spotkit reconnect` prints the OAuth URL for review; only `--open` launches it.
+
 ## Develop SpotKit
 
 ```bash
@@ -117,13 +148,13 @@ An end-to-end generated project is also validated during development by
 installing it outside the repository and running its API test and all four
 TypeScript checks.
 
-## Current milestone: 0.4
+## Current milestone: 0.5
 
-Version 0.4 adds an extensible HubSpot feature catalog with production-ready
-webhooks, workflow actions, a one-app-object policy, object associations, app
-events, and gated agent tools. Generic Node, containers, AWS Lambda, and Azure
-Functions remain supported deployment targets. A separate private-static
-profile supports optional app functions and SCIM.
+Version 0.5 adds synchronized origins, coordinated API and HubSpot development,
+optional Cloudflare/ngrok lifecycle management, and review-first OAuth
+reconnect. The complete 2026.03 feature catalog and both marketplace and
+private-static profiles remain available from 0.4.
 
 See [architecture](docs/architecture.md), [features](docs/features.md),
-[hosting](docs/hosting.md), and the [roadmap](docs/roadmap.md).
+[hosting](docs/hosting.md), [local development](docs/local-development.md), and
+the [roadmap](docs/roadmap.md).

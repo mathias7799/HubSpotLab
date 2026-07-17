@@ -6,7 +6,7 @@
   "main": "dist/azure.js",
   "scripts": {
     "build": "esbuild src/adapters/node.ts src/adapters/aws-lambda.ts src/adapters/azure.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist --external:@azure/functions",
-    "dev": "tsx watch src/adapters/node.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx --watch src/adapters/node.ts",
     "dev:local": "HUBSPOT_CLIENT_ID=local HUBSPOT_CLIENT_SECRET=local TOKEN_ENCRYPTION_KEY=local ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=true PUBLIC_URL=http://localhost:8788 PORT=8788 tsx watch src/adapters/node.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

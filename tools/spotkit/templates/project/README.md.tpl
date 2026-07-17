@@ -19,6 +19,10 @@ pnpm --dir services/api dev:local
 curl http://localhost:8788/health
 ```
 
+The local-only command uses disposable credentials and memory storage. Before a
+real HubSpot development session, copy `services/api/.env.example` to the
+ignored `services/api/.env` and add real OAuth credentials.
+
 Open `http://localhost:8788/oauth/install` to start OAuth. Local development
 uses an in-memory token store. Production refuses to start without paired
 Upstash credentials and encrypts every stored installation using AES-256-GCM.
@@ -61,3 +65,9 @@ its own guide under `docs/features`.
 This is an OAuth marketplace profile. App functions and SCIM belong in a
 separate project created with `--profile private-static`; SpotKit prevents them
 from being added here.
+
+For a real HubSpot development session, run `spotkit sync-origin` to update all
+callback, UI, webhook, and action URLs together, then use `spotkit dev`. If
+`cloudflared` or `ngrok` is installed, `spotkit tunnel` discovers and syncs the
+temporary URL automatically. See the SpotKit
+[local-development guide](https://github.com/mathias7799/HubSpotLab/blob/main/tools/spotkit/docs/local-development.md).

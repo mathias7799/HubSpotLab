@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,6 +6,13 @@ import { describe, expect, it } from "vitest";
 import { createProject } from "../src/create.js";
 import { diagnoseProject } from "../src/doctor.js";
 import { addFeature, normalizeFeature } from "../src/features.js";
+import { synchronizeOrigin } from "../src/origin.js";
+import { prepareDevelopment } from "../src/dev.js";
+import {
+  extractTunnelOrigin,
+  prepareTunnelDevelopment,
+} from "../src/tunnel.js";
+import { oauthReconnectUrl } from "../src/reconnect.js";
 
 describe("SpotKit", () => {
   it("creates a complete HubSpot project skeleton", async () => {
@@ -366,5 +373,161 @@ describe("SpotKit", () => {
     await expect(
       addFeature({ feature: "app-event", directory: result.targetDirectory }),
     ).rejects.toThrow("OAuth marketplace");
+  });
+
+  it("previews and synchronizes every public API origin", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "origin-sync",
+      directory: parent,
+      apiOrigin: "https://old.example.net",
+    });
+    await addFeature({
+      feature: "webhooks",
+      directory: result.targetDirectory,
+    });
+    await addFeature({
+      feature: "workflow-action",
+      directory: result.targetDirectory,
+    });
+    await addFeature({
+      feature: "agent-tool",
+      directory: result.targetDirectory,
+    });
+    const appFile = path.join(
+      result.targetDirectory,
+      "apps/hubspot/src/app/app-hsmeta.json",
+    );
+    const before = await readFile(appFile, "utf8");
+    const preview = await synchronizeOrigin({
+      directory: result.targetDirectory,
+      origin: "https://new.example.net",
+    });
+    expect(preview.written).toBe(false);
+    expect(preview.changes.length).toBeGreaterThanOrEqual(6);
+    expect(await readFile(appFile, "utf8")).toBe(before);
+
+    await synchronizeOrigin({
+      directory: result.targetDirectory,
+      origin: "https://new.example.net",
+      write: true,
+    });
+    expect(await readFile(appFile, "utf8")).toContain(
+      "https://new.example.net/oauth/callback",
+    );
+    expect(
+      await readFile(
+        path.join(
+          result.targetDirectory,
+          "apps/hubspot/src/app/webhooks/webhooks-hsmeta.json",
+        ),
+        "utf8",
+      ),
+    ).toContain("https://new.example.net/webhooks/hubspot");
+    expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
+    await expect(
+      synchronizeOrigin({
+        directory: result.targetDirectory,
+        origin: "http://unsafe.example.net",
+        write: true,
+      }),
+    ).rejects.toThrow("HTTPS origin");
+  });
+
+  it("prepares coordinated API and HubSpot development without side effects", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "dev-check",
+      directory: parent,
+      apiOrigin: "https://old.example.net",
+    });
+    const metadataFile = path.join(
+      result.targetDirectory,
+      "apps/hubspot/src/app/app-hsmeta.json",
+    );
+    const before = await readFile(metadataFile, "utf8");
+    await writeFile(
+      path.join(result.targetDirectory, "services/api/.env"),
+      "PUBLIC_URL=https://old.example.net\nHUBSPOT_CLIENT_ID=test\n",
+      "utf8",
+    );
+    const plan = await prepareDevelopment({
+      directory: result.targetDirectory,
+      origin: "https://dev.example.net",
+      check: true,
+    });
+    expect(plan.commands.map((command) => command.label)).toEqual([
+      "API",
+      "HubSpot",
+    ]);
+    expect(plan.originChanges.length).toBeGreaterThan(0);
+    expect(await readFile(metadataFile, "utf8")).toBe(before);
+    expect(
+      (
+        await prepareDevelopment({
+          directory: result.targetDirectory,
+          apiOnly: true,
+        })
+      ).commands,
+    ).toHaveLength(1);
+  });
+
+  it("extracts public origins from Cloudflare and ngrok logs", () => {
+    expect(
+      extractTunnelOrigin(
+        "cloudflare",
+        "INF Your quick Tunnel has been created! https://kind-moon.trycloudflare.com",
+      ),
+    ).toBe("https://kind-moon.trycloudflare.com");
+    expect(
+      extractTunnelOrigin(
+        "ngrok",
+        '{"msg":"started tunnel","url":"https://demo-123.ngrok-free.app"}',
+      ),
+    ).toBe("https://demo-123.ngrok-free.app");
+  });
+
+  it("preflights an installed tunnel provider without starting it", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "tunnel-preflight",
+      directory: parent,
+    });
+    await writeFile(
+      path.join(result.targetDirectory, "services/api/.env"),
+      "PUBLIC_URL=https://example.test\n",
+      "utf8",
+    );
+    const binaryDirectory = await mkdtemp(path.join(tmpdir(), "spotkit-bin-"));
+    const binary = path.join(binaryDirectory, "cloudflared");
+    await writeFile(binary, "#!/bin/sh\nexit 0\n", "utf8");
+    await chmod(binary, 0o755);
+    const previousPath = process.env.PATH;
+    process.env.PATH = `${binaryDirectory}${path.delimiter}${previousPath ?? ""}`;
+    try {
+      const plan = await prepareTunnelDevelopment({
+        directory: result.targetDirectory,
+        provider: "cloudflare",
+        check: true,
+      });
+      expect(plan.command).toMatchObject({
+        command: "cloudflared",
+        args: expect.arrayContaining(["tunnel", "--no-autoupdate"]),
+      });
+    } finally {
+      process.env.PATH = previousPath;
+    }
+  });
+
+  it("derives a reviewable OAuth reconnect URL", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "reconnect-check",
+      directory: parent,
+      apiOrigin: "https://reconnect.example.net",
+    });
+    await expect(oauthReconnectUrl(result.targetDirectory)).resolves.toBe(
+      "https://reconnect.example.net/oauth/install?returnTo=%2Finstalled",
+    );
   });
 });

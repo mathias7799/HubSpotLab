@@ -71,7 +71,9 @@ Node, containers, AWS Lambda, and Azure Functions. Its additive feature catalog
 includes retry-safe webhooks, workflow actions, one app object and association,
 app events, and gated agent tools. A separate private-static profile supports
 optional HubSpot app functions and SCIM without adding serverless requirements
-to marketplace applications.
+to marketplace applications. Local tooling synchronizes every public origin,
+coordinates API and HubSpot development, manages optional Cloudflare/ngrok
+tunnels, and keeps OAuth reconnect review-first.
 
 ## Status
 

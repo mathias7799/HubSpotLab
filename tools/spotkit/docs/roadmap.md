@@ -41,10 +41,10 @@
 
 ## 0.5: local development
 
-- coordinated API and HubSpot upload workflow;
-- temporary Cloudflare Tunnel or ngrok integration;
-- callback and permitted-origin synchronization;
-- OAuth reconnect command with explicit confirmation boundaries.
+- [x] coordinated API and HubSpot project-development workflow;
+- [x] temporary Cloudflare Tunnel and ngrok integration;
+- [x] callback, feature-target, environment, and permitted-origin sync;
+- [x] OAuth reconnect command with explicit `--open` confirmation.
 
 ## 0.6: release workflow
 

@@ -16,3 +16,25 @@ export {
   type AddFeatureOptions,
   type AddFeatureResult,
 } from "./features.js";
+export {
+  synchronizeOrigin,
+  type OriginChange,
+  type SynchronizeOriginOptions,
+  type SynchronizeOriginResult,
+} from "./origin.js";
+export {
+  prepareDevelopment,
+  runDevelopment,
+  type DevelopmentCommand,
+  type DevelopmentOptions,
+  type DevelopmentPlan,
+} from "./dev.js";
+export {
+  extractTunnelOrigin,
+  prepareTunnelDevelopment,
+  runTunnelDevelopment,
+  type TunnelDevelopmentOptions,
+  type TunnelDevelopmentPlan,
+  type TunnelProvider,
+} from "./tunnel.js";
+export { oauthReconnectUrl, openOAuthReconnect } from "./reconnect.js";

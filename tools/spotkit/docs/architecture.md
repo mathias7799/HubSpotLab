@@ -86,6 +86,14 @@ Feature installation reads the app's distribution and auth type before writing
 files. Invalid cross-profile combinations fail early and serverless functions
 remain optional.
 
+## Local development boundary
+
+Origin synchronization owns only known generated fields and constants. Preview
+mode performs no writes. Coordinated development requires an ignored `.env` and
+supervises API, tunnel, and HubSpot child processes as one lifecycle. OAuth
+reconnect remains a review-first user action rather than an automatic browser
+side effect.
+
 ## Diagnostic model
 
 Doctor returns structured diagnostics with `success`, `warning`, or `error`
