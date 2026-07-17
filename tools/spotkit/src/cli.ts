@@ -14,9 +14,13 @@ import { checkRelease, uploadHubSpotProject } from "./release.js";
 import { smokeApplication } from "./smoke.js";
 import { refreshDocumentation } from "./docs-refresh.js";
 import { inspectProject } from "./inspect.js";
+import { synchronizeManifest } from "./manifest.js";
+import { SPOTKIT_VERSION } from "./version.js";
+import { planUpgrade } from "./upgrade.js";
+import { inspectWorkspace } from "./inventory.js";
+import { runTui } from "./tui.js";
 import path from "node:path";
 
-const VERSION = "0.6.0";
 const INVOCATION_DIRECTORY = process.env.INIT_CWD ?? process.cwd();
 
 export async function run(argv = process.argv.slice(2)): Promise<number> {
@@ -32,7 +36,7 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     return 0;
   }
   if (command === "--version" || command === "-v" || command === "version") {
-    console.log(VERSION);
+    console.log(SPOTKIT_VERSION);
     return 0;
   }
   try {
@@ -49,6 +53,10 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     if (command === "smoke") return await smokeCommand(args);
     if (command === "docs-refresh") return await docsRefreshCommand(args);
     if (command === "inspect") return await inspectCommand(args);
+    if (command === "manifest") return await manifestCommand(args);
+    if (command === "upgrade") return await upgradeCommand(args);
+    if (command === "inventory") return await inventoryCommand(args);
+    if (command === "ui" || command === "tui") return await tuiCommand(args);
     console.error(`Unknown command: ${command}`);
     printHelp();
     return 1;
@@ -56,6 +64,87 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
     console.error(cause instanceof Error ? cause.message : String(cause));
     return 1;
   }
+}
+
+async function tuiCommand(args: string[]): Promise<number> {
+  return await runTui({
+    directory: path.resolve(
+      INVOCATION_DIRECTORY,
+      args.find((value) => !value.startsWith("-")) ?? ".",
+    ),
+  });
+}
+
+async function inventoryCommand(args: string[]): Promise<number> {
+  const directory = path.resolve(
+    INVOCATION_DIRECTORY,
+    args.find((value) => !value.startsWith("-")) ?? ".",
+  );
+  const report = await inspectWorkspace(directory);
+  if (args.includes("--json")) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(`SpotKit workspace inventory: ${report.root}`);
+    for (const project of report.projects) {
+      console.log(
+        `${project.releaseReady ? "READY" : "ACTION"} ${project.name} [${project.profile}] ${project.features.join(", ") || "no components"} (${project.errors}E/${project.warnings}W)`,
+      );
+    }
+    console.log(
+      `${report.totals.releaseReady}/${report.totals.projects} release ready; ${report.totals.errors} errors, ${report.totals.warnings} warnings, ${report.totals.appObjects} app objects.`,
+    );
+  }
+  if (args.includes("--strict") && !report.allReleaseReady) return 1;
+  return 0;
+}
+
+async function upgradeCommand(args: string[]): Promise<number> {
+  const directory = path.resolve(
+    INVOCATION_DIRECTORY,
+    args.find((value) => !value.startsWith("-")) ?? ".",
+  );
+  const plan = await planUpgrade(directory);
+  if (args.includes("--json")) {
+    console.log(JSON.stringify(plan, null, 2));
+    return 0;
+  }
+  console.log(`SpotKit upgrade plan: ${plan.root}`);
+  console.log(
+    `Version: ${plan.currentVersion ?? "unmanaged"} → ${plan.targetVersion}`,
+  );
+  console.log(
+    `Runtime differences: ${plan.runtimeDifferences.length}${plan.runtimeApplicable ? "" : " (not applicable)"}`,
+  );
+  for (const difference of plan.runtimeDifferences) {
+    console.log(`${difference.state.toUpperCase()} ${difference.file}`);
+  }
+  for (const action of plan.actions) console.log(`NEXT ${action}`);
+  return 0;
+}
+
+async function manifestCommand(args: string[]): Promise<number> {
+  const write = args.includes("--confirm");
+  const check = args.includes("--check");
+  if (write && check)
+    throw new Error("Use either --confirm or --check, not both.");
+  if (!write && !check) {
+    throw new Error(
+      "Pass --confirm to write the manifest or --check to verify it.",
+    );
+  }
+  const result = await synchronizeManifest({
+    directory: commandDirectory(args, []),
+    write,
+  });
+  console.log(`SpotKit manifest: ${path.join(result.root, result.file)}`);
+  console.log(
+    result.changed
+      ? write
+        ? "Manifest synchronized."
+        : "Manifest is missing or stale."
+      : "Manifest is current.",
+  );
+  return check && result.changed ? 1 : 0;
 }
 
 async function inspectCommand(args: string[]): Promise<number> {
@@ -75,6 +164,9 @@ async function inspectCommand(args: string[]): Promise<number> {
   console.log(`API origin: ${inventory.apiOrigin ?? "none"}`);
   console.log(`Features: ${inventory.features.join(", ") || "none"}`);
   console.log(`App objects: ${inventory.appObjectCount}`);
+  console.log(
+    `SpotKit lifecycle: ${inventory.managedBySpotKit ? `${inventory.createdWith} → ${inventory.updatedWith}` : "unmanaged"}`,
+  );
   console.log(
     `Diagnostics: ${inventory.errors} errors, ${inventory.warnings} warnings`,
   );
@@ -361,7 +453,7 @@ function profile(value: string | undefined): "marketplace" | "private-static" {
 }
 
 function printHelp(): void {
-  console.log(`SpotKit ${VERSION}
+  console.log(`SpotKit ${SPOTKIT_VERSION}
 
 Usage:
   spotkit create <slug> [options]
@@ -376,6 +468,10 @@ Usage:
   spotkit smoke <https-origin>
   spotkit docs-refresh [directory] --screenshot <label=png-path> [--screenshot ...] --confirm|--check
   spotkit inspect [directory] [--json]
+  spotkit manifest [directory] --confirm|--check
+  spotkit upgrade [directory] [--json]
+  spotkit inventory [directory] [--strict] [--json]
+  spotkit ui [directory]
   spotkit doctor [directory] [--strict] [--json]
 
 Create options:

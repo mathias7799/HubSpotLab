@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/mathias7799/HubSpotLab/main/tools/spotkit/docs/spotkit-manifest.schema.json",
+  "schemaVersion": 1,
+  "createdWith": "0.7.0",
+  "updatedWith": "0.7.0"
+}

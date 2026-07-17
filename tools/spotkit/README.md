@@ -4,6 +4,17 @@ SpotKit is HubSpotLab's CLI for creating and validating HubSpot-native app
 projects. Its conventions are extracted from the working TidsHub and CloseReady
 applications.
 
+For an interactive all-in-one project dashboard:
+
+```bash
+pnpm spotkit ui
+pnpm dlx @hubspotlab/spotkit ui projects
+```
+
+The terminal UI discovers projects and brings overview, doctor, upgrades,
+manifest adoption, origin synchronization, releases, OAuth reconnect, and
+deployed smoke checks into one confirmation-safe workflow.
+
 Run the published CLI without installing it globally:
 
 ```bash
@@ -93,6 +104,40 @@ pnpm spotkit inspect projects/closeready --json
 component features, app-object count, diagnostic totals, and strict release
 readiness. It derives the inventory from HubSpot metadata, so generated and
 adopted projects use the same source of truth.
+
+Generated projects include a minimal `.spotkit.json` lifecycle manifest. It
+records only the manifest schema and SpotKit creation/update versions; profile,
+features, origins, and scopes remain authoritative in HubSpot metadata. Adopt an
+existing project or verify manifest drift with:
+
+```bash
+pnpm spotkit manifest projects/my-app --confirm
+pnpm spotkit manifest projects/my-app --check
+```
+
+Plan an upgrade without changing project files:
+
+```bash
+pnpm spotkit upgrade projects/my-app
+pnpm spotkit upgrade projects/my-app --json
+```
+
+The planner compares lifecycle versions and every managed embedded-runtime file,
+then combines those differences with current diagnostics. It never overwrites a
+runtime file: missing, modified, and project-only files are listed for explicit
+review and merge.
+
+Inventory every HubSpot project below a monorepo directory:
+
+```bash
+pnpm spotkit inventory projects
+pnpm spotkit inventory projects --json
+pnpm spotkit inventory projects --strict
+```
+
+The report aggregates profiles, inferred components, app-object usage, errors,
+warnings, and release readiness. `--strict` fails unless at least one project is
+found and every discovered project has zero diagnostic errors and warnings.
 
 Errors return a non-zero exit code. Warnings are actionable by default;
 `--strict` also makes them fail CI. `--json` emits the complete report with
@@ -213,4 +258,5 @@ See [architecture](docs/architecture.md), [features](docs/features.md),
 [hosting](docs/hosting.md), [local development](docs/local-development.md), and
 the [existing-app adoption guide](docs/adopting-existing-apps.md),
 [release guide](docs/releasing.md), [smoke-testing guide](docs/smoke-testing.md),
-[changelog](CHANGELOG.md), and [roadmap](docs/roadmap.md).
+[terminal UI guide](docs/terminal-ui.md), [changelog](CHANGELOG.md), and
+[roadmap](docs/roadmap.md).

@@ -2,6 +2,7 @@ import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 import { diagnoseProject } from "./doctor.js";
+import { readManifest } from "./manifest.js";
 
 export interface ProjectInventory {
   root: string;
@@ -15,6 +16,9 @@ export interface ProjectInventory {
   errors: number;
   warnings: number;
   releaseReady: boolean;
+  managedBySpotKit: boolean;
+  createdWith?: string;
+  updatedWith?: string;
 }
 
 export async function inspectProject(
@@ -48,6 +52,7 @@ export async function inspectProject(
     if (feature) features.add(feature);
   }
   const diagnostics = await diagnoseProject(root);
+  const manifest = await readManifest(root).catch(() => undefined);
   return {
     root,
     name: typeof config?.name === "string" ? config.name : "Unknown app",
@@ -63,6 +68,13 @@ export async function inspectProject(
     errors: diagnostics.errors,
     warnings: diagnostics.warnings,
     releaseReady: diagnostics.errors === 0 && diagnostics.warnings === 0,
+    managedBySpotKit: Boolean(manifest),
+    ...(manifest
+      ? {
+          createdWith: manifest.createdWith,
+          updatedWith: manifest.updatedWith,
+        }
+      : {}),
   };
 }
 

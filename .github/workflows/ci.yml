@@ -34,6 +34,9 @@ jobs:
           pnpm dlx /tmp/spotkit-pack/*.tgz create ci-packed-app --directory /tmp --api-origin https://api.ci-packed-app.com
           pnpm dlx /tmp/spotkit-pack/*.tgz add webhooks /tmp/ci-packed-app
           pnpm dlx /tmp/spotkit-pack/*.tgz doctor /tmp/ci-packed-app --strict
+          pnpm dlx /tmp/spotkit-pack/*.tgz manifest /tmp/ci-packed-app --check
+          pnpm dlx /tmp/spotkit-pack/*.tgz upgrade /tmp/ci-packed-app --json
+          pnpm dlx /tmp/spotkit-pack/*.tgz inventory /tmp/ci-packed-app --strict
           pnpm --dir /tmp/ci-packed-app install
           pnpm --dir /tmp/ci-packed-app test
           pnpm --dir /tmp/ci-packed-app typecheck

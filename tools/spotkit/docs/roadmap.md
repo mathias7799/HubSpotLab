@@ -59,7 +59,8 @@
 ## 0.7: lifecycle management
 
 - [x] read-only project, profile, feature, object, and readiness inventory;
-- [ ] machine-readable project manifest without duplicating HubSpot metadata;
-- [ ] review-first template and runtime upgrade planner;
-- [ ] monorepo-wide inventory and compatibility report;
-- [ ] migration fixtures for older SpotKit project versions.
+- [x] machine-readable project manifest without duplicating HubSpot metadata;
+- [x] review-first template and embedded-runtime upgrade planner;
+- [x] monorepo-wide inventory and strict compatibility report;
+- [x] data-driven migration fixtures for pre-manifest 0.4 and customized 0.5 projects.
+- [x] all-in-one interactive terminal UI over the same safe lifecycle operations.

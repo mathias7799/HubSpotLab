@@ -4,6 +4,11 @@ __SPOTKIT_DESCRIPTION__
 
 This is a SpotKit private-static HubSpot project profile for components that are
 not compatible with OAuth marketplace apps, including app functions and SCIM.
+The `.spotkit.json` lifecycle manifest tracks SpotKit versions without copying
+profile or feature configuration out of HubSpot metadata.
+
+Run `pnpm spotkit ui <this-project>` for the interactive overview, diagnostics,
+upgrade planning, and confirmation-safe release workflow.
 
 ```bash
 pnpm spotkit features

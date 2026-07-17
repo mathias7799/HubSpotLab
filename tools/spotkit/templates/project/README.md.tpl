@@ -4,6 +4,11 @@ __SPOTKIT_DESCRIPTION__
 
 Generated with
 [SpotKit](https://github.com/mathias7799/HubSpotLab/tree/main/tools/spotkit).
+The `.spotkit.json` file records lifecycle schema and generator versions only;
+HubSpot metadata remains authoritative for the app profile and features.
+
+Run `pnpm spotkit ui <this-project>` for the interactive overview, diagnostics,
+upgrade plan, origin, release, OAuth, and smoke-test workflows.
 
 ## Structure
 

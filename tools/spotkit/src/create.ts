@@ -2,6 +2,8 @@ import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SPOTKIT_VERSION } from "./version.js";
+
 export interface CreateProjectOptions {
   slug: string;
   directory?: string;
@@ -58,6 +60,7 @@ export async function createProject(
     ["__SPOTKIT_API_ORIGIN_JSON__", jsonContent(apiOrigin)],
     ["__SPOTKIT_SUPPORT_EMAIL__", supportEmail],
     ["__SPOTKIT_SUPPORT_EMAIL_JSON__", jsonContent(supportEmail)],
+    ["__SPOTKIT_VERSION__", SPOTKIT_VERSION],
   ]);
   let filesCreated = await copyTemplate(
     profile === "private-static"

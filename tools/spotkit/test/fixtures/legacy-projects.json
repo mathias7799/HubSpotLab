@@ -1,0 +1,16 @@
+[
+  {
+    "name": "pre-manifest-v04",
+    "manifestVersion": null,
+    "removeRuntimeFile": "src/idempotency-store.ts",
+    "modifyRuntimeFile": null,
+    "expectedState": "missing"
+  },
+  {
+    "name": "spotkit-v05-custom-security",
+    "manifestVersion": "0.5.0",
+    "removeRuntimeFile": null,
+    "modifyRuntimeFile": "src/security.ts",
+    "expectedState": "modified"
+  }
+]

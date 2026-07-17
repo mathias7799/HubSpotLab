@@ -37,9 +37,18 @@ and unsigned development; the production-facing example must not.
 ## 3. Synchronize and diagnose
 
 ```bash
+pnpm spotkit manifest projects/my-app --confirm
 pnpm spotkit sync-origin https://api.my-app.com projects/my-app
 pnpm spotkit doctor projects/my-app --strict
 ```
+
+The lifecycle manifest records only SpotKit schema and version information. It
+does not copy the app profile, features, scopes, or origin out of authoritative
+HubSpot metadata.
+
+Once adopted, run `pnpm spotkit upgrade projects/my-app`. The read-only plan
+compares lifecycle versions and embedded runtime files, reports exact drift,
+and leaves every merge decision to the product maintainer.
 
 Placeholder and tunnel origins intentionally fail strict diagnostics. Do not
 replace one with an invented production URL merely to make the check green.
@@ -76,6 +85,7 @@ tests pass without weakening its security or behavior.
 
 TidsHub and CloseReady retain their product-specific services and UI. Their
 environment examples now match their app metadata and SpotKit's production-safe
-defaults. Both are checked with SpotKit doctor in addition to their existing
-test and typecheck suites; CloseReady will retain a placeholder-origin warning
-until an operator supplies its real deployment origin.
+defaults, and both carry the minimal lifecycle manifest. They are checked with
+SpotKit doctor in addition to their existing test and typecheck suites;
+CloseReady will retain a placeholder-origin warning until an operator supplies
+its real deployment origin.

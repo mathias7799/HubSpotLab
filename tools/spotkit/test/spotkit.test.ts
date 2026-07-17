@@ -1,6 +1,7 @@
-import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { createProject } from "../src/create.js";
@@ -17,8 +18,23 @@ import { checkRelease, uploadHubSpotProject } from "../src/release.js";
 import { smokeApplication } from "../src/smoke.js";
 import { refreshDocumentation } from "../src/docs-refresh.js";
 import { inspectProject } from "../src/inspect.js";
+import { synchronizeManifest } from "../src/manifest.js";
+import { planUpgrade } from "../src/upgrade.js";
+import { inspectWorkspace } from "../src/inventory.js";
+import { SPOTKIT_VERSION } from "../src/version.js";
+import { runTui, type TuiIO } from "../src/tui.js";
 
 describe("SpotKit", () => {
+  it("keeps the package and CLI versions synchronized", async () => {
+    const packageDocument = JSON.parse(
+      await readFile(
+        fileURLToPath(new URL("../package.json", import.meta.url)),
+        "utf8",
+      ),
+    ) as { version: string };
+    expect(SPOTKIT_VERSION).toBe(packageDocument.version);
+  });
+
   it("creates a complete HubSpot project skeleton", async () => {
     const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
     const result = await createProject({
@@ -41,6 +57,246 @@ describe("SpotKit", () => {
     const report = await diagnoseProject(result.targetDirectory);
     expect(report.errors).toBe(0);
     expect(report.warnings).toBe(0);
+    expect(await inspectProject(result.targetDirectory)).toMatchObject({
+      managedBySpotKit: true,
+      createdWith: "0.7.0",
+      updatedWith: "0.7.0",
+    });
+  });
+
+  it("adopts and validates a lifecycle manifest without duplicating app metadata", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "manifest-check",
+      directory: parent,
+      apiOrigin: "https://api.example.net",
+    });
+    const file = path.join(result.targetDirectory, ".spotkit.json");
+    await unlink(file);
+    await expect(
+      synchronizeManifest({ directory: result.targetDirectory }),
+    ).resolves.toMatchObject({ changed: true, written: false });
+    await expect(
+      synchronizeManifest({ directory: result.targetDirectory, write: true }),
+    ).resolves.toMatchObject({ changed: true, written: true });
+    const manifest = JSON.parse(await readFile(file, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(manifest).sort()).toEqual([
+      "$schema",
+      "createdWith",
+      "schemaVersion",
+      "updatedWith",
+    ]);
+    expect(
+      await synchronizeManifest({ directory: result.targetDirectory }),
+    ).toMatchObject({ changed: false, written: false });
+    await writeFile(file, '{"schemaVersion":99}\n', "utf8");
+    expect(
+      (await diagnoseProject(result.targetDirectory)).diagnostics,
+    ).toContainEqual(
+      expect.objectContaining({ code: "spotkit-manifest", level: "error" }),
+    );
+  });
+
+  it("plans runtime upgrades without overwriting project changes", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "upgrade-check",
+      directory: parent,
+      apiOrigin: "https://api.example.net",
+    });
+    await expect(planUpgrade(result.targetDirectory)).resolves.toMatchObject({
+      currentVersion: "0.7.0",
+      targetVersion: "0.7.0",
+      managed: true,
+      upgradeAvailable: false,
+      runtimeDifferences: [],
+    });
+    const runtimeFile = path.join(
+      result.targetDirectory,
+      "packages/spotkit-runtime/src/crypto.ts",
+    );
+    const original = await readFile(runtimeFile, "utf8");
+    await writeFile(
+      runtimeFile,
+      `${original}\n// Product-owned change.\n`,
+      "utf8",
+    );
+    const changed = await planUpgrade(result.targetDirectory);
+    expect(changed.upgradeAvailable).toBe(true);
+    expect(changed.runtimeDifferences).toContainEqual({
+      file: "src/crypto.ts",
+      state: "modified",
+    });
+    expect(changed.actions.join(" ")).toContain("will not overwrite");
+    await writeFile(runtimeFile, original, "utf8");
+    await writeFile(
+      path.join(result.targetDirectory, ".spotkit.json"),
+      `${JSON.stringify(
+        {
+          $schema:
+            "https://raw.githubusercontent.com/mathias7799/HubSpotLab/main/tools/spotkit/docs/spotkit-manifest.schema.json",
+          schemaVersion: 1,
+          createdWith: "0.5.0",
+          updatedWith: "0.5.0",
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await expect(planUpgrade(result.targetDirectory)).resolves.toMatchObject({
+      currentVersion: "0.5.0",
+      targetVersion: "0.7.0",
+      upgradeAvailable: true,
+      runtimeDifferences: [],
+    });
+  });
+
+  it("inventories every HubSpot app in a workspace", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "spotkit-workspace-"));
+    await createProject({
+      slug: "ready-app",
+      directory: root,
+      apiOrigin: "https://api.ready-app.com",
+    });
+    await createProject({
+      slug: "placeholder-app",
+      directory: root,
+    });
+    const report = await inspectWorkspace(root);
+    expect(report.projects.map((project) => project.name)).toEqual([
+      "Placeholder App",
+      "Ready App",
+    ]);
+    expect(report.totals).toEqual({
+      projects: 2,
+      releaseReady: 1,
+      errors: 0,
+      warnings: 1,
+      appObjects: 0,
+    });
+    expect(report.allReleaseReady).toBe(false);
+  });
+
+  it("runs the management TUI over the same safe core operations", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-tui-"));
+    const result = await createProject({
+      slug: "tui-check",
+      directory: parent,
+      apiOrigin: "https://api.tui-check.com",
+    });
+    await unlink(path.join(result.targetDirectory, ".spotkit.json"));
+    const selections = [
+      "overview",
+      "doctor",
+      "upgrade",
+      "manifest",
+      "origin",
+      "exit",
+    ];
+    const shown: string[] = [];
+    const io: TuiIO = {
+      intro(message) {
+        shown.push(`intro:${message}`);
+      },
+      outro(message) {
+        shown.push(`outro:${message}`);
+      },
+      async select() {
+        return selections.shift();
+      },
+      async confirm() {
+        return true;
+      },
+      async text() {
+        return "not-an-https-origin";
+      },
+      show(title, body) {
+        shown.push(`${title}:${body}`);
+      },
+    };
+    await expect(
+      runTui({ directory: result.targetDirectory, io }),
+    ).resolves.toBe(0);
+    expect(shown.join("\n")).toContain("Tui Check overview");
+    expect(shown.join("\n")).toContain("Doctor · 0 errors / 0 warnings");
+    expect(shown.join("\n")).toContain("Upgrade · unmanaged → 0.7.0");
+    expect(shown.join("\n")).toContain("Manifest synchronized");
+    expect(shown.join("\n")).toContain("Action failed");
+    await expect(
+      synchronizeManifest({ directory: result.targetDirectory }),
+    ).resolves.toMatchObject({ changed: false });
+  });
+
+  it("plans safe migrations for legacy project fixtures", async () => {
+    const fixtures = JSON.parse(
+      await readFile(
+        fileURLToPath(
+          new URL("./fixtures/legacy-projects.json", import.meta.url),
+        ),
+        "utf8",
+      ),
+    ) as Array<{
+      name: string;
+      manifestVersion: string | null;
+      removeRuntimeFile: string | null;
+      modifyRuntimeFile: string | null;
+      expectedState: "missing" | "modified";
+    }>;
+    for (const fixture of fixtures) {
+      const parent = await mkdtemp(path.join(tmpdir(), "spotkit-legacy-"));
+      const result = await createProject({
+        slug: fixture.name,
+        directory: parent,
+        apiOrigin: "https://api.legacy.example.net",
+      });
+      const manifestFile = path.join(result.targetDirectory, ".spotkit.json");
+      if (fixture.manifestVersion === null) {
+        await unlink(manifestFile);
+      } else {
+        await writeFile(
+          manifestFile,
+          `${JSON.stringify(
+            {
+              $schema:
+                "https://raw.githubusercontent.com/mathias7799/HubSpotLab/main/tools/spotkit/docs/spotkit-manifest.schema.json",
+              schemaVersion: 1,
+              createdWith: fixture.manifestVersion,
+              updatedWith: fixture.manifestVersion,
+            },
+            null,
+            2,
+          )}\n`,
+          "utf8",
+        );
+      }
+      const relative = fixture.removeRuntimeFile ?? fixture.modifyRuntimeFile;
+      if (!relative) throw new Error("Legacy fixture needs runtime drift.");
+      const runtimeFile = path.join(
+        result.targetDirectory,
+        "packages/spotkit-runtime",
+        relative,
+      );
+      if (fixture.removeRuntimeFile) await unlink(runtimeFile);
+      else {
+        await writeFile(
+          runtimeFile,
+          `${await readFile(runtimeFile, "utf8")}\n// Legacy customization.\n`,
+          "utf8",
+        );
+      }
+      const plan = await planUpgrade(result.targetDirectory);
+      expect(plan.targetVersion).toBe("0.7.0");
+      expect(plan.upgradeAvailable).toBe(true);
+      expect(plan.runtimeDifferences).toContainEqual({
+        file: relative,
+        state: fixture.expectedState,
+      });
+      expect(plan.actions.join(" ")).toContain("will not overwrite");
+    }
   });
 
   it("reports placeholder origins as warnings", async () => {

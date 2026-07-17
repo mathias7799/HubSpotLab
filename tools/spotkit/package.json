@@ -1,6 +1,6 @@
 {
   "name": "@hubspotlab/spotkit",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": false,
   "license": "MIT",
   "repository": {
@@ -37,6 +37,9 @@
     "start": "tsx src/cli.ts",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "1.7.0"
   },
   "devDependencies": {
     "@types/node": "26.0.0",

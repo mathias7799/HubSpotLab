@@ -59,3 +59,24 @@ export {
   type RefreshDocumentationResult,
 } from "./docs-refresh.js";
 export { inspectProject, type ProjectInventory } from "./inspect.js";
+export {
+  MANIFEST_FILE,
+  MANIFEST_SCHEMA,
+  readManifest,
+  synchronizeManifest,
+  type SpotKitManifest,
+  type SynchronizeManifestOptions,
+  type SynchronizeManifestResult,
+} from "./manifest.js";
+export {
+  planUpgrade,
+  type RuntimeDifference,
+  type UpgradePlan,
+} from "./upgrade.js";
+export { inspectWorkspace, type WorkspaceInventory } from "./inventory.js";
+export {
+  runTui,
+  type RunTuiOptions,
+  type TuiChoice,
+  type TuiIO,
+} from "./tui.js";

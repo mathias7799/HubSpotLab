@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/mathias7799/HubSpotLab/main/tools/spotkit/docs/spotkit-manifest.schema.json",
+  "title": "SpotKit lifecycle manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "createdWith", "updatedWith"],
+  "properties": {
+    "$schema": {
+      "const": "https://raw.githubusercontent.com/mathias7799/HubSpotLab/main/tools/spotkit/docs/spotkit-manifest.schema.json"
+    },
+    "schemaVersion": { "const": 1 },
+    "createdWith": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "updatedWith": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+    }
+  }
+}

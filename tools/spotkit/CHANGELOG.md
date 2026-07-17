@@ -3,10 +3,18 @@
 All notable changes to SpotKit are documented here. SpotKit follows semantic
 versioning while it is published under the `@hubspotlab/spotkit` package.
 
-## Unreleased
+## 0.7.0
 
 - add read-only project inventory with profile, feature, object, diagnostics,
   and release-readiness reporting;
+- add a schema-validated lifecycle manifest for generated and adopted projects
+  without duplicating HubSpot configuration;
+- add a read-only upgrade planner that reports lifecycle versions, exact
+  embedded-runtime drift, and diagnostic work without overwriting files;
+- add recursive monorepo inventory with aggregate readiness, diagnostic, and
+  one-object-policy reporting plus a strict CI mode;
+- add an interactive all-in-one terminal UI for project selection, overview,
+  diagnostics, upgrades, manifests, origins, releases, OAuth, and smoke tests;
 - document incremental adoption for existing HubSpot apps and validate the
   path against TidsHub and CloseReady.
 

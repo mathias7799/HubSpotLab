@@ -27,6 +27,12 @@ jobs:
       - run: pnpm --dir tools/spotkit test
       - run: pnpm --dir tools/spotkit typecheck
       - run: pnpm --dir tools/spotkit build
+      - name: Verify release tag and package version
+        if: github.ref_type == 'tag'
+        run: |
+          VERSION="$(node -p "require('./tools/spotkit/package.json').version")"
+          test "spotkit-v${VERSION}" = "${GITHUB_REF_NAME}"
+      - run: pnpm --dir tools/spotkit pack --pack-destination /tmp
       - run: pnpm --dir tools/spotkit publish --access public --provenance --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

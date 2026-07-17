@@ -1,6 +1,8 @@
 import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { MANIFEST_FILE, readManifest } from "./manifest.js";
+
 export type DiagnosticLevel = "error" | "warning" | "success";
 
 export interface Diagnostic {
@@ -53,6 +55,7 @@ export async function diagnoseProject(directory = "."): Promise<DoctorReport> {
   await inspectFeatureComponents(root, diagnostics);
   await inspectHosting(root, diagnostics);
   await inspectObjectStorageRecipe(root, diagnostics);
+  await inspectLifecycleManifest(root, diagnostics);
 
   const errors = diagnostics.filter((item) => item.level === "error").length;
   const warnings = diagnostics.filter(
@@ -66,6 +69,23 @@ export async function diagnoseProject(directory = "."): Promise<DoctorReport> {
     });
   }
   return { root, diagnostics, errors, warnings, ok: errors === 0 };
+}
+
+async function inspectLifecycleManifest(
+  root: string,
+  diagnostics: Diagnostic[],
+): Promise<void> {
+  if (!(await exists(path.join(root, MANIFEST_FILE)))) return;
+  try {
+    await readManifest(root);
+  } catch (cause) {
+    diagnostics.push({
+      level: "error",
+      code: "spotkit-manifest",
+      message: cause instanceof Error ? cause.message : String(cause),
+      file: MANIFEST_FILE,
+    });
+  }
 }
 
 async function inspectBackendOrigins(

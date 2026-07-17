@@ -83,6 +83,10 @@ and hash manifest. Existing apps can adopt the same diagnostics and release
 workflow incrementally without replacing product-specific code.
 Lifecycle inventory reports each app's profile, HubSpot platform, installed
 features, app-object count, and release readiness from the checked-in metadata.
+Workspace inventory aggregates those signals across every HubSpot app and can
+enforce zero-error, zero-warning readiness in CI.
+An interactive terminal control center exposes the same overview, doctor,
+upgrade, configuration, release, OAuth, and smoke operations for day-to-day use.
 
 ## Status
 

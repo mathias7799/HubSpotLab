@@ -44,8 +44,9 @@ pnpm dlx /tmp/spotkit-pack/hubspotlab-spotkit-*.tgz --version
 ```
 
 CI installs that tarball outside HubSpotLab, generates a standalone project,
-adds webhooks, installs dependencies, runs tests and typechecks, and builds all
-hosting targets.
+adds webhooks, verifies its lifecycle manifest, upgrade plan, and strict
+workspace inventory, installs dependencies, runs tests and typechecks, and
+builds all hosting targets.
 
 ## Publishing
 
@@ -57,4 +58,5 @@ hosting targets.
 
 The workflow publishes with npm provenance. It does not publish the embedded
 runtime as a separate package; generated projects receive a local workspace
-copy and remain independently installable.
+copy and remain independently installable. A tag-triggered release fails before
+publication unless `spotkit-vX.Y.Z` exactly matches the package and CLI version.
