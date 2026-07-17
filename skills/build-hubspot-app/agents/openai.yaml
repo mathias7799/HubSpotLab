@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build HubSpot App"
+  short_description: "Plan, build, validate, and release HubSpot apps"
+  default_prompt: "Use $build-hubspot-app to plan and build a production-ready HubSpot app."

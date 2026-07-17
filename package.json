@@ -15,6 +15,7 @@
     "typecheck": "pnpm -r typecheck",
     "spotkit": "pnpm --filter @hubspotlab/spotkit start",
     "spotkit:test": "pnpm --filter @hubspotlab/spotkit test",
+    "skills:validate": "node tools/validate-skills.mjs",
     "tidshub:api:dev": "pnpm --dir projects/tidshub api:dev",
     "tidshub:api:local": "pnpm --dir projects/tidshub api:local",
     "tidshub:validate": "pnpm --dir projects/tidshub validate",
