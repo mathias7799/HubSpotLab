@@ -19,7 +19,8 @@ conventions and architectural decisions belong in `docs/`.
 
 ## Active projects
 
-| Project    | Product surface                                              | Documentation                 |
-| ---------- | ------------------------------------------------------------ | ----------------------------- |
-| CloseReady | Deal-readiness app page, rule settings, and deal card        | [Guide](closeready/README.md) |
-| TidsHub    | Time-registration app page, CRM cards, and approval workflow | [Guide](tidshub/README.md)    |
+| Project      | Product surface                                                     | Documentation                   |
+| ------------ | ------------------------------------------------------------------- | ------------------------------- |
+| CloseReady   | Deal-readiness app page, rule settings, and deal card               | [Guide](closeready/README.md)   |
+| HandoffReady | Sales-to-service overview, deal readiness card, and ticket workflow | [Guide](handoffready/README.md) |
+| TidsHub      | Time-registration app page, CRM cards, and approval workflow        | [Guide](tidshub/README.md)      |

@@ -161,6 +161,9 @@ payload validation, atomic retry idempotency, failure release, and tests. The
 workflow action is generated unpublished with the same security and retry
 boundaries. `doctor` validates each feature's metadata, handler wiring, target
 URL, permitted origin, concurrency, publication flag, and object types.
+Workflow actions may replace the generated example route and handler name;
+doctor follows the metadata URL and verifies that exact route is wired in the
+feature handler.
 
 The gated catalog supports one app object per project, an association for that
 object, app-event definitions with an authenticated sender, and unpublished

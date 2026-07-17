@@ -468,15 +468,20 @@ async function inspectFeatureComponents(
             .filter((client): client is string => typeof client === "string")
         : [];
       const agentTool = clients.includes("AGENTS");
-      validateFeatureTarget(
-        config?.actionUrl,
-        agentTool
-          ? "/workflow-actions/agent-tool"
-          : "/workflow-actions/example",
-        permitted,
-        diagnostics,
-        relative,
-      );
+      const actionPath = agentTool
+        ? validateFeatureTarget(
+            config?.actionUrl,
+            "/workflow-actions/agent-tool",
+            permitted,
+            diagnostics,
+            relative,
+          )
+        : validateWorkflowTarget(
+            config?.actionUrl,
+            permitted,
+            diagnostics,
+            relative,
+          );
       if (typeof config?.isPublished !== "boolean") {
         diagnostics.push({
           level: "error",
@@ -500,12 +505,17 @@ async function inspectFeatureComponents(
       const handler = agentTool
         ? "services/api/src/features/agent-tool.ts"
         : "services/api/src/features/workflow-action.ts";
-      const handlerName = agentTool
-        ? "handleExampleAgentTool"
-        : "handleExampleWorkflowAction";
+      const handlerExists = await exists(path.join(root, handler));
+      const handlerSource = handlerExists
+        ? await readFile(path.join(root, handler), "utf8")
+        : "";
       if (
-        !(await exists(path.join(root, handler))) ||
-        !api.includes(handlerName)
+        !handlerExists ||
+        !api.includes(
+          `./features/${agentTool ? "agent-tool" : "workflow-action"}.js`,
+        ) ||
+        !actionPath ||
+        !handlerSource.includes(actionPath)
       ) {
         diagnostics.push({
           level: "error",
@@ -695,7 +705,7 @@ function validateFeatureTarget(
   permitted: string[],
   diagnostics: Diagnostic[],
   file: string,
-): void {
+): string | undefined {
   if (typeof value !== "string") {
     diagnostics.push({
       level: "error",
@@ -703,7 +713,7 @@ function validateFeatureTarget(
       message: `Feature target URL is missing; expected ${expectedPath}.`,
       file,
     });
-    return;
+    return undefined;
   }
   const parsed = safeUrl(value);
   if (
@@ -717,7 +727,7 @@ function validateFeatureTarget(
       message: `Feature target must be HTTPS and end at ${expectedPath}: ${value}`,
       file,
     });
-    return;
+    return undefined;
   }
   if (!permitted.includes(parsed.origin)) {
     diagnostics.push({
@@ -727,6 +737,48 @@ function validateFeatureTarget(
       file,
     });
   }
+  return parsed.pathname;
+}
+
+function validateWorkflowTarget(
+  value: unknown,
+  permitted: string[],
+  diagnostics: Diagnostic[],
+  file: string,
+): string | undefined {
+  if (typeof value !== "string") {
+    diagnostics.push({
+      level: "error",
+      code: "feature-target",
+      message: "Workflow action target URL is missing.",
+      file,
+    });
+    return undefined;
+  }
+  const parsed = safeUrl(value);
+  if (
+    !parsed ||
+    parsed.protocol !== "https:" ||
+    !parsed.pathname.startsWith("/workflow-actions/") ||
+    parsed.pathname === "/workflow-actions/"
+  ) {
+    diagnostics.push({
+      level: "error",
+      code: "feature-target",
+      message: `Workflow action target must be HTTPS and use a /workflow-actions/<action> path: ${value}`,
+      file,
+    });
+    return undefined;
+  }
+  if (!permitted.includes(parsed.origin)) {
+    diagnostics.push({
+      level: "error",
+      code: "feature-permitted-origin",
+      message: `permittedUrls.fetch must include feature origin ${parsed.origin}.`,
+      file,
+    });
+  }
+  return parsed.pathname;
 }
 
 async function inspectHosting(

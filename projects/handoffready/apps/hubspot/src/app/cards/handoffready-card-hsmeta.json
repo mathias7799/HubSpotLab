@@ -1,0 +1,11 @@
+{
+  "uid": "handoffready_deal_card",
+  "type": "card",
+  "config": {
+    "name": "HandoffReady",
+    "description": "Validate sales handoff data and create the associated service ticket.",
+    "location": "crm.record.sidebar",
+    "entrypoint": "/app/cards/AppCard.tsx",
+    "objectTypes": ["deals"]
+  }
+}

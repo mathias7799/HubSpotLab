@@ -1,0 +1,5 @@
+{
+  "uid": "handoffready_native_app_settings",
+  "type": "settings",
+  "config": { "entrypoint": "/app/settings/SettingsPage.tsx" }
+}

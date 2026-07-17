@@ -1,0 +1,25 @@
+{
+  "name": "@spotkit-generated/handoffready-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/azure.js",
+  "scripts": {
+    "build": "esbuild src/adapters/node.ts src/adapters/aws-lambda.ts src/adapters/azure.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist --external:@azure/functions",
+    "dev": "node --env-file-if-exists=.env --import tsx --watch src/adapters/node.ts",
+    "dev:local": "HUBSPOT_CLIENT_ID=local HUBSPOT_CLIENT_SECRET=local TOKEN_ENCRYPTION_KEY=local ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=true PUBLIC_URL=http://localhost:8788 PORT=8788 tsx watch src/adapters/node.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@azure/functions": "4.16.2",
+    "@hubspotlab/spotkit-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.0.0",
+    "esbuild": "0.28.1",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.8"
+  }
+}

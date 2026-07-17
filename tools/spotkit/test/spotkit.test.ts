@@ -517,6 +517,46 @@ describe("SpotKit", () => {
       "https://api.example.net/webhooks/hubspot",
     );
     expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
+    const workflowMetadataPath = path.join(
+      result.targetDirectory,
+      "apps/hubspot/src/app/workflow-actions/example-workflow-action-hsmeta.json",
+    );
+    const workflowMetadata = JSON.parse(
+      await readFile(workflowMetadataPath, "utf8"),
+    ) as { config: { actionUrl: string } };
+    workflowMetadata.config.actionUrl =
+      "https://api.example.net/workflow-actions/prepare-handoff";
+    await writeFile(
+      workflowMetadataPath,
+      JSON.stringify(workflowMetadata),
+      "utf8",
+    );
+    const workflowHandlerPath = path.join(
+      result.targetDirectory,
+      "services/api/src/features/workflow-action.ts",
+    );
+    await writeFile(
+      workflowHandlerPath,
+      (await readFile(workflowHandlerPath, "utf8"))
+        .replaceAll(
+          "handleExampleWorkflowAction",
+          "handlePrepareHandoffWorkflowAction",
+        )
+        .replace(
+          "/workflow-actions/example",
+          "/workflow-actions/prepare-handoff",
+        ),
+      "utf8",
+    );
+    await writeFile(
+      path.join(result.targetDirectory, "services/api/src/app.ts"),
+      app.replaceAll(
+        "handleExampleWorkflowAction",
+        "handlePrepareHandoffWorkflowAction",
+      ),
+      "utf8",
+    );
+    expect((await diagnoseProject(result.targetDirectory)).errors).toBe(0);
     webhookMetadata.config.settings.targetUrl =
       "http://unsafe.example.net/hook";
     await writeFile(

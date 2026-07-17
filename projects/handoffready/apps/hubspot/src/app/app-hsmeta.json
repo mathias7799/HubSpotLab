@@ -1,0 +1,31 @@
+{
+  "uid": "handoffready_app",
+  "type": "app",
+  "config": {
+    "description": "Prepare complete sales-to-service handoffs and create an associated service ticket.",
+    "name": "HandoffReady",
+    "distribution": "marketplace",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": ["https://handoffready.example.com/oauth/callback"],
+      "requiredScopes": [
+        "oauth",
+        "crm.objects.deals.read",
+        "crm.objects.tickets.read",
+        "crm.objects.tickets.write"
+      ],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": ["https://handoffready.example.com"],
+      "iframe": [],
+      "img": []
+    },
+    "support": {
+      "supportEmail": "support@example.com",
+      "documentationUrl": "https://github.com/mathias7799/HubSpotLab/tree/main/projects/handoffready",
+      "supportUrl": "https://github.com/mathias7799/HubSpotLab/issues"
+    }
+  }
+}

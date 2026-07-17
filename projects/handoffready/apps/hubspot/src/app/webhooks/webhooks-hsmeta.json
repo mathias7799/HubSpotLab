@@ -1,0 +1,27 @@
+{
+  "uid": "handoffready_webhooks",
+  "type": "webhooks",
+  "config": {
+    "settings": {
+      "targetUrl": "https://handoffready.example.com/webhooks/hubspot",
+      "maxConcurrentRequests": 10
+    },
+    "subscriptions": {
+      "crmObjects": [
+        {
+          "subscriptionType": "object.creation",
+          "objectType": "deal",
+          "active": false
+        },
+        {
+          "subscriptionType": "object.propertyChange",
+          "objectType": "deal",
+          "propertyName": "dealstage",
+          "active": false
+        }
+      ],
+      "legacyCrmObjects": [],
+      "hubEvents": []
+    }
+  }
+}

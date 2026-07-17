@@ -1,0 +1,64 @@
+{
+  "uid": "handoffready_prepare_handoff_workflow_action",
+  "type": "workflow-action",
+  "config": {
+    "actionUrl": "https://handoffready.example.com/workflow-actions/prepare-handoff",
+    "isPublished": false,
+    "supportedClients": [{ "client": "WORKFLOWS" }],
+    "inputFields": [
+      {
+        "typeDefinition": {
+          "name": "mode",
+          "type": "enumeration",
+          "fieldType": "select",
+          "options": [
+            { "value": "evaluate", "label": "Evaluate only" },
+            { "value": "create_ticket", "label": "Create ticket when ready" }
+          ]
+        },
+        "supportedValueTypes": ["STATIC_VALUE"],
+        "isRequired": true
+      }
+    ],
+    "outputFields": [
+      {
+        "typeDefinition": {
+          "name": "status",
+          "type": "string",
+          "fieldType": "text"
+        }
+      },
+      {
+        "typeDefinition": {
+          "name": "missing_count",
+          "type": "number",
+          "fieldType": "number"
+        }
+      },
+      {
+        "typeDefinition": {
+          "name": "ticket_id",
+          "type": "string",
+          "fieldType": "text"
+        }
+      }
+    ],
+    "labels": {
+      "en": {
+        "actionName": "HandoffReady: prepare customer handoff",
+        "actionDescription": "Evaluate a closed-won deal and optionally create its associated service ticket.",
+        "actionCardContent": "Prepare the customer handoff",
+        "inputFieldLabels": { "mode": "Handoff action" },
+        "inputFieldDescriptions": {
+          "mode": "Choose whether to evaluate readiness or create the ticket when all prerequisites pass."
+        },
+        "outputFieldLabels": {
+          "status": "Handoff status",
+          "missing_count": "Missing requirement count",
+          "ticket_id": "Created or existing ticket ID"
+        }
+      }
+    },
+    "objectTypes": ["DEAL"]
+  }
+}

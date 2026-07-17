@@ -5,6 +5,8 @@ versioning while it is published under the `@hubspotlab/spotkit` package.
 
 ## 0.7.0
 
+- validate product-specific workflow-action routes and handler wiring without
+  requiring generated example names;
 - reject `serveousercontent.com` preview origins in strict diagnostics and
   release scans;
 - add read-only project inventory with profile, feature, object, diagnostics,

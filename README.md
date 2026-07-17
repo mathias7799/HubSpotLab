@@ -89,6 +89,7 @@ flowchart LR
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | **TidsHub**                         | Weekly time registration, CRM associations, project/task context, editing, approvals, and operational dashboards                 | [Product guide](projects/tidshub/README.md)               |
 | **CloseReady**                      | Pipeline-specific readiness rules, associated-record requirements, guarded deal transitions, configuration, and clear blocker UX | [Product guide](projects/closeready/README.md)            |
+| **HandoffReady**                    | Closed-won handoff overview, live deal and association checks, compensating ticket creation, webhooks, and workflow action       | [Product guide](projects/handoffready/README.md)          |
 | **SpotKit 0.7**                     | HubSpot project generator, feature catalog, diagnostics, lifecycle management, release tooling, and interactive terminal UI      | [Tool guide](tools/spotkit/README.md)                     |
 | **SpotKit runtime**                 | Portable OAuth, signature v3, encrypted token/configuration storage, idempotency, and cloud adapters                             | [Package guide](packages/spotkit-runtime/README.md)       |
 | **Build HubSpot App skill**         | Agentic planning, implementation, adoption, verification, and release workflow backed by SpotKit                                 | [Skill source](skills/build-hubspot-app/SKILL.md)         |
@@ -213,7 +214,9 @@ lifecycle state outside this repository.
 ## Maturity and release status
 
 HubSpotLab is pre-1.0. TidsHub and CloseReady are functional reference products,
-not claims of production certification. SpotKit 0.7 passes its local,
+and HandoffReady is a tested third vertical slice built through the documented
+SpotKit and agent workflow. These are not claims of production certification.
+SpotKit 0.7 passes its local,
 clean-room-package, and official HubSpot validation gates. Current production
 reviews intentionally keep apps marked non-release-ready until stable public
 origins, authorization decisions, and authenticated portal verification are in
