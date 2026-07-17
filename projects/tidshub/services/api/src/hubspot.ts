@@ -174,6 +174,16 @@ export class HubSpotClient {
     );
   }
 
+  async archiveCreatedEntry(
+    objectType: string,
+    entryId: string,
+  ): Promise<void> {
+    await this.request(
+      `/crm/v3/objects/${encodeURIComponent(objectType)}/${encodeURIComponent(entryId)}`,
+      { method: "DELETE" },
+    );
+  }
+
   async listUsers(): Promise<HubSpotUser[]> {
     const response = await this.request<{
       results?: Array<{

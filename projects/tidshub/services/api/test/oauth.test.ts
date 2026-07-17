@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { AppConfig } from "../src/config.js";
 import { OAuthService } from "../src/oauth.js";
@@ -17,7 +17,7 @@ const config: AppConfig = {
 describe("OAuthService", () => {
   it("creates an install URL with a signed state and configured callback", () => {
     const service = new OAuthService(config, new MemoryTokenStore());
-    const url = new URL(service.installUrl());
+    const url = new URL(service.installUrl("//attacker.example/phish"));
 
     expect(url.origin).toBe("https://app.hubspot.com");
     expect(url.searchParams.get("client_id")).toBe("client-id");
@@ -25,6 +25,10 @@ describe("OAuthService", () => {
       "https://tidshub.example.com/oauth/callback",
     );
     expect(url.searchParams.get("state")).toMatch(/^[^.]+\.[^.]+$/);
+    const encoded = url.searchParams.get("state")!.split(".")[0]!;
+    expect(
+      JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
+    ).toMatchObject({ returnTo: "/installed" });
   });
 
   it("exchanges a callback and stores the portal installation", async () => {
@@ -47,5 +51,29 @@ describe("OAuthService", () => {
 
     expect(result.portalId).toBe(1234);
     expect(await store.get(1234)).toMatchObject({ refreshToken: "refresh" });
+  });
+
+  it("coalesces concurrent token refreshes per portal", async () => {
+    const store = new MemoryTokenStore();
+    await store.put({
+      portalId: 1234,
+      accessToken: "expired",
+      refreshToken: "refresh",
+      expiresAt: Date.now() - 1,
+      installedAt: Date.now() - 60_000,
+    });
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        access_token: "new-access",
+        refresh_token: "new-refresh",
+        expires_in: 1800,
+      }),
+    ) as typeof fetch;
+    const service = new OAuthService(config, store, fetcher);
+
+    await expect(
+      Promise.all([service.accessToken(1234), service.accessToken(1234)]),
+    ).resolves.toEqual(["new-access", "new-access"]);
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 });

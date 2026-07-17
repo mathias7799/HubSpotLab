@@ -415,6 +415,17 @@ describe("SpotKit", () => {
     expect(report.diagnostics).toContainEqual(
       expect.objectContaining({ code: "temporary-tunnel", level: "warning" }),
     );
+
+    await synchronizeOrigin({
+      directory: result.targetDirectory,
+      origin: "https://preview.serveousercontent.com",
+      write: true,
+    });
+    expect(
+      (await diagnoseProject(result.targetDirectory)).diagnostics,
+    ).toContainEqual(
+      expect.objectContaining({ code: "temporary-tunnel", level: "warning" }),
+    );
   });
 
   it("detects insecure production hosting assets", async () => {

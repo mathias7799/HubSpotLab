@@ -5,6 +5,12 @@ import type {
 } from "@hubspotlab/closeready-core";
 
 import { CloseReadyHubSpotClient, HubSpotApiError } from "./hubspot.js";
+import {
+  AuthorizationError,
+  requireRuleAdministrator,
+  requireTransitionPermission,
+  type ActorPermissions,
+} from "./authorization.js";
 import type { RuleStore } from "./rule-store.js";
 
 export interface AppDependencies {
@@ -13,6 +19,10 @@ export interface AppDependencies {
   fetcher?: typeof fetch;
   ruleStore: RuleStore;
   ruleStorage: "auto" | "hubspot" | "external";
+  permissionsForRequest: (
+    request: Request,
+    portalId: number,
+  ) => ActorPermissions;
 }
 
 /**
@@ -38,6 +48,7 @@ export function createApp(dependencies: AppDependencies) {
           request.headers.get("x-hubspot-portal-id"),
         "portalId",
       );
+      const permissions = dependencies.permissionsForRequest(request, portalId);
       const accessToken = await dependencies.accessTokenForPortal(portalId);
       const hubspot = new CloseReadyHubSpotClient(
         accessToken,
@@ -45,6 +56,7 @@ export function createApp(dependencies: AppDependencies) {
       );
 
       if (request.method === "POST" && url.pathname === "/api/provision") {
+        requireRuleAdministrator(permissions);
         const mode = await storageMode(portalId, hubspot);
         if (mode === "external") {
           return json({
@@ -58,6 +70,9 @@ export function createApp(dependencies: AppDependencies) {
       }
       if (request.method === "GET" && url.pathname === "/api/catalog") {
         return json(await hubspot.catalog());
+      }
+      if (request.method === "GET" && url.pathname === "/api/authorization") {
+        return json(permissions);
       }
       const dealContextRoute = url.pathname.match(
         /^\/api\/deals\/([^/]+)\/context$/,
@@ -84,6 +99,7 @@ export function createApp(dependencies: AppDependencies) {
         });
       }
       if (request.method === "POST" && url.pathname === "/api/rules") {
+        requireRuleAdministrator(permissions);
         const rule = parseRule(rawBody);
         const mode = await storageMode(portalId, hubspot);
         return json(
@@ -96,6 +112,7 @@ export function createApp(dependencies: AppDependencies) {
 
       const ruleRoute = url.pathname.match(/^\/api\/rules\/([^/]+)$/);
       if (ruleRoute && request.method === "PATCH") {
+        requireRuleAdministrator(permissions);
         const rule = parseRule(rawBody);
         const id = decodeURIComponent(ruleRoute[1] as string);
         const storedRule = { ...rule, id };
@@ -107,6 +124,7 @@ export function createApp(dependencies: AppDependencies) {
         );
       }
       if (ruleRoute && request.method === "DELETE") {
+        requireRuleAdministrator(permissions);
         const id = decodeURIComponent(ruleRoute[1] as string);
         const mode = await storageMode(portalId, hubspot);
         if (mode === "hubspot") await hubspot.deleteRule(id);
@@ -124,22 +142,28 @@ export function createApp(dependencies: AppDependencies) {
           body.targetStageId,
           "targetStageId",
         );
+        if (dealRoute[2] === "transition") {
+          requireTransitionPermission(permissions);
+        }
         const mode = await storageMode(portalId, hubspot);
         const rules =
           mode === "hubspot"
             ? await hubspot.listRules()
             : await dependencies.ruleStore.list(portalId);
-        return json(
-          dealRoute[2] === "transition"
-            ? await hubspot.guardedTransition(dealId, targetStageId, rules)
-            : await hubspot.evaluateDeal(dealId, targetStageId, rules),
-        );
+        if (dealRoute[2] === "transition") {
+          return json(
+            await hubspot.guardedTransition(dealId, targetStageId, rules),
+          );
+        }
+        return json(await hubspot.evaluateDeal(dealId, targetStageId, rules));
       }
 
       return json({ error: "Not found" }, 404);
     } catch (cause) {
       if (cause instanceof RequestError)
         return json({ error: cause.message }, 400);
+      if (cause instanceof AuthorizationError)
+        return json({ error: cause.message }, cause.status);
       if (cause instanceof HubSpotApiError) {
         return json({ error: cause.message }, cause.status);
       }

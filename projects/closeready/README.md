@@ -111,6 +111,14 @@ they do not block installation on Standard portals. Otherwise leave
 store. Operators can force a mode with `RULE_STORAGE=hubspot` or
 `RULE_STORAGE=external`.
 
+Production mutations also require an explicit portal policy. Set
+`CLOSEREADY_AUTHORIZATION_POLICY` to a JSON portal map containing HubSpot user
+IDs in `administrators` and `transitioners`. Administrators can provision and
+manage rules; both groups can perform guarded stage changes. Unlisted users can
+still inspect rules and evaluate readiness, but mutation requests fail closed.
+This app-level policy is deliberate because OAuth writes do not inherit the
+acting user's native HubSpot CRM permissions.
+
 When a portal allows custom objects in HubSpot's Data Model UI but does not
 grant schema-write API access, create one object named `CloseReady rule` with
 internal name `closeready_rule` and primary property `rule_name`. CloseReady
@@ -133,3 +141,7 @@ The placeholder `closeready.example.com` origin in the HubSpot app metadata and
 page client must be replaced with the deployed API origin before upload. Until
 then, SpotKit reports the expected placeholder warning and strict release checks
 remain blocked.
+
+See the [production review](docs/production-review.md) for resolved OAuth
+hardening and the remaining user-authorization and deployed-portal evidence
+required before release.

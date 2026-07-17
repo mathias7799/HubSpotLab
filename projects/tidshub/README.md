@@ -43,4 +43,6 @@ pnpm spotkit doctor projects/tidshub --strict
 
 See the [HubSpot app guide](apps/hubspot/README.md),
 [API guide](services/api/README.md), and
-[architecture guide](docs/architecture.md) for component-specific details.
+[architecture guide](docs/architecture.md) for component-specific details. The
+[production review](docs/production-review.md) records resolved security work
+and remaining release blockers.

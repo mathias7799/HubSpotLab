@@ -83,7 +83,15 @@ memory store is intentionally local-only.
 | `POST`   | `/api/week/approve?portalId=…`         | Approve an assigned week                    |
 
 The `/api/*` routes validate HubSpot signature v3 and reject timestamps older
-than five minutes.
+than five minutes. In production they also require HubSpot's signed `userId` and
+`userEmail` query metadata. Personal entry ownership, week submission, and
+approval authorization are derived from that signed identity; caller-supplied
+owner or approver fields are accepted only by explicit unsigned localhost
+development.
+
+OAuth return paths are restricted to local absolute paths, concurrent refreshes
+for one portal are coalesced, the state cookie is cleared after callback, and the
+installed page uses a locked-down CSP and no-store headers.
 
 ## Hosting adapters
 

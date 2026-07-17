@@ -7,6 +7,13 @@ export {
   type RuleSchema,
 } from "./hubspot.js";
 export { createApp, type AppDependencies } from "./app.js";
+export {
+  actorPermissions,
+  AuthorizationError,
+  requireRuleAdministrator,
+  requireTransitionPermission,
+  type ActorPermissions,
+} from "./authorization.js";
 export { loadConfig, defaultScopes, type AppConfig } from "./config.js";
 export { OAuthError, OAuthService } from "./oauth.js";
 export { createRuntime } from "./runtime.js";

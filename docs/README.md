@@ -5,6 +5,7 @@ live here. Project-specific instructions should remain beside the project they
 describe.
 
 - [Architecture](architecture.md)
+- [Repository roadmap](roadmap.md)
 - [Decision records](decisions/README.md)
 
 Product documentation stays with the product:

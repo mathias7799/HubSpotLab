@@ -36,6 +36,7 @@ export function createApp(dependencies: AppDependencies) {
           status: 302,
           headers: {
             Location: location,
+            "Cache-Control": "no-store",
             "Set-Cookie": `tidshub_oauth_state=${state}; HttpOnly${secureCookie}; SameSite=Lax; Path=/oauth; Max-Age=600`,
           },
         });
@@ -47,15 +48,31 @@ export function createApp(dependencies: AppDependencies) {
           throw new OAuthError(400, "OAuth state cookie does not match.");
         }
         const installation = await oauth.complete(code, state);
-        return Response.redirect(
-          new URL(installation.returnTo, config.publicUrl).toString(),
-          302,
-        );
+        const secureCookie = config.publicUrl.startsWith("https://")
+          ? "; Secure"
+          : "";
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: new URL(installation.returnTo, config.publicUrl).href,
+            "Cache-Control": "no-store",
+            "Set-Cookie": `tidshub_oauth_state=; HttpOnly${secureCookie}; SameSite=Lax; Path=/oauth; Max-Age=0`,
+          },
+        });
       }
       if (request.method === "GET" && url.pathname === "/installed") {
         return new Response(
           "<!doctype html><meta charset=utf-8><title>TidsHub</title><h1>TidsHub er installeret</h1><p>Du kan nu vende tilbage til HubSpot.</p>",
-          { headers: { "Content-Type": "text/html; charset=utf-8" } },
+          {
+            headers: {
+              "Cache-Control": "no-store",
+              "Content-Security-Policy":
+                "default-src 'none'; style-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+              "Content-Type": "text/html; charset=utf-8",
+              "Referrer-Policy": "no-referrer",
+              "X-Content-Type-Options": "nosniff",
+            },
+          },
         );
       }
       if (url.pathname.startsWith("/api/")) {
@@ -66,6 +83,8 @@ export function createApp(dependencies: AppDependencies) {
             request.headers.get("x-hubspot-portal-id"),
           "portalId",
         );
+        const signedUserId = signedHubSpotMetadata(url, "userId", config);
+        const signedUserEmail = signedHubSpotMetadata(url, "userEmail", config);
         const accessToken = await oauth.accessToken(portalId);
         const hubspot = new HubSpotClient(accessToken, fetcher);
 
@@ -104,7 +123,7 @@ export function createApp(dependencies: AppDependencies) {
           return json({
             settings: await hubspot.getApprovalSettings(
               schema.fullyQualifiedName,
-              requiredQuery(url, "ownerId"),
+              signedUserId ?? requiredQuery(url, "ownerId"),
             ),
           });
         }
@@ -114,12 +133,15 @@ export function createApp(dependencies: AppDependencies) {
         ) {
           const body = parseObject(rawBody);
           const schema = await hubspot.ensureSchema();
+          const ownerId = signedUserId ?? requiredBodyString(body, "ownerId");
+          const ownerEmail =
+            signedUserEmail ?? requiredBodyString(body, "ownerEmail");
           return json({
             settings: await hubspot.saveApprovalSettings({
               objectType: schema.fullyQualifiedName,
               primaryDisplayProperty: schema.primaryDisplayProperty,
-              ownerId: requiredBodyString(body, "ownerId"),
-              ownerEmail: requiredBodyString(body, "ownerEmail"),
+              ownerId,
+              ownerEmail,
               approverId: requiredBodyString(body, "approverId"),
               approverEmail: requiredBodyString(body, "approverEmail"),
             }),
@@ -130,7 +152,7 @@ export function createApp(dependencies: AppDependencies) {
           return json({
             week: await hubspot.getWeekApproval(
               schema.fullyQualifiedName,
-              requiredQuery(url, "ownerId"),
+              signedUserId ?? requiredQuery(url, "ownerId"),
               requiredQuery(url, "weekKey"),
             ),
           });
@@ -138,12 +160,15 @@ export function createApp(dependencies: AppDependencies) {
         if (request.method === "POST" && url.pathname === "/api/week/submit") {
           const body = parseObject(rawBody);
           const schema = await hubspot.ensureSchema();
+          const ownerId = signedUserId ?? requiredBodyString(body, "ownerId");
+          const ownerEmail =
+            signedUserEmail ?? requiredBodyString(body, "ownerEmail");
           return json({
             week: await hubspot.submitWeek({
               objectType: schema.fullyQualifiedName,
               primaryDisplayProperty: schema.primaryDisplayProperty,
-              ownerId: requiredBodyString(body, "ownerId"),
-              ownerEmail: requiredBodyString(body, "ownerEmail"),
+              ownerId,
+              ownerEmail,
               weekKey: requiredBodyString(body, "weekKey"),
               totalMinutes: nonNegativeInteger(
                 body.totalMinutes,
@@ -160,19 +185,23 @@ export function createApp(dependencies: AppDependencies) {
           return json({
             results: await hubspot.listPendingApprovals(
               schema.fullyQualifiedName,
-              requiredQuery(url, "approverId"),
+              signedUserId ?? requiredQuery(url, "approverId"),
             ),
           });
         }
         if (request.method === "POST" && url.pathname === "/api/week/approve") {
           const body = parseObject(rawBody);
           const schema = await hubspot.ensureSchema();
+          const approverId =
+            signedUserId ?? requiredBodyString(body, "approverId");
+          const approverEmail =
+            signedUserEmail ?? requiredBodyString(body, "approverEmail");
           return json({
             week: await hubspot.approveWeek({
               objectType: schema.fullyQualifiedName,
               weekId: requiredBodyString(body, "weekId"),
-              approverId: requiredBodyString(body, "approverId"),
-              approverEmail: requiredBodyString(body, "approverEmail"),
+              approverId,
+              approverEmail,
             }),
           });
         }
@@ -182,8 +211,11 @@ export function createApp(dependencies: AppDependencies) {
             objectType: schema.fullyQualifiedName,
             from: isoDate(requiredQuery(url, "from"), "from"),
             to: isoDate(requiredQuery(url, "to"), "to"),
-            ...(url.searchParams.get("ownerId")
-              ? { ownerId: url.searchParams.get("ownerId") as string }
+            ...((signedUserId ?? url.searchParams.get("ownerId"))
+              ? {
+                  ownerId: (signedUserId ??
+                    url.searchParams.get("ownerId")) as string,
+                }
               : {}),
           });
           return json({ results, schema });
@@ -192,6 +224,13 @@ export function createApp(dependencies: AppDependencies) {
           const body = parseObject(rawBody);
           const schema = await hubspot.ensureSchema();
           const properties = stringProperties(body.properties);
+          if (signedUserId) {
+            properties.hubspot_user_id = signedUserId;
+            properties.hubspot_owner_id = signedUserId;
+          }
+          if (signedUserEmail) {
+            properties.hubspot_user_email = signedUserEmail;
+          }
           const existingWeek = await hubspot.getWeekApproval(
             schema.fullyQualifiedName,
             requiredRecordProperty(properties, "hubspot_user_id"),
@@ -213,13 +252,30 @@ export function createApp(dependencies: AppDependencies) {
           const association = optionalAssociation(body.association);
           const associations = optionalAssociations(body.associations);
           if (association) associations.push(association);
-          for (const item of associations) {
-            await hubspot.associate(
-              schema.fullyQualifiedName,
-              entry.id,
-              item.objectTypeId,
-              item.objectId,
-            );
+          try {
+            for (const item of associations) {
+              await hubspot.associate(
+                schema.fullyQualifiedName,
+                entry.id,
+                item.objectTypeId,
+                item.objectId,
+              );
+            }
+          } catch (associationCause) {
+            try {
+              await hubspot.archiveCreatedEntry(
+                schema.fullyQualifiedName,
+                entry.id,
+              );
+            } catch (cleanupCause) {
+              console.error("TidsHub entry association rollback failed", {
+                entryId: entry.id,
+                associationCause,
+                cleanupCause,
+              });
+              throw new PartialWriteError(entry.id);
+            }
+            throw associationCause;
           }
           return json(entry, 201);
         }
@@ -235,7 +291,7 @@ export function createApp(dependencies: AppDependencies) {
             await hubspot.updateEntry({
               objectType: schema.fullyQualifiedName,
               entryId: decodeURIComponent(entryRoute[1] as string),
-              ownerId: requiredBodyString(body, "ownerId"),
+              ownerId: signedUserId ?? requiredBodyString(body, "ownerId"),
               properties: {
                 duration_minutes: String(durationMinutes),
                 category: timeCategory(body.category),
@@ -250,7 +306,7 @@ export function createApp(dependencies: AppDependencies) {
           await hubspot.deleteEntry({
             objectType: schema.fullyQualifiedName,
             entryId: decodeURIComponent(entryRoute[1] as string),
-            ownerId: requiredQuery(url, "ownerId"),
+            ownerId: signedUserId ?? requiredQuery(url, "ownerId"),
           });
           return json({ deleted: true });
         }
@@ -264,6 +320,15 @@ export function createApp(dependencies: AppDependencies) {
       }
       if (cause instanceof RequestError)
         return json({ error: cause.message }, 400);
+      if (cause instanceof PartialWriteError)
+        return json(
+          {
+            error: cause.message,
+            code: "partial_write",
+            entryId: cause.entryId,
+          },
+          502,
+        );
       console.error(cause);
       return json({ error: "Internal server error" }, 500);
     }
@@ -465,4 +530,28 @@ function readCookie(request: Request, name: string): string | null {
   return null;
 }
 
+function signedHubSpotMetadata(
+  url: URL,
+  name: "userId" | "userEmail",
+  config: AppConfig,
+): string | undefined {
+  const value = url.searchParams.get(name)?.trim();
+  if (value) return value;
+  if (
+    config.allowUnsignedDevelopmentRequests &&
+    ["localhost", "127.0.0.1"].includes(url.hostname)
+  ) {
+    return undefined;
+  }
+  throw new SecurityError(`Missing signed HubSpot ${name} metadata.`);
+}
+
 class RequestError extends Error {}
+
+class PartialWriteError extends Error {
+  constructor(readonly entryId: string) {
+    super(
+      "Registreringen blev oprettet, men tilknytningen og den automatiske oprydning mislykkedes. Slet registreringen manuelt, før du prøver igen.",
+    );
+  }
+}

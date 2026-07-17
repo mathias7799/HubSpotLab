@@ -38,6 +38,12 @@ describe("portable rule storage", () => {
       verifyRequest: async () => undefined,
       ruleStore: store,
       ruleStorage: "auto",
+      permissionsForRequest: () => ({
+        userId: "42",
+        userEmail: "admin@example.com",
+        canManageRules: true,
+        canTransition: true,
+      }),
       fetcher: (async () =>
         Response.json(
           { message: "This account does not have access to custom objects." },
@@ -62,6 +68,35 @@ describe("portable rule storage", () => {
     const deleted = await app(request(`/api/rules/${rule.id}`, "DELETE"));
     expect(deleted.status).toBe(200);
     expect(await store.list(148692618)).toEqual([]);
+  });
+
+  it("denies rule and transition mutations before calling HubSpot", async () => {
+    const fetcher = async () => {
+      throw new Error("HubSpot must not be called for a denied mutation.");
+    };
+    const app = createApp({
+      accessTokenForPortal: async () => "token",
+      verifyRequest: async () => undefined,
+      permissionsForRequest: () => ({
+        userId: "99",
+        userEmail: "viewer@example.com",
+        canManageRules: false,
+        canTransition: false,
+      }),
+      ruleStore: new MemoryRuleStore(),
+      ruleStorage: "external",
+      fetcher,
+    });
+
+    const ruleWrite = await app(request("/api/rules", "POST", rule));
+    expect(ruleWrite.status).toBe(403);
+
+    const transition = await app(
+      request("/api/deals/123/transition", "POST", {
+        targetStageId: "closedwon",
+      }),
+    );
+    expect(transition.status).toBe(403);
   });
 });
 

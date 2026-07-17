@@ -40,6 +40,10 @@ interface DealContext {
   currentStageId: string;
 }
 
+interface ActorPermissions {
+  canTransition: boolean;
+}
+
 interface RuleResult {
   passed: boolean;
   message: string;
@@ -73,6 +77,7 @@ function CloseReadyCard(): React.ReactElement {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [lastChecked, setLastChecked] = useState(false);
+  const [canTransition, setCanTransition] = useState(false);
 
   async function loadContext(): Promise<void> {
     setLoading(true);
@@ -83,16 +88,18 @@ function CloseReadyCard(): React.ReactElement {
       return;
     }
     try {
-      const [nextCatalog, nextDeal] = await Promise.all([
+      const [nextCatalog, nextDeal, permissions] = await Promise.all([
         request<PortalCatalog>(`/api/catalog?portalId=${portalId}`),
         request<DealContext>(
           `/api/deals/${encodeURIComponent(dealId)}/context?portalId=${portalId}`,
         ),
+        request<ActorPermissions>(`/api/authorization?portalId=${portalId}`),
       ]);
       setCatalog(nextCatalog);
       setDeal(nextDeal);
       setEvaluation(null);
       setLastChecked(false);
+      setCanTransition(permissions.canTransition);
       const nextStages = orderedStages(
         nextCatalog.pipelines.find(
           (pipeline) => pipeline.id === nextDeal.pipelineId,
@@ -225,11 +232,19 @@ function CloseReadyCard(): React.ReactElement {
         </Alert>
       ) : null}
 
+      {evaluation?.ready && !canTransition ? (
+        <Alert title="An authorized user must move this deal" variant="info">
+          The requirements pass, but your HubSpot user is not configured for
+          CloseReady stage transitions in this portal.
+        </Alert>
+      ) : null}
+
       <PrimaryAction
         evaluation={evaluation}
         targetStageLabel={targetStage?.label ?? "selected stage"}
         workingAction={workingAction}
         disabled={!targetStageId}
+        canTransition={canTransition}
         onEvaluate={() => void run("evaluate")}
         onTransition={() => void run("transition")}
       />
@@ -253,6 +268,7 @@ function PrimaryAction({
   targetStageLabel,
   workingAction,
   disabled,
+  canTransition,
   onEvaluate,
   onTransition,
 }: {
@@ -260,6 +276,7 @@ function PrimaryAction({
   targetStageLabel: string;
   workingAction: "evaluate" | "transition" | null;
   disabled: boolean;
+  canTransition: boolean;
   onEvaluate: () => void;
   onTransition: () => void;
 }): React.ReactElement {
@@ -267,6 +284,11 @@ function PrimaryAction({
     return <Button disabled>Configure rules before moving</Button>;
   }
   if (evaluation?.ready) {
+    if (!canTransition) {
+      return (
+        <Button disabled>Ready, but transition permission is required</Button>
+      );
+    }
     return (
       <Button
         variant="primary"

@@ -355,6 +355,21 @@ describe("HubSpotClient", () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
+  it("archives a newly created entry without applying mutable-entry checks", async () => {
+    const fetcher = vi.fn<typeof fetch>(
+      async () => new Response(null, { status: 204 }),
+    );
+    const client = new HubSpotClient("test-token", fetcher);
+
+    await client.archiveCreatedEntry("p123_tidshub_record", "entry-1");
+
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher.mock.calls[0]?.[0]).toBe(
+      "https://api.hubapi.com/crm/v3/objects/p123_tidshub_record/entry-1",
+    );
+    expect(fetcher.mock.calls[0]?.[1]?.method).toBe("DELETE");
+  });
+
   it("creates approval settings as a norm record", async () => {
     const fetcher = vi
       .fn<typeof fetch>()

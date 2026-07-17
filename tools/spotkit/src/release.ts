@@ -168,7 +168,9 @@ function reservedHostname(hostname: string): boolean {
     hostname.endsWith(".trycloudflare.com") ||
     hostname.endsWith(".ngrok-free.app") ||
     hostname.endsWith(".ngrok.app") ||
-    hostname.endsWith(".ngrok.io")
+    hostname.endsWith(".ngrok.io") ||
+    hostname === "serveousercontent.com" ||
+    hostname.endsWith(".serveousercontent.com")
   );
 }
 

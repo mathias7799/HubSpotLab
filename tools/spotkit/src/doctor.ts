@@ -999,6 +999,8 @@ function isTemporaryTunnel(hostname: string): boolean {
     hostname === "ngrok.app" ||
     hostname.endsWith(".ngrok.app") ||
     hostname === "trycloudflare.com" ||
-    hostname.endsWith(".trycloudflare.com")
+    hostname.endsWith(".trycloudflare.com") ||
+    hostname === "serveousercontent.com" ||
+    hostname.endsWith(".serveousercontent.com")
   );
 }

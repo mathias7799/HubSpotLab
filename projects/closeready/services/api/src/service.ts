@@ -4,6 +4,7 @@ import { OAuthError, OAuthService } from "./oauth.js";
 import { assertHubSpotRequest } from "./security.js";
 import type { TokenStore } from "./token-store.js";
 import type { RuleStore } from "./rule-store.js";
+import { actorPermissions } from "./authorization.js";
 
 export function createService(
   config: AppConfig,
@@ -19,6 +20,8 @@ export function createService(
     fetcher,
     ruleStore,
     ruleStorage: config.ruleStorage,
+    permissionsForRequest: (request, portalId) =>
+      actorPermissions(request, portalId, config),
   });
   return async (request: Request): Promise<Response> => {
     try {
@@ -35,6 +38,7 @@ export function createService(
           status: 302,
           headers: {
             Location: location,
+            "Cache-Control": "no-store",
             "Set-Cookie": `closeready_oauth_state=${state}; HttpOnly${secure}; SameSite=Lax; Path=/oauth; Max-Age=600`,
           },
         });
@@ -46,15 +50,31 @@ export function createService(
           throw new OAuthError(400, "OAuth state cookie does not match.");
         }
         const installation = await oauth.complete(code, state);
-        return Response.redirect(
-          new URL(installation.returnTo, config.publicUrl),
-          302,
-        );
+        const secure = config.publicUrl.startsWith("https://")
+          ? "; Secure"
+          : "";
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: new URL(installation.returnTo, config.publicUrl).href,
+            "Cache-Control": "no-store",
+            "Set-Cookie": `closeready_oauth_state=; HttpOnly${secure}; SameSite=Lax; Path=/oauth; Max-Age=0`,
+          },
+        });
       }
       if (request.method === "GET" && url.pathname === "/installed") {
         return new Response(
           "<!doctype html><meta charset=utf-8><title>CloseReady</title><h1>CloseReady is installed</h1><p>Return to HubSpot to configure transition requirements.</p>",
-          { headers: { "Content-Type": "text/html; charset=utf-8" } },
+          {
+            headers: {
+              "Cache-Control": "no-store",
+              "Content-Security-Policy":
+                "default-src 'none'; style-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+              "Content-Type": "text/html; charset=utf-8",
+              "Referrer-Policy": "no-referrer",
+              "X-Content-Type-Options": "nosniff",
+            },
+          },
         );
       }
       return api(request);

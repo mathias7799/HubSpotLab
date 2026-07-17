@@ -46,6 +46,19 @@ export interface StorageStatus {
   fullyQualifiedName?: string;
 }
 
+export interface ActorPermissions {
+  userId: string;
+  userEmail: string;
+  canManageRules: boolean;
+  canTransition: boolean;
+}
+
+export async function loadAuthorization(
+  portalId: number,
+): Promise<ActorPermissions> {
+  return request(`/api/authorization?portalId=${portalId}`);
+}
+
 export async function provision(portalId: number): Promise<StorageStatus> {
   return request(`/api/provision?portalId=${portalId}`, { method: "POST" });
 }

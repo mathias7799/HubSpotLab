@@ -17,6 +17,8 @@ interface StatePayload {
 }
 
 export class OAuthService {
+  readonly #refreshes = new Map<number, Promise<string>>();
+
   constructor(
     private readonly config: AppConfig,
     private readonly store: TokenStore,
@@ -84,6 +86,16 @@ export class OAuthService {
       throw new OAuthError(401, "CloseReady is not installed in this portal.");
     if (installation.expiresAt > Date.now() + 60_000)
       return installation.accessToken;
+    const active = this.#refreshes.get(portalId);
+    if (active) return active;
+    const refresh = this.refresh(installation).finally(() => {
+      this.#refreshes.delete(portalId);
+    });
+    this.#refreshes.set(portalId, refresh);
+    return refresh;
+  }
+
+  private async refresh(installation: Installation): Promise<string> {
     const tokens = await this.tokens({
       grant_type: "refresh_token",
       client_id: this.config.clientId,
@@ -104,7 +116,7 @@ export class OAuthService {
   }
 
   private createState(returnTo: string): string {
-    const safeReturnTo = returnTo.startsWith("/") ? returnTo : "/installed";
+    const safeReturnTo = safeRelativePath(returnTo);
     const encoded = Buffer.from(
       JSON.stringify({
         nonce: randomBytes(16).toString("base64url"),
@@ -124,12 +136,23 @@ export class OAuthService {
     ) {
       throw new OAuthError(400, "Invalid OAuth state.");
     }
-    const payload = JSON.parse(
-      Buffer.from(encoded, "base64url").toString("utf8"),
-    ) as StatePayload;
-    if (Date.now() - payload.issuedAt > 600_000)
+    let payload: StatePayload;
+    try {
+      payload = JSON.parse(
+        Buffer.from(encoded, "base64url").toString("utf8"),
+      ) as StatePayload;
+    } catch {
+      throw new OAuthError(400, "Invalid OAuth state.");
+    }
+    if (
+      !payload.nonce ||
+      !Number.isFinite(payload.issuedAt) ||
+      typeof payload.returnTo !== "string" ||
+      Date.now() - payload.issuedAt > 600_000 ||
+      payload.issuedAt > Date.now() + 60_000
+    )
       throw new OAuthError(400, "OAuth state expired.");
-    return payload;
+    return { ...payload, returnTo: safeRelativePath(payload.returnTo) };
   }
 
   private async tokens(values: Record<string, string>): Promise<TokenResponse> {
@@ -141,21 +164,46 @@ export class OAuthService {
         body: new URLSearchParams(values),
       },
     );
-    const body = (await response.json()) as Partial<TokenResponse> & {
-      message?: string;
-    };
+    const body = await jsonBody(response);
     if (
       !response.ok ||
       typeof body.access_token !== "string" ||
       typeof body.refresh_token !== "string" ||
-      typeof body.expires_in !== "number"
+      typeof body.expires_in !== "number" ||
+      !Number.isFinite(body.expires_in) ||
+      body.expires_in <= 0
     ) {
       throw new OAuthError(
         502,
-        body.message ?? "HubSpot token exchange failed.",
+        typeof body.message === "string"
+          ? body.message
+          : "HubSpot token exchange failed.",
       );
     }
-    return body as TokenResponse;
+    return body as unknown as TokenResponse;
+  }
+}
+
+function safeRelativePath(value: string): string {
+  if (
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\") ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return "/installed";
+  }
+  return value;
+}
+
+async function jsonBody(response: Response): Promise<Record<string, unknown>> {
+  try {
+    const value = (await response.json()) as unknown;
+    return typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
   }
 }
 

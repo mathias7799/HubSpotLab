@@ -24,11 +24,13 @@ import { PageBreadcrumbs, PageTitle } from "@hubspot/ui-extensions/pages";
 import {
   createRule,
   deleteRule,
+  loadAuthorization,
   loadCatalog,
   loadRules,
   provision,
   updateRule,
   type CatalogPipeline,
+  type ActorPermissions,
   type PortalCatalog,
   type StorageStatus,
 } from "./api.ts";
@@ -58,6 +60,9 @@ export function SettingsPage(): React.ReactElement {
   const [rules, setRules] = useState<ReadinessRule[]>([]);
   const [pipelineId, setPipelineId] = useState("");
   const [editingRule, setEditingRule] = useState<ReadinessRule | null>(null);
+  const [authorization, setAuthorization] = useState<ActorPermissions | null>(
+    null,
+  );
 
   const refresh = useCallback(
     async (preferredPipeline?: string) => {
@@ -65,27 +70,32 @@ export function SettingsPage(): React.ReactElement {
       setError(null);
       setStorageWarning(null);
       try {
-        const [catalogResult, storageResult] = await Promise.allSettled([
+        const [nextCatalog, nextAuthorization] = await Promise.all([
           loadCatalog(portalId),
-          provision(portalId),
+          loadAuthorization(portalId),
         ]);
-        if (catalogResult.status === "rejected") {
-          throw catalogResult.reason;
-        }
-        const nextCatalog = catalogResult.value;
+        setAuthorization(nextAuthorization);
         const nextPipeline =
           preferredPipeline || nextCatalog.pipelines[0]?.id || "";
         setCatalog(nextCatalog);
         setPipelineId(nextPipeline);
-        if (storageResult.status === "fulfilled") {
-          setStorageReady(true);
-          setStorageStatus(storageResult.value);
-          setRules(nextPipeline ? await loadRules(portalId, nextPipeline) : []);
+        if (nextAuthorization.canManageRules) {
+          const storageResult = await Promise.allSettled([provision(portalId)]);
+          if (storageResult[0]?.status === "fulfilled") {
+            setStorageStatus(storageResult[0].value);
+          } else {
+            setStorageWarning(messageFrom(storageResult[0]?.reason));
+          }
         } else {
-          setStorageReady(false);
           setStorageStatus(null);
+        }
+        try {
+          setRules(nextPipeline ? await loadRules(portalId, nextPipeline) : []);
+          setStorageReady(true);
+        } catch (cause) {
+          setStorageReady(false);
           setRules([]);
-          setStorageWarning(messageFrom(storageResult.reason));
+          setStorageWarning(messageFrom(cause));
         }
         setState("idle");
       } catch (cause) {
@@ -224,6 +234,14 @@ export function SettingsPage(): React.ReactElement {
         </Alert>
       ) : null}
 
+      {authorization && !authorization.canManageRules ? (
+        <Alert title="Rule settings are read-only" variant="info">
+          Your HubSpot user can review CloseReady requirements but is not a
+          configured rule administrator for this portal. Ask the app operator to
+          add your HubSpot user ID to the portal authorization policy.
+        </Alert>
+      ) : null}
+
       {storageStatus?.mode === "external" ? (
         <Alert title="Portable rule storage active" variant="info">
           HubSpot custom objects are not available in this portal. CloseReady
@@ -265,7 +283,7 @@ export function SettingsPage(): React.ReactElement {
               pipeline={pipeline}
               catalog={catalog}
               busy={busy}
-              canSave={storageReady}
+              canSave={storageReady && Boolean(authorization?.canManageRules)}
               editingRule={editingRule}
               onCreate={addRule}
               onUpdate={saveRule}
@@ -283,7 +301,8 @@ export function SettingsPage(): React.ReactElement {
             rules={rules}
             pipeline={pipeline}
             busy={busy}
-            canDelete={storageReady}
+            canDelete={storageReady && Boolean(authorization?.canManageRules)}
+            readOnly={authorization ? !authorization.canManageRules : true}
             onEdit={setEditingRule}
             onToggle={toggleRule}
             onDelete={removeRule}
@@ -635,6 +654,7 @@ function RuleList({
   pipeline,
   busy,
   canDelete,
+  readOnly,
   onEdit,
   onToggle,
   onDelete,
@@ -643,6 +663,7 @@ function RuleList({
   pipeline?: CatalogPipeline;
   busy: boolean;
   canDelete: boolean;
+  readOnly: boolean;
   onEdit: (rule: ReadinessRule) => void;
   onToggle: (rule: ReadinessRule) => Promise<void>;
   onDelete: (rule: ReadinessRule) => Promise<void>;
@@ -652,16 +673,18 @@ function RuleList({
     return (
       <EmptyState
         title={
-          canDelete
+          readOnly || canDelete
             ? "No requirements in this pipeline"
             : "Rule storage needs setup"
         }
         layout="vertical"
       >
         <Text>
-          {canDelete
-            ? "Add the first transition requirement above."
-            : "Requirements will appear here after the CloseReady custom object is initialized."}
+          {readOnly
+            ? "A configured rule administrator can add the first transition requirement."
+            : canDelete
+              ? "Add the first transition requirement above."
+              : "Requirements will appear here after the CloseReady custom object is initialized."}
         </Text>
       </EmptyState>
     );
@@ -701,7 +724,7 @@ function RuleList({
                 <Flex direction="row" gap="extra-small" wrap="wrap">
                   <Button
                     size="xs"
-                    disabled={busy}
+                    disabled={busy || readOnly}
                     onClick={() => onEdit(rule)}
                   >
                     Edit

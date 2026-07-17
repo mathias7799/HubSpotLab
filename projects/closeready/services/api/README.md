@@ -20,6 +20,10 @@ OAuth, AES-256-GCM encrypted Upstash token persistence, HubSpot signature v3
 verification, and a local Node adapter are included. The core HTTP handler still
 injects these boundaries so cloud-specific adapters remain small.
 
+OAuth return paths are restricted to local absolute paths, concurrent refreshes
+for one portal are coalesced, the state cookie is cleared after callback, and the
+installed page uses a locked-down CSP and no-store headers.
+
 ## Local development
 
 ```bash
@@ -35,18 +39,30 @@ credentials and public HTTPS origin, run `pnpm --filter
 
 ## Production configuration
 
-| Variable                   | Purpose                                    |
-| -------------------------- | ------------------------------------------ |
-| `HUBSPOT_CLIENT_ID`        | OAuth app client ID                        |
-| `HUBSPOT_CLIENT_SECRET`    | OAuth and HubSpot request-signature secret |
-| `HUBSPOT_SCOPES`           | Space- or comma-separated scope override   |
-| `PUBLIC_URL`               | Public API origin without a trailing slash |
-| `TOKEN_ENCRYPTION_KEY`     | Encrypts durable OAuth and rule records    |
-| `UPSTASH_REDIS_REST_URL`   | Durable REST Redis endpoint                |
-| `UPSTASH_REDIS_REST_TOKEN` | REST Redis bearer token                    |
-| `RULE_STORAGE`             | `auto`, `hubspot`, or `external`           |
+| Variable                          | Purpose                                    |
+| --------------------------------- | ------------------------------------------ |
+| `HUBSPOT_CLIENT_ID`               | OAuth app client ID                        |
+| `HUBSPOT_CLIENT_SECRET`           | OAuth and HubSpot request-signature secret |
+| `HUBSPOT_SCOPES`                  | Space- or comma-separated scope override   |
+| `PUBLIC_URL`                      | Public API origin without a trailing slash |
+| `TOKEN_ENCRYPTION_KEY`            | Encrypts durable OAuth and rule records    |
+| `UPSTASH_REDIS_REST_URL`          | Durable REST Redis endpoint                |
+| `UPSTASH_REDIS_REST_TOKEN`        | REST Redis bearer token                    |
+| `RULE_STORAGE`                    | `auto`, `hubspot`, or `external`           |
+| `CLOSEREADY_AUTHORIZATION_POLICY` | Portal-scoped mutation allowlists          |
 
 Production startup requires encrypted durable token storage.
+
+Rule and schema mutations are denied unless the signed HubSpot `userId` appears
+in that portal's `administrators` list. Guarded transitions allow administrators
+and users in `transitioners`. For example:
+
+```dotenv
+CLOSEREADY_AUTHORIZATION_POLICY={"148692618":{"administrators":["12345"],"transitioners":["67890"]}}
+```
+
+This is an explicit CloseReady policy. OAuth API calls run as the installed app
+and do not inherit the acting user's native HubSpot record permissions.
 
 ## Routes
 
@@ -56,6 +72,7 @@ Production startup requires encrypted durable token storage.
 | `GET`    | `/oauth/install`                       | Begin OAuth installation                      |
 | `GET`    | `/oauth/callback`                      | Exchange and store OAuth tokens               |
 | `POST`   | `/api/provision?portalId=…`            | Select or initialize rule storage             |
+| `GET`    | `/api/authorization?portalId=…`        | Current user's app capabilities               |
 | `GET`    | `/api/catalog?portalId=…`              | Pipelines, properties, and association labels |
 | `GET`    | `/api/rules?portalId=…`                | List rules, optionally by pipeline            |
 | `POST`   | `/api/rules?portalId=…`                | Create a rule                                 |
