@@ -9,6 +9,8 @@ SpotKit-generated HubSpot apps. It provides:
 - AES-256-GCM encrypted Upstash token storage;
 - an in-memory store and unsigned-request mode restricted to localhost;
 - web-standard `Request`/`Response` routing independent of a hosting vendor.
+- adapters for AWS API Gateway v2 and Azure Functions HTTP requests, including
+  binary bodies and response cookies.
 
 ## Use
 

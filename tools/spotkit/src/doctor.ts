@@ -51,6 +51,7 @@ export async function diagnoseProject(directory = "."): Promise<DoctorReport> {
   await inspectBackendOrigins(root, diagnostics);
   await inspectEnvironment(root, diagnostics);
   await inspectExtensionComponents(root, diagnostics);
+  await inspectHosting(root, diagnostics);
 
   const errors = diagnostics.filter((item) => item.level === "error").length;
   const warnings = diagnostics.filter(
@@ -318,6 +319,109 @@ async function inspectExtensionComponents(
         level: "error",
         code: "extension-component",
         message: `HubSpot component metadata for type '${type}' is missing.`,
+      });
+    }
+  }
+}
+
+async function inspectHosting(
+  root: string,
+  diagnostics: Diagnostic[],
+): Promise<void> {
+  const packageFile = "services/api/package.json";
+  const packageDocument = await jsonFile(
+    path.join(root, packageFile),
+    diagnostics,
+    packageFile,
+  );
+  const dependencies = objectValue(packageDocument?.dependencies);
+  if (typeof dependencies?.["@hubspotlab/spotkit-runtime"] !== "string") return;
+
+  for (const file of [
+    "Dockerfile",
+    ".dockerignore",
+    "services/api/host.json",
+    "services/api/deploy/aws-sam.yaml",
+    "services/api/src/adapters/node.ts",
+    "services/api/src/adapters/aws-lambda.ts",
+    "services/api/src/adapters/azure.ts",
+  ]) {
+    if (!(await exists(path.join(root, file)))) {
+      diagnostics.push({
+        level: "error",
+        code: "hosting-file",
+        message: `Production hosting asset is missing: ${file}`,
+        file,
+      });
+    }
+  }
+
+  const scripts = objectValue(packageDocument?.scripts);
+  const build = typeof scripts?.build === "string" ? scripts.build : "";
+  for (const entry of ["node.ts", "aws-lambda.ts", "azure.ts"]) {
+    if (!build.includes(entry)) {
+      diagnostics.push({
+        level: "error",
+        code: "hosting-build",
+        message: `API build does not include ${entry}.`,
+        file: packageFile,
+      });
+    }
+  }
+
+  await inspectTextFile(root, ".dockerignore", diagnostics, [
+    {
+      pattern: /(^|\n)\.env(\n|$)/,
+      message: ".dockerignore must exclude .env.",
+    },
+    {
+      pattern: /\*\*\/node_modules|(^|\n)node_modules/,
+      message: ".dockerignore must exclude node_modules.",
+    },
+  ]);
+  await inspectTextFile(root, "Dockerfile", diagnostics, [
+    {
+      pattern: /USER\s+node/,
+      message: "Container must run as a non-root user.",
+    },
+    {
+      pattern: /HEALTHCHECK/,
+      message: "Container must define a health check.",
+    },
+    {
+      pattern: /dist\/node\.js/,
+      message: "Container must run the production Node bundle.",
+    },
+  ]);
+  await inspectTextFile(root, "services/api/deploy/aws-sam.yaml", diagnostics, [
+    { pattern: /Runtime:\s+nodejs24\.x/, message: "AWS must use Node.js 24." },
+    {
+      pattern: /Handler:\s+dist\/aws-lambda\.handler/,
+      message: "AWS must use the generated Lambda handler.",
+    },
+    {
+      pattern: /ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS:\s+["']false["']/,
+      message: "AWS must disable unsigned development requests.",
+    },
+  ]);
+}
+
+async function inspectTextFile(
+  root: string,
+  file: string,
+  diagnostics: Diagnostic[],
+  requirements: Array<{ pattern: RegExp; message: string }>,
+): Promise<void> {
+  const absolute = path.join(root, file);
+  if (!(await exists(absolute))) return;
+  const content = await readFile(absolute, "utf8");
+  for (const requirement of requirements) {
+    if (!requirement.pattern.test(content)) {
+      diagnostics.push({
+        level: "error",
+        code: "hosting-security",
+        message: requirement.message,
+        file,
       });
     }
   }

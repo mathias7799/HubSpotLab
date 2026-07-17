@@ -21,9 +21,10 @@
 
 - optional zero-object or one-object storage recipe;
 - encrypted portable configuration store;
-- AWS Lambda and Azure Functions adapters;
-- container and generic Node deployment assets;
-- production configuration diagnostics.
+- [x] AWS Lambda and Azure Functions adapters;
+- [x] container and generic Node deployment assets;
+- [x] production hosting diagnostics;
+- [x] clean-room bundle, Lambda invocation, and container smoke tests.
 
 ## 0.4: local development
 

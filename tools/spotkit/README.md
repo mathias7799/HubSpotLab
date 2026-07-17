@@ -27,6 +27,9 @@ The generated project is independently installable and contains:
   refresh coalescing, HubSpot signature v3 verification, and safe redirects;
 - AES-256-GCM encrypted Upstash installation storage in production and an
   explicitly local-only memory adapter;
+- production bundles for generic Node, AWS Lambda, and Azure Functions;
+- a multi-stage, non-root Docker image, AWS SAM template, and Azure host
+  manifest;
 - an environment example, API test, project README, and architecture guide;
 - its own pnpm workspace for standalone use.
 
@@ -52,6 +55,9 @@ Doctor currently validates:
 - page, card, and settings component metadata;
 - `PUBLIC_URL`, metadata, and runtime scope alignment;
 - durable storage variables and a safe unsigned-request default;
+- build coverage for every hosting entry point;
+- container secret exclusions, non-root execution, and health checks;
+- Lambda runtime, handler, and unsigned-request policy;
 - placeholder origins that must not reach deployment.
 
 Errors return a non-zero exit code. Warnings are actionable by default;
@@ -70,11 +76,12 @@ An end-to-end generated project is also validated during development by
 installing it outside the repository and running its API test and all four
 TypeScript checks.
 
-## Current milestone: 0.2
+## Current milestone: 0.3
 
-Version 0.2 adds the shared OAuth and security runtime. Each scaffold includes a
-local workspace copy, so it remains installable and deployable without relying
-on an unpublished registry package. Cloud-specific adapters, tunnel automation,
-and deployment commands remain future milestones.
+Version 0.3 adds deployable generic Node, container, AWS Lambda, and Azure
+Functions targets. Each scaffold includes a local runtime workspace and emits
+self-contained Node.js 24 bundles without relying on an unpublished registry
+package. Tunnel and release automation remain future milestones.
 
-See [architecture](docs/architecture.md) and the [roadmap](docs/roadmap.md).
+See [architecture](docs/architecture.md), [hosting](docs/hosting.md), and the
+[roadmap](docs/roadmap.md).

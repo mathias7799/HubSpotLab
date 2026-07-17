@@ -41,6 +41,17 @@ The generator copies the tested runtime into the new project's `packages`
 workspace. This preserves standalone installs while keeping the API's domain
 code behind a stable package interface.
 
+## Hosting boundary
+
+Domain code consumes web-standard `Request` and returns `Response`. Small
+adapters translate Node HTTP, API Gateway v2, and Azure HTTP shapes only at the
+outermost boundary. esbuild emits independent Node.js 24 bundles, so production
+never executes TypeScript or resolves workspace source.
+
+The container receives only the Node bundle. The Lambda adapter keeps response
+cookies separate from ordinary headers, while both cloud adapters preserve
+binary request and response bodies.
+
 ## Diagnostic model
 
 Doctor returns structured diagnostics with `success`, `warning`, or `error`

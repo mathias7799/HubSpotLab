@@ -24,3 +24,13 @@ export {
   type Installation,
   type TokenStore,
 } from "./token-store.js";
+export {
+  createAwsLambdaHandler,
+  type ApiGatewayV2Event,
+  type ApiGatewayV2Result,
+} from "./adapters/aws-lambda.js";
+export {
+  createAzureFunctionsHandler,
+  type AzureHttpRequest,
+  type AzureHttpResponse,
+} from "./adapters/azure-functions.js";

@@ -35,3 +35,13 @@ pnpm test
 pnpm typecheck
 pnpm spotkit doctor projects/__SPOTKIT_SLUG__
 ```
+
+## Build and host
+
+```bash
+pnpm build
+docker build -t __SPOTKIT_SLUG__ .
+```
+
+The build emits generic Node, AWS Lambda, and Azure Functions entry points. See
+[hosting](docs/hosting.md) for provider commands and production variables.

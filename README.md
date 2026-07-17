@@ -66,7 +66,8 @@ pnpm spotkit doctor projects/handoff-ready
 SpotKit generates a HubSpot app page, CRM card, native settings, portable Node
 API, and a tested OAuth/security runtime with encrypted production token
 storage. Its doctor checks metadata, scopes, origins, and deployment safety and
-supports strict CI and JSON output.
+supports strict CI and JSON output. Generated production bundles target generic
+Node, containers, AWS Lambda, and Azure Functions.
 
 ## Status
 
