@@ -11,7 +11,10 @@ describe("encrypted values", () => {
 
   it("rejects tampering and context reuse", () => {
     const encrypted = seal("value", "key", "app:tokens");
-    const tampered = `${encrypted.slice(0, -1)}${encrypted.endsWith("A") ? "B" : "A"}`;
+    const parts = encrypted.split(".");
+    const ciphertext = parts[2]!;
+    parts[2] = `${ciphertext.startsWith("A") ? "B" : "A"}${ciphertext.slice(1)}`;
+    const tampered = parts.join(".");
     expect(() => unseal(tampered, "key", "app:tokens")).toThrow();
     expect(() => unseal(encrypted, "key", "other:tokens")).toThrow();
   });

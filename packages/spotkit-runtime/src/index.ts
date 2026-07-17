@@ -5,8 +5,15 @@ export {
   type RuntimeConfig,
 } from "./config.js";
 export { safeEqual, seal, sign, unseal, verifySignature } from "./crypto.js";
+export {
+  createConfigurationStore,
+  MemoryConfigurationStore,
+  UpstashConfigurationStore,
+  type ConfigurationStore,
+  type JsonValue,
+} from "./configuration-store.js";
 export { OAuthError, OAuthService, type OAuthState } from "./oauth.js";
-export { createOAuthRouter } from "./router.js";
+export { createOAuthRouter, HttpError } from "./router.js";
 export {
   assertHubSpotRequest,
   decodeHubSpotUri,

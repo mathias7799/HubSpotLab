@@ -51,7 +51,7 @@ export function createOAuthRouter(
       }
       return await api(request);
     } catch (cause) {
-      if (cause instanceof OAuthError) {
+      if (cause instanceof OAuthError || cause instanceof HttpError) {
         return Response.json(
           { error: cause.message },
           { status: cause.status, headers: { "Cache-Control": "no-store" } },
@@ -64,6 +64,15 @@ export function createOAuthRouter(
       );
     }
   };
+}
+
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 function installedPage(appName: string): Response {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createOAuthRouter,
+  HttpError,
   MemoryTokenStore,
   OAuthService,
 } from "../src/index.js";
@@ -53,5 +54,16 @@ describe("OAuth router", () => {
 
     const delegated = await app(new Request("https://example.test/health"));
     await expect(delegated.json()).resolves.toEqual({ delegated: true });
+  });
+
+  it("returns explicit domain errors without converting them to 500s", async () => {
+    const errorApp = createOAuthRouter(config, oauth, async () => {
+      throw new HttpError(422, "Configuration is invalid.");
+    });
+    const response = await errorApp(new Request("https://example.test/api"));
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: "Configuration is invalid.",
+    });
   });
 });

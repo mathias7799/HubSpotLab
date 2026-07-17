@@ -7,5 +7,5 @@ on code inside a deployable app.
 ## Current packages
 
 - `spotkit-runtime`: portable HubSpot OAuth, request-signature validation,
-  encrypted installation storage, and runtime routing used by SpotKit-generated
-  applications.
+  encrypted installation and configuration storage, cloud adapters, and runtime
+  routing used by SpotKit-generated applications.

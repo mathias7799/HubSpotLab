@@ -37,6 +37,11 @@ paired Upstash REST credentials. Installations are sealed with AES-256-GCM using
 namespace-bound key derivation and associated data. The memory store and
 unsigned request bypass are accepted only when `PUBLIC_URL` is localhost.
 
+The same boundary exposes a separate per-portal configuration store. Domain
+values must be valid JSON, use validated keys, and stay below 64 KiB. Associated
+data contains the app namespace, portal, and key, preventing ciphertext from
+being moved between tenants or settings.
+
 The generator copies the tested runtime into the new project's `packages`
 workspace. This preserves standalone installs while keeping the API's domain
 code behind a stable package interface.
