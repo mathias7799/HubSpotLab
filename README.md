@@ -53,6 +53,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for repository conventions,
 [docs/architecture.md](docs/architecture.md) for monorepo design principles,
 and [projects/README.md](projects/README.md) for the product-owned layout.
 
+## Developer tooling
+
+[SpotKit](tools/spotkit/README.md) turns the proven TidsHub and CloseReady
+project shape into a reusable CLI:
+
+```bash
+pnpm spotkit create handoff-ready --directory projects --name "HandoffReady"
+pnpm spotkit doctor projects/handoff-ready
+```
+
+The initial release generates a HubSpot app page, CRM card, native settings,
+and portable Node API shell, then checks metadata and deployment configuration.
+
 ## Status
 
 HubSpotLab is pre-1.0. TidsHub and CloseReady are functional reference products,

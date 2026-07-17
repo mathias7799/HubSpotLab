@@ -6,6 +6,7 @@ packages:
   - "projects/*/apps/*/src/app/cards"
   - "projects/*/apps/*/src/app/settings"
   - "packages/*"
+  - "tools/*"
 
 allowBuilds:
   esbuild: true

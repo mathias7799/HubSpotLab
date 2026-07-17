@@ -1,0 +1,1 @@
+export const API_ORIGIN = "__SPOTKIT_API_ORIGIN_JSON__";

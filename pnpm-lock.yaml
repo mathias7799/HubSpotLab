@@ -260,6 +260,21 @@ importers:
         specifier: 4.1.8
         version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@6.4.2(@types/node@26.0.0)(jiti@2.7.0)(tsx@4.20.6))
 
+  tools/spotkit:
+    devDependencies:
+      '@types/node':
+        specifier: 26.0.0
+        version: 26.0.0
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.8
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@26.0.0)(vite@6.4.2(@types/node@26.0.0)(jiti@2.7.0)(tsx@4.20.6))
+
 packages:
 
   '@alcalzone/ansi-tokenize@0.2.5':
