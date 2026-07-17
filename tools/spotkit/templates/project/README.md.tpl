@@ -22,6 +22,8 @@ curl http://localhost:8788/health
 Open `http://localhost:8788/oauth/install` to start OAuth. Local development
 uses an in-memory token store. Production refuses to start without paired
 Upstash credentials and encrypts every stored installation using AES-256-GCM.
+The generated app page calls the signed `/api/installation` route with its
+portal ID and distinguishes a healthy connection from a missing OAuth install.
 
 The generated OAuth callback and fetch origin use `__SPOTKIT_API_ORIGIN__`.
 Replace placeholder origins before uploading the HubSpot project.

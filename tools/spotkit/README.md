@@ -19,7 +19,7 @@ pnpm spotkit create handoff-ready \
 The generated project is independently installable and contains:
 
 - HubSpot platform `2026.03` app metadata with OAuth and permitted URLs;
-- a routed app page with an API health check;
+- a routed app page with a signed, portal-aware OAuth installation check;
 - a deal sidebar card;
 - a native Connected Apps settings page;
 - a web-standard API handler and local Node adapter;

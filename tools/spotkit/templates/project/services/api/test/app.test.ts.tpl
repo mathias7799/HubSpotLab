@@ -30,4 +30,22 @@ describe("__SPOTKIT_DISPLAY_NAME_JSON__ API", () => {
       "http://localhost:8788/oauth/callback",
     );
   });
+
+  it("protects portal installation status", async () => {
+    const response = await createApp({
+      HUBSPOT_CLIENT_ID: "local",
+      HUBSPOT_CLIENT_SECRET: "local",
+      PUBLIC_URL: "http://localhost:8788",
+      TOKEN_ENCRYPTION_KEY: "local",
+      ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS: "true",
+    })(
+      new Request(
+        "http://localhost:8788/api/installation?portalId=123456",
+      ),
+    );
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: "__SPOTKIT_DISPLAY_NAME_JSON__ is not installed in this portal.",
+    });
+  });
 });
