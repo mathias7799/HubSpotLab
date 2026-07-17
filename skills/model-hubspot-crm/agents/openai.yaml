@@ -1,0 +1,4 @@
+interface:
+  display_name: "Model HubSpot CRM"
+  short_description: "Design HubSpot objects, properties, and associations"
+  default_prompt: "Use $model-hubspot-crm to design a durable HubSpot CRM data model for this product."

@@ -70,6 +70,7 @@ flowchart LR
 | **SpotKit runtime**          | Portable OAuth, signature v3, encrypted token/configuration storage, idempotency, and cloud adapters                             | [Package guide](packages/spotkit-runtime/README.md) |
 | **Build HubSpot App skill**  | Agentic planning, implementation, adoption, verification, and release workflow backed by SpotKit                                 | [Skill source](skills/build-hubspot-app/SKILL.md)   |
 | **Review HubSpot App skill** | Read-only correctness, security, platform, CRM, UX, operations, and release-readiness audit                                      | [Skill source](skills/review-hubspot-app/SKILL.md)  |
+| **Model HubSpot CRM skill**  | Durable object/property models, directional associations, labels, contextual tasks, scopes, and safe schema evolution            | [Skill source](skills/model-hubspot-crm/SKILL.md)   |
 
 ## SpotKit at a glance
 
@@ -97,18 +98,21 @@ It handles requests such as:
 - “Add signed webhooks and an unpublished workflow action.”
 - “Adopt this existing HubSpot project without overwriting product code.”
 - “Prepare this app for HubSpot validation and a release candidate.”
+- “Model a required Primary company and optional associated task correctly.”
 
 Install the skill into Codex when developing outside this repository:
 
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
 cp -R skills/build-hubspot-app skills/review-hubspot-app \
+  skills/model-hubspot-crm \
   "${CODEX_HOME:-$HOME/.codex}/skills/"
 ```
 
 Then invoke `$build-hubspot-app` to implement or `$review-hubspot-app` for a
-read-only production audit. See the [skills catalog](skills/README.md) for the
-agentic-development roadmap.
+read-only production audit. Use `$model-hubspot-crm` for object, property,
+association, project, or task modeling. See the [skills catalog](skills/README.md)
+for the agentic-development roadmap.
 
 ## Choose the right architecture
 
