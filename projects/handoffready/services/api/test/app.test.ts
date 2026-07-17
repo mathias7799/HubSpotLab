@@ -55,6 +55,25 @@ describe("HandoffReady API", () => {
           expires_in: 1800,
         });
       }
+      if (url.includes("/crm/v3/properties/deals")) {
+        return Response.json({
+          results: [
+            { name: "dealname", label: "Deal name" },
+            { name: "amount", label: "Amount" },
+          ],
+        });
+      }
+      if (url.includes("/crm/v3/pipelines/tickets")) {
+        return Response.json({
+          results: [
+            {
+              id: "support",
+              label: "Customer service",
+              stages: [{ id: "new", label: "New", displayOrder: 0 }],
+            },
+          ],
+        });
+      }
       return Response.json({ hub_id: 123456 });
     }) as typeof fetch;
     const app = createApp(

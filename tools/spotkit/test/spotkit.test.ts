@@ -54,6 +54,15 @@ describe("SpotKit", () => {
       ),
     ) as { config: { name: string } };
     expect(metadata.config.name).toBe("HandoffReady");
+    expect(
+      await readFile(
+        path.join(
+          result.targetDirectory,
+          "services/api/src/adapters/node-handler.ts",
+        ),
+        "utf8",
+      ),
+    ).toContain("maxRequestBodyBytes = 1_048_576");
     const report = await diagnoseProject(result.targetDirectory);
     expect(report.errors).toBe(0);
     expect(report.warnings).toBe(0);

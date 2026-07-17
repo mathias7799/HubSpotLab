@@ -21,17 +21,37 @@ describe("HandoffReady workflow action", () => {
         }),
       },
       idempotency: { claim, release: async () => undefined },
-      fetcher: vi.fn<typeof fetch>(async () =>
-        Response.json({
-          id: "987",
-          properties: { dealname: "Expansion", amount: "", closedate: "" },
-          associations: {
-            companies: { results: [] },
-            contacts: { results: [] },
-            tickets: { results: [] },
-          },
-        }),
-      ),
+      fetcher: vi.fn<typeof fetch>(async (input) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/crm/v3/objects/deals/987") {
+          return Response.json({
+            id: "987",
+            properties: {
+              dealname: "Expansion",
+              amount: "",
+              closedate: "",
+              hs_is_closed_won: "true",
+            },
+            associations: {
+              companies: { results: [] },
+              contacts: { results: [] },
+            },
+          });
+        }
+        if (path.endsWith("/associations/tickets")) {
+          return Response.json({ results: [] });
+        }
+        if (path === "/crm/v3/properties/deals") {
+          return Response.json({
+            results: [
+              { name: "dealname", label: "Deal name" },
+              { name: "amount", label: "Amount" },
+              { name: "closedate", label: "Close date" },
+            ],
+          });
+        }
+        throw new Error(`Unexpected workflow test request: ${path}`);
+      }),
     } as unknown as RuntimeApiContext;
     const body = JSON.stringify({
       callbackId: "callback-1",

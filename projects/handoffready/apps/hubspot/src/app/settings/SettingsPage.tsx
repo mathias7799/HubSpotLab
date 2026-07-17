@@ -7,9 +7,9 @@ import {
   Heading,
   Input,
   LoadingSpinner,
+  MultiSelect,
   Select,
   Text,
-  TextArea,
   hubspot,
   useExtensionContext,
 } from "@hubspot/ui-extensions";
@@ -30,6 +30,11 @@ interface TicketPipeline {
   id: string;
   label: string;
   stages: Array<{ id: string; label: string; displayOrder: number }>;
+}
+
+interface DealProperty {
+  name: string;
+  label: string;
 }
 
 interface HandoffPermissions {
@@ -57,6 +62,7 @@ function SettingsPage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pipelines, setPipelines] = useState<TicketPipeline[]>([]);
+  const [dealProperties, setDealProperties] = useState<DealProperty[]>([]);
   const [permissions, setPermissions] = useState<HandoffPermissions | null>(
     null,
   );
@@ -66,14 +72,17 @@ function SettingsPage(): React.ReactElement {
     setError(null);
     setSaved(false);
     try {
-      const [nextSettings, nextPipelines, nextPermissions] = await Promise.all([
-        request<AppSettings>(portalId),
-        loadTicketPipelines(portalId),
-        loadAuthorization(portalId),
-      ]);
+      const [nextSettings, nextPipelines, nextPermissions, nextProperties] =
+        await Promise.all([
+          request<AppSettings>(portalId),
+          loadTicketPipelines(portalId),
+          loadAuthorization(portalId),
+          loadDealProperties(portalId),
+        ]);
       setSettings(nextSettings);
       setPipelines(nextPipelines);
       setPermissions(nextPermissions);
+      setDealProperties(nextProperties);
       setState("ready");
     } catch (cause) {
       setError(messageFrom(cause));
@@ -160,24 +169,20 @@ function SettingsPage(): React.ReactElement {
           >
             Require an associated contact
           </Checkbox>
-          <TextArea
+          <MultiSelect
             name="requiredProperties"
             label="Required deal properties"
-            description="Comma-separated internal property names, for example dealname, amount, closedate."
-            value={settings.requiredProperties.join(", ")}
-            rows={3}
-            resize="vertical"
+            description="Choose the deal fields sales must complete before service can receive the handoff."
+            value={settings.requiredProperties}
+            options={dealProperties.map((property) => ({
+              label: property.label,
+              value: property.name,
+            }))}
             readOnly={state === "saving" || !permissions?.canManageSettings}
-            onInput={(value) =>
-              setSettings({
-                ...settings,
-                requiredProperties: propertyNames(String(value)),
-              })
-            }
             onChange={(value) =>
               setSettings({
                 ...settings,
-                requiredProperties: propertyNames(String(value)),
+                requiredProperties: value.map(String),
               })
             }
           />
@@ -288,11 +293,20 @@ async function loadAuthorization(
   return body;
 }
 
-function propertyNames(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+async function loadDealProperties(portalId: number): Promise<DealProperty[]> {
+  const response = await hubspot.fetch(
+    `${API_ORIGIN}/api/deal-properties?portalId=${portalId}`,
+  );
+  const body = (await response.json()) as {
+    results?: DealProperty[];
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(
+      body.error ?? `Request failed with status ${response.status}.`,
+    );
+  }
+  return body.results ?? [];
 }
 
 async function request<Value>(

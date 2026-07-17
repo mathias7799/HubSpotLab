@@ -20,16 +20,12 @@ import {
 import { PageBreadcrumbs, PageTitle } from "@hubspot/ui-extensions/pages";
 
 import { API_ORIGIN } from "./backend.ts";
-
-interface HandoffReadiness {
-  dealId: string;
-  dealName: string;
-  configurationReady: boolean;
-  prerequisitesReady: boolean;
-  complete: boolean;
-  ticketId?: string;
-  items: Array<{ key: string; passed: boolean }>;
-}
+import {
+  handoffStatus,
+  missingCount,
+  summarizeHandoffs,
+  type HandoffOverviewItem,
+} from "./overview.ts";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -37,7 +33,7 @@ export function HomePage(): React.ReactElement {
   const context = useExtensionContext<"pages">();
   const portalId = context.portal.id;
   const [state, setState] = useState<LoadState>("loading");
-  const [results, setResults] = useState<HandoffReadiness[]>([]);
+  const [results, setResults] = useState<HandoffOverviewItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -48,7 +44,7 @@ export function HomePage(): React.ReactElement {
         `${API_ORIGIN}/api/handoffs?portalId=${portalId}`,
       );
       const body = (await response.json()) as {
-        results?: HandoffReadiness[];
+        results?: HandoffOverviewItem[];
         error?: string;
       };
       if (!response.ok) {
@@ -68,15 +64,7 @@ export function HomePage(): React.ReactElement {
     void load();
   }, [load]);
 
-  const summary = useMemo(
-    () => ({
-      complete: results.filter((item) => item.complete).length,
-      ready: results.filter((item) => !item.complete && item.prerequisitesReady)
-        .length,
-      blocked: results.filter((item) => !item.prerequisitesReady).length,
-    }),
-    [results],
-  );
+  const summary = useMemo(() => summarizeHandoffs(results), [results]);
 
   return (
     <Flex direction="column" gap="medium">
@@ -134,37 +122,33 @@ export function HomePage(): React.ReactElement {
           </TableHead>
           <TableBody>
             {results.map((item) => {
-              const missing = item.items.filter(
-                (check) => !check.passed,
-              ).length;
+              const status = handoffStatus(item);
               return (
                 <TableRow key={item.dealId}>
                   <TableCell>
                     <Link
-                      href={`https://app.hubspot.com/contacts/${portalId}/deal/${item.dealId}`}
+                      href={`https://app.hubspot.com/contacts/${portalId}/record/0-3/${item.dealId}`}
                     >
                       {item.dealName}
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <StatusTag
-                      variant={
-                        item.complete
-                          ? "success"
-                          : item.prerequisitesReady
-                            ? "info"
-                            : "warning"
-                      }
-                    >
-                      {item.complete
-                        ? "Complete"
-                        : item.prerequisitesReady
-                          ? "Ready for ticket"
-                          : "Needs attention"}
+                    <StatusTag variant={status.variant}>
+                      {status.label}
                     </StatusTag>
                   </TableCell>
-                  <TableCell>{missing}</TableCell>
-                  <TableCell>{item.ticketId ?? "Not created"}</TableCell>
+                  <TableCell>{missingCount(item)}</TableCell>
+                  <TableCell>
+                    {item.ticketId ? (
+                      <Link
+                        href={`https://app.hubspot.com/contacts/${portalId}/record/0-5/${item.ticketId}`}
+                      >
+                        Open ticket
+                      </Link>
+                    ) : (
+                      "Not created"
+                    )}
+                  </TableCell>
                 </TableRow>
               );
             })}

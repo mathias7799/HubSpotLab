@@ -53,6 +53,8 @@ HANDOFFREADY_AUTHORIZATION_POLICY={"148692618":{"administrators":["12345"],"tick
 
 See the [workflow proof](docs/workflow-proof.md) for the architecture decision,
 commands, verified behavior, SpotKit feedback, and remaining deployment evidence.
+See the [production review](docs/production-review.md) for resolved findings,
+release blockers, and residual risks.
 
 ## Start locally
 

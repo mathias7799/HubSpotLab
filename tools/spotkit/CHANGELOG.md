@@ -5,6 +5,8 @@ versioning while it is published under the `@hubspotlab/spotkit` package.
 
 ## 0.7.0
 
+- cap generated Node-adapter request bodies at 1 MiB with an explicit 413
+  response before buffering oversized webhook or workflow payloads;
 - validate product-specific workflow-action routes and handler wiring without
   requiring generated example names;
 - reject `serveousercontent.com` preview origins in strict diagnostics and

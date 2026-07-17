@@ -1,6 +1,10 @@
 import { HttpError, type RuntimeApiContext } from "@hubspotlab/spotkit-runtime";
 
-import { getHandoffSettings, HandoffService } from "../handoff.js";
+import {
+  createHandoffTicket,
+  getHandoffSettings,
+  HandoffService,
+} from "../handoff.js";
 
 export interface WorkflowActionExecution {
   callbackId: string;
@@ -49,12 +53,20 @@ export async function onHandoffWorkflowAction(
   execution: WorkflowActionExecution,
   context: RuntimeApiContext,
 ) {
-  const token = await context.accessTokenForPortal(execution.portalId);
   const settings = await getHandoffSettings(context, execution.portalId);
-  const service = new HandoffService(token, context.fetcher);
-  return execution.mode === "create_ticket"
-    ? service.createTicket(execution.objectId, settings)
-    : service.evaluate(execution.objectId, settings);
+  if (execution.mode === "create_ticket") {
+    return createHandoffTicket(
+      context,
+      execution.portalId,
+      execution.objectId,
+      settings,
+    );
+  }
+  const token = await context.accessTokenForPortal(execution.portalId);
+  return new HandoffService(token, context.fetcher).evaluate(
+    execution.objectId,
+    settings,
+  );
 }
 
 function readExecution(rawBody: string): WorkflowActionExecution {

@@ -40,7 +40,10 @@ renames both route and handler.
 
 - Required deal properties and company/contact associations produce explicit
   readiness items.
-- Existing associated tickets make handoff completion idempotent.
+- Ticket creation rechecks the deal's live closed-won state immediately before
+  mutation.
+- Only tickets with HandoffReady's stable subject marker count as handoff
+  completion; unrelated associated tickets are ignored.
 - Ticket creation uses the configured HubSpot pipeline and stage.
 - A failed ticket-to-deal association triggers compensating ticket deletion.
 - Workflow callback IDs are claimed atomically for seven days and released on
@@ -49,15 +52,23 @@ renames both route and handler.
   the card and returns status, missing count, and ticket ID.
 - Settings load native HubSpot ticket pipelines and stages rather than asking
   operators to type internal IDs.
+- Required deal properties use HubSpot's native labels and multi-select, and the
+  API rejects stale properties, pipelines, or stages before saving.
 - Settings and ticket creation enforce a portal-scoped, default-deny user policy;
   UI surfaces expose read-only capability state before mutation.
+- Card and workflow ticket creation share one atomic portal/deal mutation claim,
+  preventing duplicate tickets across concurrent entry points.
+- Overview evaluation is bounded to three concurrent deals, HubSpot calls time
+  out after ten seconds, and all Node adapters reject bodies over 1 MiB.
 - The app page links each closed-won deal back to its HubSpot record.
+- The app page and card link directly to the associated handoff ticket.
 
 ## Local evidence
 
-The project API and embedded runtime tests pass, all TypeScript surfaces pass
-typechecking, and SpotKit reports zero errors. The only diagnostic warning is
-the intentionally reserved `handoffready.example.com` origin.
+The embedded runtime's 33 tests, product API's 21 tests, and app-page model's
+three tests pass. All TypeScript surfaces pass typechecking, and SpotKit reports
+zero errors. The only diagnostic warning is the intentionally reserved
+`handoffready.example.com` origin.
 
 The local Node adapter was also exercised on port 8790:
 

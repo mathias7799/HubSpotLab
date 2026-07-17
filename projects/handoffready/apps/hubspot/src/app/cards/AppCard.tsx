@@ -4,6 +4,7 @@ import {
   Button,
   Flex,
   Heading,
+  Link,
   LoadingSpinner,
   StatusTag,
   Text,
@@ -165,7 +166,11 @@ function AppCard(): React.ReactElement {
 
       {readiness.complete ? (
         <Alert title="Handoff ticket is linked" variant="success">
-          Service ticket {readiness.ticketId} is associated with this deal.
+          <Link
+            href={`https://app.hubspot.com/contacts/${portalId}/record/0-5/${readiness.ticketId}`}
+          >
+            Open service ticket {readiness.ticketId}
+          </Link>
         </Alert>
       ) : (
         <Button

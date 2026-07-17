@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm --filter '@spotkit-generated/handoffready-api' build",
-    "test": "pnpm --filter '@hubspotlab/spotkit-runtime' test && pnpm --filter '@spotkit-generated/handoffready-api' test",
+    "test": "pnpm --filter '@hubspotlab/spotkit-runtime' test && pnpm --filter '@spotkit-generated/handoffready-api' test && pnpm --dir apps/hubspot/src/app/pages test",
     "typecheck": "pnpm --filter '@hubspotlab/spotkit-runtime' typecheck && pnpm --filter '@spotkit-generated/handoffready-api' typecheck && pnpm --dir apps/hubspot/src/app/pages typecheck && pnpm --dir apps/hubspot/src/app/cards typecheck && pnpm --dir apps/hubspot/src/app/settings typecheck"
   }
 }

@@ -8,6 +8,7 @@ import {
   requireTicketCreator,
 } from "./authorization.js";
 import {
+  createHandoffTicket,
   getHandoffSettings,
   HandoffService,
   parseHandoffSettings,
@@ -51,7 +52,7 @@ export function createApp(
           const rawBody = request.method === "GET" ? "" : await request.text();
           await verifyRequest(request, rawBody);
           const portalId = readPortalId(url);
-          await accessTokenForPortal(portalId);
+          const token = await accessTokenForPortal(portalId);
           const permissions = permissionsForRequest(
             request,
             portalId,
@@ -64,6 +65,7 @@ export function createApp(
           if (request.method === "PUT") {
             requireSettingsAdministrator(permissions);
             const settings = parseSettingsBody(rawBody);
+            await new HandoffService(token, fetcher).validateSettings(settings);
             await configuration.put(portalId, "handoff.settings", {
               ...settings,
             });
@@ -90,8 +92,6 @@ export function createApp(
           const rawBody = request.method === "GET" ? "" : await request.text();
           await verifyRequest(request, rawBody);
           const portalId = readPortalId(url);
-          const token = await accessTokenForPortal(portalId);
-          const service = new HandoffService(token, fetcher);
           const settings = await getHandoffSettings(context, portalId);
           const dealId = decodeURIComponent(dealRoute[1] as string);
           if (request.method === "POST") {
@@ -106,8 +106,11 @@ export function createApp(
           }
           return Response.json(
             request.method === "POST"
-              ? await service.createTicket(dealId, settings)
-              : await service.evaluate(dealId, settings),
+              ? await createHandoffTicket(context, portalId, dealId, settings)
+              : await new HandoffService(
+                  await accessTokenForPortal(portalId),
+                  fetcher,
+                ).evaluate(dealId, settings),
           );
         }
         if (request.method === "GET" && url.pathname === "/api/handoffs") {
@@ -130,6 +133,17 @@ export function createApp(
           const token = await accessTokenForPortal(portalId);
           return Response.json({
             results: await new HandoffService(token, fetcher).ticketPipelines(),
+          });
+        }
+        if (
+          request.method === "GET" &&
+          url.pathname === "/api/deal-properties"
+        ) {
+          await verifyRequest(request, "");
+          const portalId = readPortalId(url);
+          const token = await accessTokenForPortal(portalId);
+          return Response.json({
+            results: await new HandoffService(token, fetcher).dealProperties(),
           });
         }
         const webhookResponse = await handleHubSpotWebhooks(request, context);
