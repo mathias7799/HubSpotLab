@@ -10,11 +10,12 @@
 
 ## 0.2: shared OAuth runtime
 
-- extract OAuth install, callback, refresh, and installation lookup;
-- extract HubSpot signature v3 verification;
-- encrypted memory and Upstash token-store adapters;
-- generated health and installation-status endpoints;
-- migration path for TidsHub and CloseReady.
+- [x] OAuth install, callback, refresh, and installation lookup;
+- [x] HubSpot signature v3 verification;
+- [x] encrypted Upstash and local-only memory token-store adapters;
+- [x] generated OAuth and health endpoints;
+- [x] JSON and strict production diagnostics;
+- [ ] migration path for TidsHub and CloseReady.
 
 ## 0.3: persistence and hosting
 

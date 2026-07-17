@@ -93,4 +93,59 @@ describe("SpotKit", () => {
       "Project slug",
     );
   });
+
+  it("detects runtime and metadata configuration drift", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "drift-check",
+      directory: parent,
+      apiOrigin: "https://api.example.net",
+    });
+    const file = path.join(result.targetDirectory, "services/api/.env.example");
+    const content = await readFile(file, "utf8");
+    await writeFile(
+      file,
+      content
+        .replace(
+          "PUBLIC_URL=https://api.example.net",
+          "PUBLIC_URL=https://wrong.example.net",
+        )
+        .replace(
+          "HUBSPOT_SCOPES=oauth crm.objects.deals.read",
+          "HUBSPOT_SCOPES=oauth",
+        )
+        .replace(
+          "ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=false",
+          "ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=true",
+        ),
+      "utf8",
+    );
+    const report = await diagnoseProject(result.targetDirectory);
+    expect(report.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "public-url-mismatch",
+          level: "error",
+        }),
+        expect.objectContaining({ code: "scope-mismatch", level: "error" }),
+        expect.objectContaining({
+          code: "unsigned-production-requests",
+          level: "error",
+        }),
+      ]),
+    );
+  });
+
+  it("warns when OAuth uses a temporary tunnel", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "tunnel-check",
+      directory: parent,
+      apiOrigin: "https://demo.ngrok-free.app",
+    });
+    const report = await diagnoseProject(result.targetDirectory);
+    expect(report.diagnostics).toContainEqual(
+      expect.objectContaining({ code: "temporary-tunnel", level: "warning" }),
+    );
+  });
 });

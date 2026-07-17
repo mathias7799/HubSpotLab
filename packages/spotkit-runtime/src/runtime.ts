@@ -1,0 +1,57 @@
+import {
+  loadRuntimeConfig,
+  type LoadRuntimeConfigOptions,
+  type RuntimeConfig,
+} from "./config.js";
+import { OAuthService } from "./oauth.js";
+import { createOAuthRouter } from "./router.js";
+import { assertHubSpotRequest } from "./security.js";
+import { createTokenStore, type TokenStore } from "./token-store.js";
+
+export interface RuntimeApiContext {
+  config: RuntimeConfig;
+  accessTokenForPortal: (portalId: number) => Promise<string>;
+  verifyRequest: (request: Request, rawBody: string) => Promise<void>;
+  fetcher: typeof fetch;
+}
+
+export interface CreateSpotKitRuntimeOptions extends Omit<
+  LoadRuntimeConfigOptions,
+  "env"
+> {
+  env?: Record<string, string | undefined>;
+  fetcher?: typeof fetch;
+  tokenStore?: TokenStore;
+  createApi: (
+    context: RuntimeApiContext,
+  ) => (request: Request) => Promise<Response>;
+}
+
+export function createSpotKitRuntime(options: CreateSpotKitRuntimeOptions) {
+  const config = loadRuntimeConfig({
+    appName: options.appName,
+    namespace: options.namespace,
+    requiredScopes: options.requiredScopes,
+    ...(options.optionalScopes
+      ? { optionalScopes: options.optionalScopes }
+      : {}),
+    ...(options.defaultPort ? { defaultPort: options.defaultPort } : {}),
+    ...(options.env ? { env: options.env } : {}),
+  });
+  const fetcher = options.fetcher ?? fetch;
+  const store = options.tokenStore ?? createTokenStore(config, fetcher);
+  const oauth = new OAuthService(config, store, fetcher);
+  const api = options.createApi({
+    config,
+    accessTokenForPortal: (portalId) => oauth.accessToken(portalId),
+    verifyRequest: (request, rawBody) =>
+      assertHubSpotRequest(request, config, rawBody),
+    fetcher,
+  });
+  return {
+    app: createOAuthRouter(config, oauth, api),
+    config,
+    oauth,
+    store,
+  };
+}

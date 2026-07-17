@@ -19,6 +19,9 @@ export interface CreateProjectResult {
 const TEMPLATE_DIRECTORY = fileURLToPath(
   new URL("../templates/project", import.meta.url),
 );
+const RUNTIME_DIRECTORY = fileURLToPath(
+  new URL("../../../packages/spotkit-runtime", import.meta.url),
+);
 
 export async function createProject(
   options: CreateProjectOptions,
@@ -48,12 +51,39 @@ export async function createProject(
     ["__SPOTKIT_SUPPORT_EMAIL__", supportEmail],
     ["__SPOTKIT_SUPPORT_EMAIL_JSON__", jsonContent(supportEmail)],
   ]);
-  const filesCreated = await copyTemplate(
+  let filesCreated = await copyTemplate(
     TEMPLATE_DIRECTORY,
     target,
     replacements,
   );
+  filesCreated += await copyRuntime(
+    RUNTIME_DIRECTORY,
+    path.join(target, "packages/spotkit-runtime"),
+  );
   return { targetDirectory: target, filesCreated };
+}
+
+async function copyRuntime(
+  source: string,
+  destination: string,
+): Promise<number> {
+  await mkdir(destination, { recursive: true });
+  let count = 0;
+  for (const name of ["package.json", "tsconfig.json", "src", "test"]) {
+    const sourcePath = path.join(source, name);
+    const destinationPath = path.join(destination, name);
+    const entries = await readdir(sourcePath, { withFileTypes: true }).catch(
+      () => undefined,
+    );
+    if (!entries) {
+      await writeFile(destinationPath, await readFile(sourcePath));
+      count += 1;
+      continue;
+    }
+    await mkdir(destinationPath, { recursive: true });
+    count += await copyTemplate(sourcePath, destinationPath, new Map());
+  }
+  return count;
 }
 
 function validateSlug(slug: string): void {

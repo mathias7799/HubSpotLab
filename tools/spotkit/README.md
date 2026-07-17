@@ -23,6 +23,10 @@ The generated project is independently installable and contains:
 - a deal sidebar card;
 - a native Connected Apps settings page;
 - a web-standard API handler and local Node adapter;
+- a local `@hubspotlab/spotkit-runtime` package with OAuth install/callback,
+  refresh coalescing, HubSpot signature v3 verification, and safe redirects;
+- AES-256-GCM encrypted Upstash installation storage in production and an
+  explicitly local-only memory adapter;
 - an environment example, API test, project README, and architecture guide;
 - its own pnpm workspace for standalone use.
 
@@ -33,7 +37,8 @@ replaced before upload.
 ### Diagnose a project
 
 ```bash
-pnpm spotkit doctor projects/closeready
+pnpm spotkit doctor projects/closeready --strict
+pnpm spotkit doctor projects/closeready --json
 ```
 
 Doctor currently validates:
@@ -41,14 +46,17 @@ Doctor currently validates:
 - required product, HubSpot, API, and environment files;
 - HubSpot project name and platform version;
 - OAuth authentication and HTTPS callback URLs;
+- the exact `/oauth/callback` route and stable (non-tunnel) production origin;
 - callback-origin alignment with `permittedUrls.fetch`;
 - extension backend constants aligned with permitted fetch origins;
 - page, card, and settings component metadata;
-- required OAuth API environment variables;
+- `PUBLIC_URL`, metadata, and runtime scope alignment;
+- durable storage variables and a safe unsigned-request default;
 - placeholder origins that must not reach deployment.
 
-Errors return a non-zero exit code. Warnings are actionable but do not fail the
-command, which makes doctor suitable for local checks and CI.
+Errors return a non-zero exit code. Warnings are actionable by default;
+`--strict` also makes them fail CI. `--json` emits the complete report with
+stable diagnostic codes for automation.
 
 ## Develop SpotKit
 
@@ -62,12 +70,11 @@ An end-to-end generated project is also validated during development by
 installing it outside the repository and running its API test and all four
 TypeScript checks.
 
-## Scope of version 0.1
+## Current milestone: 0.2
 
-Version 0.1 establishes the CLI, generator contract, health API shell, and
-configuration diagnostics. It does not yet generate OAuth token exchange,
-signature verification, durable storage, cloud adapters, tunnels, or deployment
-automation. Those features will be extracted from TidsHub and CloseReady behind
-stable shared packages instead of copied into every template.
+Version 0.2 adds the shared OAuth and security runtime. Each scaffold includes a
+local workspace copy, so it remains installable and deployable without relying
+on an unpublished registry package. Cloud-specific adapters, tunnel automation,
+and deployment commands remain future milestones.
 
 See [architecture](docs/architecture.md) and the [roadmap](docs/roadmap.md).

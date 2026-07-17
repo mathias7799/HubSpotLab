@@ -56,11 +56,17 @@ async function createCommand(args: string[]): Promise<number> {
 }
 
 async function doctorCommand(args: string[]): Promise<number> {
+  const json = args.includes("--json");
+  const strict = args.includes("--strict");
   const directory = path.resolve(
     INVOCATION_DIRECTORY,
     args.find((value) => !value.startsWith("-")) ?? ".",
   );
   const report = await diagnoseProject(directory);
+  if (json) {
+    console.log(JSON.stringify(report, null, 2));
+    return report.errors === 0 && (!strict || report.warnings === 0) ? 0 : 1;
+  }
   console.log(`SpotKit doctor: ${report.root}`);
   for (const item of report.diagnostics) {
     const marker =
@@ -72,7 +78,10 @@ async function doctorCommand(args: string[]): Promise<number> {
     console.log(`${marker} [${item.code}] ${item.message}`);
   }
   console.log(`${report.errors} errors, ${report.warnings} warnings`);
-  return report.ok ? 0 : 1;
+  if (strict && report.warnings > 0) {
+    console.log("Strict mode treats warnings as failures.");
+  }
+  return report.errors === 0 && (!strict || report.warnings === 0) ? 0 : 1;
 }
 
 function option(args: string[], name: string): string | undefined {
@@ -99,7 +108,7 @@ function printHelp(): void {
 
 Usage:
   spotkit create <slug> [options]
-  spotkit doctor [directory]
+  spotkit doctor [directory] [--strict] [--json]
 
 Create options:
   --directory <path>       Parent directory (default: current directory)
@@ -107,6 +116,10 @@ Create options:
   --description <text>     App description
   --api-origin <https URL> Public API origin
   --support-email <email>  Support contact
+
+Doctor options:
+  --strict                 Fail when warnings are present
+  --json                   Print a machine-readable report
 
 Examples:
   spotkit create handoff-ready --directory projects --name "HandoffReady"

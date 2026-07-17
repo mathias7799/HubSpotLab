@@ -5,7 +5,9 @@ flowchart LR
   Page[HubSpot app page] --> API[Portable API]
   Card[HubSpot CRM card] --> API
   Settings[HubSpot settings] --> API
-  API --> HubSpot[HubSpot CRM APIs]
+  API --> Runtime[SpotKit OAuth runtime]
+  Runtime --> Store[(Encrypted token store)]
+  Runtime --> HubSpot[HubSpot CRM APIs]
 ```
 
 HubSpot renders the product UI. The portable API owns secrets, OAuth tokens,

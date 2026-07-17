@@ -8,6 +8,7 @@ Generated with
 ## Structure
 
 - `apps/hubspot`: HubSpot app metadata, app page, CRM card, and settings.
+- `packages/spotkit-runtime`: tested OAuth, request-signing, encryption, and token-storage boundaries.
 - `services/api`: portable web-standard API with a local Node adapter.
 - `docs`: product-owned documentation and decisions.
 
@@ -17,6 +18,10 @@ Generated with
 pnpm --dir services/api dev:local
 curl http://localhost:8788/health
 ```
+
+Open `http://localhost:8788/oauth/install` to start OAuth. Local development
+uses an in-memory token store. Production refuses to start without paired
+Upstash credentials and encrypts every stored installation using AES-256-GCM.
 
 The generated OAuth callback and fetch origin use `__SPOTKIT_API_ORIGIN__`.
 Replace placeholder origins before uploading the HubSpot project.

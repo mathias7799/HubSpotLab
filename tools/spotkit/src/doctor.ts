@@ -181,11 +181,27 @@ async function inspectAppMetadata(
         file,
       });
     }
+    if (parsed.pathname !== "/oauth/callback") {
+      diagnostics.push({
+        level: "error",
+        code: "oauth-callback-path",
+        message: `OAuth redirect must end at /oauth/callback: ${redirect}`,
+        file,
+      });
+    }
     if (parsed.hostname.endsWith(".example.com")) {
       diagnostics.push({
         level: "warning",
         code: "placeholder-origin",
         message: `Replace the placeholder API origin before upload: ${parsed.origin}`,
+        file,
+      });
+    }
+    if (isTemporaryTunnel(parsed.hostname)) {
+      diagnostics.push({
+        level: "warning",
+        code: "temporary-tunnel",
+        message: `Use a stable production origin before release: ${parsed.origin}`,
         file,
       });
     }
@@ -200,11 +216,16 @@ async function inspectEnvironment(
   const absolute = path.join(root, file);
   if (!(await exists(absolute))) return;
   const content = await readFile(absolute, "utf8");
+  const environment = parseEnvironment(content);
   for (const variable of [
     "HUBSPOT_CLIENT_ID",
     "HUBSPOT_CLIENT_SECRET",
+    "HUBSPOT_SCOPES",
     "PUBLIC_URL",
     "TOKEN_ENCRYPTION_KEY",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS",
   ]) {
     if (!new RegExp(`^${variable}=`, "m").test(content)) {
       diagnostics.push({
@@ -214,6 +235,66 @@ async function inspectEnvironment(
         file,
       });
     }
+  }
+  if (
+    environment.ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS !== undefined &&
+    environment.ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS !== "false"
+  ) {
+    diagnostics.push({
+      level: "error",
+      code: "unsigned-production-requests",
+      message:
+        ".env.example must default ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS to false.",
+      file,
+    });
+  }
+
+  const metadataFile = "apps/hubspot/src/app/app-hsmeta.json";
+  const metadata = await jsonFile(
+    path.join(root, metadataFile),
+    diagnostics,
+    metadataFile,
+  );
+  const auth = objectValue(objectValue(metadata?.config)?.auth);
+  const redirect = stringArray(auth?.redirectUrls)[0];
+  const publicUrl = environment.PUBLIC_URL;
+  if (redirect && publicUrl) {
+    const parsedRedirect = safeUrl(redirect);
+    const parsedPublicUrl = safeUrl(publicUrl);
+    if (
+      !parsedPublicUrl ||
+      parsedPublicUrl.pathname !== "/" ||
+      parsedPublicUrl.search !== "" ||
+      parsedPublicUrl.hash !== ""
+    ) {
+      diagnostics.push({
+        level: "error",
+        code: "public-url-origin",
+        message: "PUBLIC_URL must be an absolute origin without a path.",
+        file,
+      });
+    } else if (parsedRedirect?.origin !== parsedPublicUrl.origin) {
+      diagnostics.push({
+        level: "error",
+        code: "public-url-mismatch",
+        message: `PUBLIC_URL ${publicUrl} does not match the OAuth origin ${parsedRedirect?.origin ?? redirect}.`,
+        file,
+      });
+    }
+  }
+
+  const configuredScopes = splitScopes(environment.HUBSPOT_SCOPES);
+  const requiredScopes = stringArray(auth?.requiredScopes);
+  const missingScopes = requiredScopes.filter(
+    (scope) => !configuredScopes.includes(scope),
+  );
+  if (environment.HUBSPOT_SCOPES !== undefined && missingScopes.length > 0) {
+    diagnostics.push({
+      level: "error",
+      code: "scope-mismatch",
+      message: `HUBSPOT_SCOPES is missing metadata scopes: ${missingScopes.join(", ")}.`,
+      file,
+    });
   }
 }
 
@@ -315,4 +396,32 @@ function safeUrl(value: string): URL | undefined {
   } catch {
     return undefined;
   }
+}
+
+function parseEnvironment(content: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
+    if (match?.[1] !== undefined && match[2] !== undefined) {
+      values[match[1]] = match[2].trim();
+    }
+  }
+  return values;
+}
+
+function splitScopes(value: string | undefined): string[] {
+  return value?.split(/[\s,]+/).filter(Boolean) ?? [];
+}
+
+function isTemporaryTunnel(hostname: string): boolean {
+  return (
+    hostname === "ngrok.io" ||
+    hostname.endsWith(".ngrok.io") ||
+    hostname === "ngrok-free.app" ||
+    hostname.endsWith(".ngrok-free.app") ||
+    hostname === "ngrok.app" ||
+    hostname.endsWith(".ngrok.app") ||
+    hostname === "trycloudflare.com" ||
+    hostname.endsWith(".trycloudflare.com")
+  );
 }

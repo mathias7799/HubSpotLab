@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/adapters/node.ts",
-    "dev:local": "PUBLIC_URL=http://localhost:8788 PORT=8788 tsx watch src/adapters/node.ts",
+    "dev:local": "HUBSPOT_CLIENT_ID=local HUBSPOT_CLIENT_SECRET=local TOKEN_ENCRYPTION_KEY=local ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=true PUBLIC_URL=http://localhost:8788 PORT=8788 tsx watch src/adapters/node.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hubspotlab/spotkit-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.0.0",
