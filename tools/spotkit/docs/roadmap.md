@@ -20,7 +20,7 @@
 ## 0.3: persistence and hosting
 
 - [x] zero-custom-object encrypted Upstash storage recipe;
-- [ ] optional one-custom-object HubSpot storage recipe;
+- [x] optional one-custom-object HubSpot storage recipe;
 - [x] encrypted portable configuration store;
 - [x] AWS Lambda and Azure Functions adapters;
 - [x] container and generic Node deployment assets;

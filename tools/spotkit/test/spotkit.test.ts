@@ -172,4 +172,32 @@ describe("SpotKit", () => {
       ]),
     );
   });
+
+  it("requires custom-object scopes only when the optional recipe is enabled", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "spotkit-"));
+    const result = await createProject({
+      slug: "object-storage-check",
+      directory: parent,
+      apiOrigin: "https://api.example.net",
+    });
+    const file = path.join(result.targetDirectory, "services/api/src/app.ts");
+    await writeFile(
+      file,
+      `${await readFile(file, "utf8")}\n// createHubSpotConfigurationStore(context)\n`,
+      "utf8",
+    );
+    const report = await diagnoseProject(result.targetDirectory);
+    expect(report.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "object-storage-scopes",
+          level: "error",
+        }),
+        expect.objectContaining({
+          code: "object-storage-runtime-scopes",
+          level: "error",
+        }),
+      ]),
+    );
+  });
 });

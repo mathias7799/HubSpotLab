@@ -42,6 +42,11 @@ values must be valid JSON, use validated keys, and stay below 64 KiB. Associated
 data contains the app namespace, portal, and key, preventing ciphertext from
 being moved between tenants or settings.
 
+Apps that prefer portal-owned configuration can opt into
+`HubSpotObjectConfigurationStore`. It provisions exactly one compact schema with
+a unique key and encrypted value, coalesces concurrent provisioning, and keeps
+OAuth installations external so the portal object can always be accessed.
+
 The generator copies the tested runtime into the new project's `packages`
 workspace. This preserves standalone installs while keeping the API's domain
 code behind a stable package interface.

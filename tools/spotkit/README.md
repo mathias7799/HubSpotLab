@@ -24,6 +24,7 @@ The generated project is independently installable and contains:
 - a native Connected Apps settings page;
 - a working signed settings workflow backed by encrypted, portal-specific JSON
   configuration;
+- an optional, idempotent one-custom-object configuration recipe;
 - a web-standard API handler and local Node adapter;
 - a local `@hubspotlab/spotkit-runtime` package with OAuth install/callback,
   refresh coalescing, HubSpot signature v3 verification, and safe redirects;

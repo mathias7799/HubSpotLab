@@ -47,3 +47,6 @@ docker build -t __SPOTKIT_SLUG__ .
 
 The build emits generic Node, AWS Lambda, and Azure Functions entry points. See
 [hosting](docs/hosting.md) for provider commands and production variables.
+
+See [storage](docs/storage.md) to choose between the default zero-object model
+and the encrypted, optional one-custom-object configuration recipe.

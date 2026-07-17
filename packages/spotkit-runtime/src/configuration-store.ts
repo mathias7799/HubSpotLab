@@ -27,11 +27,16 @@ export class MemoryConfigurationStore implements ConfigurationStore {
   ): Promise<Value | null> {
     const storageKey = validatedStorageKey(portalId, key);
     const value = this.#values.get(storageKey);
-    return value === undefined ? null : (parseValue(value) as Value);
+    return value === undefined
+      ? null
+      : (parseConfigurationValue(value) as Value);
   }
 
   async put(portalId: number, key: string, value: JsonValue): Promise<void> {
-    this.#values.set(validatedStorageKey(portalId, key), serializeValue(value));
+    this.#values.set(
+      validatedStorageKey(portalId, key),
+      serializeConfigurationValue(value),
+    );
   }
 
   async delete(portalId: number, key: string): Promise<void> {
@@ -58,7 +63,7 @@ export class UpstashConfigurationStore implements ConfigurationStore {
     if (typeof response.result !== "string") {
       throw new Error("Configuration store returned an invalid value.");
     }
-    return parseValue(
+    return parseConfigurationValue(
       unseal(response.result, this.encryptionKey, this.context(storageKey)),
     ) as Value;
   }
@@ -68,7 +73,11 @@ export class UpstashConfigurationStore implements ConfigurationStore {
     await this.command([
       "SET",
       this.key(storageKey),
-      seal(serializeValue(value), this.encryptionKey, this.context(storageKey)),
+      seal(
+        serializeConfigurationValue(value),
+        this.encryptionKey,
+        this.context(storageKey),
+      ),
     ]);
   }
 
@@ -143,7 +152,7 @@ function validatedStorageKey(portalId: number, key: string): string {
   return `${portalId}:${key}`;
 }
 
-function serializeValue(value: JsonValue): string {
+export function serializeConfigurationValue(value: JsonValue): string {
   if (!isJsonValue(value)) {
     throw new Error("Configuration value must be valid JSON.");
   }
@@ -154,11 +163,11 @@ function serializeValue(value: JsonValue): string {
   if (Buffer.byteLength(serialized, "utf8") > 65_536) {
     throw new Error("Configuration value must not exceed 64 KiB.");
   }
-  parseValue(serialized);
+  parseConfigurationValue(serialized);
   return serialized;
 }
 
-function parseValue(value: string): JsonValue {
+export function parseConfigurationValue(value: string): JsonValue {
   let parsed: unknown;
   try {
     parsed = JSON.parse(value) as unknown;

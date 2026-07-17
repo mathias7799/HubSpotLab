@@ -52,6 +52,7 @@ export async function diagnoseProject(directory = "."): Promise<DoctorReport> {
   await inspectEnvironment(root, diagnostics);
   await inspectExtensionComponents(root, diagnostics);
   await inspectHosting(root, diagnostics);
+  await inspectObjectStorageRecipe(root, diagnostics);
 
   const errors = diagnostics.filter((item) => item.level === "error").length;
   const warnings = diagnostics.filter(
@@ -404,6 +405,74 @@ async function inspectHosting(
       message: "AWS must disable unsigned development requests.",
     },
   ]);
+}
+
+async function inspectObjectStorageRecipe(
+  root: string,
+  diagnostics: Diagnostic[],
+): Promise<void> {
+  const recipeFile = "services/api/src/storage/hubspot-configuration.ts";
+  const recipePath = path.join(root, recipeFile);
+  if (!(await exists(recipePath))) return;
+  const recipe = await readFile(recipePath, "utf8");
+  if (!recipe.includes("HubSpotObjectConfigurationStore")) {
+    diagnostics.push({
+      level: "error",
+      code: "object-storage-recipe",
+      message:
+        "The HubSpot configuration recipe must use the tested SpotKit store.",
+      file: recipeFile,
+    });
+  }
+
+  const appFile = "services/api/src/app.ts";
+  const appPath = path.join(root, appFile);
+  if (!(await exists(appPath))) return;
+  const app = await readFile(appPath, "utf8");
+  if (!app.includes("createHubSpotConfigurationStore")) return;
+
+  const metadataFile = "apps/hubspot/src/app/app-hsmeta.json";
+  const metadata = await jsonFile(
+    path.join(root, metadataFile),
+    diagnostics,
+    metadataFile,
+  );
+  const auth = objectValue(objectValue(metadata?.config)?.auth);
+  const metadataScopes = new Set([
+    ...stringArray(auth?.requiredScopes),
+    ...stringArray(auth?.optionalScopes),
+  ]);
+  const envFile = "services/api/.env.example";
+  const envPath = path.join(root, envFile);
+  const env = (await exists(envPath))
+    ? parseEnvironment(await readFile(envPath, "utf8"))
+    : {};
+  const runtimeScopes = new Set(splitScopes(env.HUBSPOT_SCOPES));
+  const required = [
+    "crm.schemas.custom.read",
+    "crm.objects.custom.read",
+    "crm.objects.custom.write",
+  ];
+  const missingMetadata = required.filter(
+    (scope) => !metadataScopes.has(scope),
+  );
+  const missingRuntime = required.filter((scope) => !runtimeScopes.has(scope));
+  if (missingMetadata.length) {
+    diagnostics.push({
+      level: "error",
+      code: "object-storage-scopes",
+      message: `One-object storage is enabled but app metadata is missing: ${missingMetadata.join(", ")}.`,
+      file: metadataFile,
+    });
+  }
+  if (missingRuntime.length) {
+    diagnostics.push({
+      level: "error",
+      code: "object-storage-runtime-scopes",
+      message: `One-object storage is enabled but HUBSPOT_SCOPES is missing: ${missingRuntime.join(", ")}.`,
+      file: envFile,
+    });
+  }
 }
 
 async function inspectTextFile(

@@ -12,6 +12,11 @@ export {
   type ConfigurationStore,
   type JsonValue,
 } from "./configuration-store.js";
+export {
+  HubSpotConfigurationError,
+  HubSpotObjectConfigurationStore,
+  type HubSpotObjectConfigurationStoreOptions,
+} from "./hubspot-object-configuration-store.js";
 export { OAuthError, OAuthService, type OAuthState } from "./oauth.js";
 export { createOAuthRouter, HttpError } from "./router.js";
 export {
