@@ -72,6 +72,7 @@ flowchart LR
 | **Review HubSpot App skill**        | Read-only correctness, security, platform, CRM, UX, operations, and release-readiness audit                                      | [Skill source](skills/review-hubspot-app/SKILL.md)        |
 | **Model HubSpot CRM skill**         | Durable object/property models, directional associations, labels, contextual tasks, scopes, and safe schema evolution            | [Skill source](skills/model-hubspot-crm/SKILL.md)         |
 | **Design HubSpot Automation skill** | Reliable webhooks, workflow actions, app events, agent tools, contracts, retries, idempotency, and rate-limit behavior           | [Skill source](skills/design-hubspot-automation/SKILL.md) |
+| **Operate HubSpot App skill**       | Installation health, deployment evidence, portal diagnostics, incidents, smoke testing, recovery, and rollback                   | [Skill source](skills/operate-hubspot-app/SKILL.md)       |
 
 ## SpotKit at a glance
 
@@ -107,6 +108,7 @@ Install the skill into Codex when developing outside this repository:
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
 cp -R skills/build-hubspot-app skills/review-hubspot-app \
   skills/model-hubspot-crm skills/design-hubspot-automation \
+  skills/operate-hubspot-app \
   "${CODEX_HOME:-$HOME/.codex}/skills/"
 ```
 
@@ -115,6 +117,8 @@ read-only production audit. Use `$model-hubspot-crm` for object, property,
 association, project, or task modeling. See the [skills catalog](skills/README.md)
 for the agentic-development roadmap. Use `$design-hubspot-automation` for
 webhooks, workflow actions, app events, agent tools, and delivery reliability.
+Use `$operate-hubspot-app` for installations, deployments, portal failures,
+incidents, smoke tests, and rollback planning.
 
 ## Choose the right architecture
 

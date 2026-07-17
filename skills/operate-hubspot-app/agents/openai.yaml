@@ -1,0 +1,4 @@
+interface:
+  display_name: "Operate HubSpot App"
+  short_description: "Deploy, diagnose, and operate HubSpot apps safely"
+  default_prompt: "Use $operate-hubspot-app to diagnose and safely operate this HubSpot application."
