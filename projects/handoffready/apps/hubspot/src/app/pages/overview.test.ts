@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  attentionSummary,
   handoffStatus,
   missingCount,
   summarizeHandoffs,
@@ -15,7 +16,7 @@ const item = (
   configurationReady: true,
   prerequisitesReady: false,
   complete: false,
-  items: [{ key: "amount", passed: false }],
+  items: [{ key: "amount", label: "Amount", passed: false }],
   ...overrides,
 });
 
@@ -45,17 +46,37 @@ describe("handoff overview model", () => {
     });
   });
 
-  it("counts every unresolved readiness item", () => {
+  it("counts only unresolved prerequisites, not the ticket action", () => {
     expect(
       missingCount(
         item({
           items: [
-            { key: "closed-won", passed: true },
-            { key: "amount", passed: false },
-            { key: "ticket", passed: false },
+            { key: "closed-won", label: "Closed-won deal", passed: true },
+            { key: "amount", label: "Amount", passed: false },
+            { key: "ticket", label: "Service ticket", passed: false },
           ],
         }),
       ),
-    ).toBe(2);
+    ).toBe(1);
+  });
+
+  it("explains the next action in plain language", () => {
+    expect(attentionSummary(item({ configurationReady: false }))).toBe(
+      "Finish HandoffReady setup",
+    );
+    expect(
+      attentionSummary(
+        item({
+          items: [
+            { key: "amount", label: "Amount", passed: false },
+            { key: "contact", label: "Associated contact", passed: false },
+            { key: "company", label: "Associated company", passed: false },
+          ],
+        }),
+      ),
+    ).toBe("Amount, Associated contact +1 more");
+    expect(
+      attentionSummary(item({ prerequisitesReady: true, items: [] })),
+    ).toBe("Create the service ticket");
   });
 });

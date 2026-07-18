@@ -117,16 +117,18 @@ function AppCard(): React.ReactElement {
           variant={
             readiness.complete
               ? "success"
-              : readiness.prerequisitesReady
+              : readiness.configurationReady && readiness.prerequisitesReady
                 ? "info"
                 : "warning"
           }
         >
           {readiness.complete
             ? "Complete"
-            : readiness.prerequisitesReady
-              ? "Ready for ticket"
-              : "Needs attention"}
+            : !readiness.configurationReady
+              ? "Setup required"
+              : readiness.prerequisitesReady
+                ? "Ready for ticket"
+                : "Needs attention"}
         </StatusTag>
       </Flex>
 

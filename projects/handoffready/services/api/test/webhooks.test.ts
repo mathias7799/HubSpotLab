@@ -26,6 +26,7 @@ describe("HubSpot webhooks", () => {
     const request = () =>
       new Request("http://localhost:8788/webhooks/hubspot", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body,
       });
     expect((await app(request())).status).toBe(204);
@@ -36,9 +37,20 @@ describe("HubSpot webhooks", () => {
     const response = await createApp(env)(
       new Request("http://localhost:8788/webhooks/hubspot", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify([{}]),
       }),
     );
     expect(response.status).toBe(400);
+  });
+
+  it("rejects webhook batches without a JSON content type", async () => {
+    const response = await createApp(env)(
+      new Request("http://localhost:8788/webhooks/hubspot", {
+        method: "POST",
+        body: "[]",
+      }),
+    );
+    expect(response.status).toBe(415);
   });
 });

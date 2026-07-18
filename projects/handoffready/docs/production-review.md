@@ -6,8 +6,9 @@ Review date: 2026-07-18
 
 - The card and workflow action recheck that the deal is closed won before
   ticket creation. An open deal cannot pass handoff prerequisites.
-- Handoff completion recognizes a stable HandoffReady ticket marker instead of
-  treating any associated ticket as the service handoff.
+- Handoff completion uses an encrypted deal-to-ticket identity entry and
+  verifies the live HubSpot association. Ticket renames do not create duplicate
+  handoffs; the stable subject marker remains a repair path for older entries.
 - Ticket creation and association use compensating deletion, and a failed
   cleanup returns the created ticket ID for manual recovery.
 - Card and workflow mutations share an atomic portal/deal claim, preventing a
@@ -18,6 +19,10 @@ Review date: 2026-07-18
   default-deny application policy.
 - Overview CRM work uses bounded concurrency; outbound HubSpot calls have a
   ten-second timeout; Node adapters reject bodies larger than 1 MiB.
+- Settings, webhook, and workflow JSON endpoints reject unsupported content
+  types after request-signature verification.
+- The app overview names the next action and excludes the not-yet-created ticket
+  from its count of missing sales prerequisites.
 - Source tests cover closed-won enforcement, unrelated tickets, compensation,
   concurrent mutation rejection, authorization, catalog validation, overview
   status semantics, OAuth/runtime boundaries, webhooks, and workflow retries.
@@ -47,10 +52,10 @@ Review date: 2026-07-18
 - OAuth writes run as the installed application and do not inherit the acting
   user's native HubSpot CRM permissions. HandoffReady deliberately uses its
   explicit application policy; operators must keep that allowlist current.
-- HandoffReady identifies its service ticket by a stable subject marker. If a
-  user removes that marker from the ticket subject, readiness may offer to
-  create another handoff ticket. Authenticated portal testing must document this
-  behavior before deciding whether a dedicated ticket property is justified.
+- Deleting both the encrypted ticket identity entry and the subject marker would
+  remove both discovery paths. Normal ticket renames are safe; operators should
+  restore configuration storage from backup rather than clearing individual
+  identity entries.
 - Source and metadata validation cannot prove marketplace approval, portal
   entitlement, record-layout placement, workflow publication, production
   storage credentials, or final host behavior.

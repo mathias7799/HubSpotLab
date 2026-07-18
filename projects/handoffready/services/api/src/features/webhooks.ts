@@ -23,6 +23,10 @@ export async function handleHubSpotWebhooks(
   }
   const rawBody = await request.text();
   await context.verifyRequest(request, rawBody);
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    throw new HttpError(415, "Content-Type must be application/json.");
+  }
   const events = readEvents(rawBody);
   for (const event of events) {
     const key = `webhook:${event.portalId}:${event.subscriptionId}:${event.eventId}`;

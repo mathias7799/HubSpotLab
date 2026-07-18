@@ -73,14 +73,76 @@ export async function createHandoffTicket(
   }
   try {
     const token = await context.accessTokenForPortal(portalId);
-    return await new HandoffService(token, context.fetcher).createTicket(
+    const trackedTicketId = await trackedTicketForDeal(
+      context,
+      portalId,
       dealId,
-      settings,
     );
+    const result = await new HandoffService(
+      token,
+      context.fetcher,
+    ).createTicket(dealId, settings, trackedTicketId);
+    if (result.ticketId && result.ticketId !== trackedTicketId) {
+      try {
+        await rememberHandoffTicket(context, portalId, dealId, result.ticketId);
+      } catch (cause) {
+        console.error("HandoffReady ticket tracking write failed", {
+          portalId,
+          dealId,
+          ticketId: result.ticketId,
+          cause,
+        });
+        throw new HttpError(
+          502,
+          `Ticket ${result.ticketId} was created and associated, but HandoffReady could not save its tracking record. Refresh readiness before retrying.`,
+        );
+      }
+    }
+    return result;
   } catch (cause) {
     await context.idempotency.release(key);
     throw cause;
   }
+}
+
+export async function evaluateHandoff(
+  context: RuntimeApiContext,
+  portalId: number,
+  dealId: string,
+  settings: HandoffSettings,
+): Promise<HandoffReadiness> {
+  const trackedTicketId = await trackedTicketForDeal(context, portalId, dealId);
+  const result = await new HandoffService(
+    await context.accessTokenForPortal(portalId),
+    context.fetcher,
+  ).evaluate(dealId, settings, trackedTicketId);
+  if (result.ticketId && result.ticketId !== trackedTicketId) {
+    try {
+      await rememberHandoffTicket(context, portalId, dealId, result.ticketId);
+    } catch (cause) {
+      console.error("HandoffReady ticket tracking repair failed", {
+        portalId,
+        dealId,
+        ticketId: result.ticketId,
+        cause,
+      });
+    }
+  }
+  return result;
+}
+
+export async function listHandoffs(
+  context: RuntimeApiContext,
+  portalId: number,
+  settings: HandoffSettings,
+): Promise<HandoffReadiness[]> {
+  const service = new HandoffService(
+    await context.accessTokenForPortal(portalId),
+    context.fetcher,
+  );
+  return service.list(settings, (dealId) =>
+    trackedTicketForDeal(context, portalId, dealId),
+  );
 }
 
 export function parseHandoffSettings(value: unknown): HandoffSettings {
@@ -137,15 +199,21 @@ export class HandoffService {
   async evaluate(
     dealId: string,
     settings: HandoffSettings,
+    trackedTicketId?: string,
   ): Promise<HandoffReadiness> {
     const [deal, properties] = await Promise.all([
-      this.getDeal(dealId, settings),
+      this.getDeal(dealId, settings, trackedTicketId),
       this.dealProperties(),
     ]);
     return readiness(deal, settings, propertyLabels(properties));
   }
 
-  async list(settings: HandoffSettings): Promise<HandoffReadiness[]> {
+  async list(
+    settings: HandoffSettings,
+    trackedTicketForDeal: (
+      dealId: string,
+    ) => Promise<string | undefined> = async () => undefined,
+  ): Promise<HandoffReadiness[]> {
     const response = await this.request<{ results?: Array<{ id?: string }> }>(
       "/crm/v3/objects/deals/search",
       {
@@ -171,8 +239,8 @@ export class HandoffService {
     const dealIds = (response.results ?? [])
       .map((item) => item.id)
       .filter((id): id is string => Boolean(id));
-    return mapConcurrent(dealIds, 3, (dealId) =>
-      this.evaluate(dealId, settings),
+    return mapConcurrent(dealIds, 3, async (dealId) =>
+      this.evaluate(dealId, settings, await trackedTicketForDeal(dealId)),
     );
   }
 
@@ -261,6 +329,7 @@ export class HandoffService {
   async createTicket(
     dealId: string,
     settings: HandoffSettings,
+    trackedTicketId?: string,
   ): Promise<HandoffReadiness> {
     if (!settings.enabled) {
       throw new HttpError(409, "HandoffReady is disabled for this portal.");
@@ -272,7 +341,7 @@ export class HandoffService {
       );
     }
     const [deal, properties] = await Promise.all([
-      this.getDeal(dealId, settings),
+      this.getDeal(dealId, settings, trackedTicketId),
       this.dealProperties(),
     ]);
     const current = readiness(deal, settings, propertyLabels(properties));
@@ -352,6 +421,7 @@ export class HandoffService {
   private async getDeal(
     dealId: string,
     settings: HandoffSettings,
+    trackedTicketId?: string,
   ): Promise<DealRecord> {
     const properties = [
       ...new Set([
@@ -369,12 +439,15 @@ export class HandoffService {
       this.request<DealRecord>(
         `/crm/v3/objects/deals/${encodeURIComponent(dealId)}?${query}`,
       ),
-      this.findHandoffTicket(dealId),
+      this.findHandoffTicket(dealId, trackedTicketId),
     ]);
     return { ...deal, ...(handoffTicketId ? { handoffTicketId } : {}) };
   }
 
-  private async findHandoffTicket(dealId: string): Promise<string | undefined> {
+  private async findHandoffTicket(
+    dealId: string,
+    trackedTicketId?: string,
+  ): Promise<string | undefined> {
     const associations = await this.request<{
       results?: Array<{ toObjectId?: number | string }>;
     }>(
@@ -388,6 +461,9 @@ export class HandoffService {
       )
       .map(String);
     if (!ids.length) return undefined;
+    if (trackedTicketId && ids.includes(trackedTicketId)) {
+      return trackedTicketId;
+    }
     const tickets = await this.request<{
       results?: Array<{
         id?: string;
@@ -459,6 +535,38 @@ export class HandoffService {
     }
     return body;
   }
+}
+
+async function trackedTicketForDeal(
+  context: RuntimeApiContext,
+  portalId: number,
+  dealId: string,
+): Promise<string | undefined> {
+  const value = await context.configuration.get(
+    portalId,
+    handoffTicketStorageKey(dealId),
+  );
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+async function rememberHandoffTicket(
+  context: RuntimeApiContext,
+  portalId: number,
+  dealId: string,
+  ticketId: string,
+): Promise<void> {
+  await context.configuration.put(
+    portalId,
+    handoffTicketStorageKey(dealId),
+    ticketId,
+  );
+}
+
+function handoffTicketStorageKey(dealId: string): string {
+  if (!/^\d+$/.test(dealId)) {
+    throw new HttpError(400, "A numeric HubSpot deal ID is required.");
+  }
+  return `handoff.ticket.${dealId}`;
 }
 
 interface DealRecord {

@@ -9,8 +9,10 @@ import {
 } from "./authorization.js";
 import {
   createHandoffTicket,
+  evaluateHandoff,
   getHandoffSettings,
   HandoffService,
+  listHandoffs,
   parseHandoffSettings,
 } from "./handoff.js";
 // spotkit:feature-imports
@@ -63,6 +65,7 @@ export function createApp(
             return Response.json(await getHandoffSettings(context, portalId));
           }
           if (request.method === "PUT") {
+            requireJsonRequest(request);
             requireSettingsAdministrator(permissions);
             const settings = parseSettingsBody(rawBody);
             await new HandoffService(token, fetcher).validateSettings(settings);
@@ -107,19 +110,16 @@ export function createApp(
           return Response.json(
             request.method === "POST"
               ? await createHandoffTicket(context, portalId, dealId, settings)
-              : await new HandoffService(
-                  await accessTokenForPortal(portalId),
-                  fetcher,
-                ).evaluate(dealId, settings),
+              : await evaluateHandoff(context, portalId, dealId, settings),
           );
         }
         if (request.method === "GET" && url.pathname === "/api/handoffs") {
           await verifyRequest(request, "");
           const portalId = readPortalId(url);
-          const token = await accessTokenForPortal(portalId);
-          const service = new HandoffService(token, fetcher);
           return Response.json({
-            results: await service.list(
+            results: await listHandoffs(
+              context,
+              portalId,
               await getHandoffSettings(context, portalId),
             ),
           });
@@ -158,6 +158,13 @@ export function createApp(
       };
     },
   }).app;
+}
+
+function requireJsonRequest(request: Request): void {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    throw new HttpError(415, "Content-Type must be application/json.");
+  }
 }
 
 function parseSettingsBody(rawBody: string) {

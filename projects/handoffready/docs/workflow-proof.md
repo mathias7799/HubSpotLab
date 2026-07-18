@@ -42,8 +42,9 @@ renames both route and handler.
   readiness items.
 - Ticket creation rechecks the deal's live closed-won state immediately before
   mutation.
-- Only tickets with HandoffReady's stable subject marker count as handoff
-  completion; unrelated associated tickets are ignored.
+- Successful handoffs persist an encrypted deal-to-ticket identity and verify
+  the live association on every read. Ticket renames remain safe, while the
+  stable subject marker repairs missing mappings and ignores unrelated tickets.
 - Ticket creation uses the configured HubSpot pipeline and stage.
 - A failed ticket-to-deal association triggers compensating ticket deletion.
 - Workflow callback IDs are claimed atomically for seven days and released on
@@ -60,22 +61,28 @@ renames both route and handler.
   preventing duplicate tickets across concurrent entry points.
 - Overview evaluation is bounded to three concurrent deals, HubSpot calls time
   out after ten seconds, and all Node adapters reject bodies over 1 MiB.
+- Automation JSON endpoints reject unsupported media types after signature
+  verification.
+- Overview requirement counts exclude the ticket action and explain the next
+  step in plain language.
 - The app page links each closed-won deal back to its HubSpot record.
 - The app page and card link directly to the associated handoff ticket.
 
 ## Local evidence
 
-The embedded runtime's 33 tests, product API's 21 tests, and app-page model's
-three tests pass. All TypeScript surfaces pass typechecking, and SpotKit reports
+The embedded runtime's 33 tests, product API's 26 tests, and app-page model's
+four tests pass. All TypeScript surfaces pass typechecking, and SpotKit reports
 zero errors. The only diagnostic warning is the intentionally reserved
 `handoffready.example.com` origin.
 
-The local Node adapter was also exercised on port 8790:
+The local Node adapter was exercised on port 8791 and exposed through an
+ephemeral Cloudflare quick tunnel:
 
-- `GET /health` returned 200 with the HandoffReady service identity;
-- `GET /oauth/install` returned a no-store 302 containing the four documented
-  OAuth scopes and the local callback;
-- an uninstalled portal request to `GET /api/handoffs` failed closed with 401.
+- public `GET /health` returned 200 with the HandoffReady service identity;
+- public `GET /oauth/install` returned a no-store 302 containing the four
+  documented OAuth scopes and the intentionally local development callback;
+- an uninstalled portal request to `GET /api/handoffs` failed closed with 401;
+- a webhook POST without JSON content type returned 415 and `no-store`.
 
 ## Remaining external evidence
 
@@ -91,5 +98,6 @@ Before release:
 6. run `spotkit release-check --hubspot`, deploy the reviewed build, and run the
    public smoke test.
 
-The in-app browser surface was unavailable during the local verification run,
-so no rendered-browser claim or screenshot is recorded here.
+The Chrome extension refused both local addresses and the temporary
+`trycloudflare.com` URL with a client-side block. The same public HTTPS endpoint
+was verified over HTTP, but no rendered-browser claim or screenshot is recorded.

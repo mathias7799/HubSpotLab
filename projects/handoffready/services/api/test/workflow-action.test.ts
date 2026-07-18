@@ -62,6 +62,7 @@ describe("HandoffReady workflow action", () => {
     const request = () =>
       new Request("http://localhost:8788/workflow-actions/prepare-handoff", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body,
       });
 
@@ -85,11 +86,27 @@ describe("HandoffReady workflow action", () => {
     const response = await handleHandoffWorkflowAction(
       new Request("http://localhost:8788/workflow-actions/prepare-handoff", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ callbackId: "missing-context" }),
       }),
       context,
     ).catch((cause: { status?: number }) => cause);
 
     expect(response?.status).toBe(400);
+  });
+
+  it("rejects non-JSON workflow requests before processing", async () => {
+    const context = {
+      verifyRequest: async () => undefined,
+    } as unknown as RuntimeApiContext;
+    const response = await handleHandoffWorkflowAction(
+      new Request("http://localhost:8788/workflow-actions/prepare-handoff", {
+        method: "POST",
+        body: "not-json",
+      }),
+      context,
+    ).catch((cause: { status?: number }) => cause);
+
+    expect(response?.status).toBe(415);
   });
 });

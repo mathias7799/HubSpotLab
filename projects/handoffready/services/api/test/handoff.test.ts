@@ -132,6 +132,68 @@ describe("HandoffReady domain service", () => {
     });
   });
 
+  it("recognizes a tracked handoff ticket after its subject is renamed", async () => {
+    const service = new HandoffService(
+      "token",
+      handoffFetcher(false, {
+        existingTicketSubject: "Implementation for Nordic expansion",
+      }),
+    );
+
+    await expect(
+      service.evaluate("501", configured, "existing-ticket"),
+    ).resolves.toMatchObject({
+      complete: true,
+      ticketId: "existing-ticket",
+    });
+  });
+
+  it("stores the durable ticket identity after successful creation", async () => {
+    const put = vi.fn(async () => undefined);
+    const context = {
+      idempotency: {
+        claim: vi.fn(async () => true),
+        release: vi.fn(async () => undefined),
+      },
+      configuration: {
+        get: vi.fn(async () => null),
+        put,
+      },
+      accessTokenForPortal: vi.fn(async () => "token"),
+      fetcher: handoffFetcher(false),
+    } as unknown as RuntimeApiContext;
+
+    await expect(
+      createHandoffTicket(context, 123, "501", configured),
+    ).resolves.toMatchObject({ ticketId: "ticket-1", complete: true });
+    expect(put).toHaveBeenCalledWith(123, "handoff.ticket.501", "ticket-1");
+  });
+
+  it("reports a recoverable partial write when ticket tracking cannot be stored", async () => {
+    const context = {
+      idempotency: {
+        claim: vi.fn(async () => true),
+        release: vi.fn(async () => undefined),
+      },
+      configuration: {
+        get: vi.fn(async () => null),
+        put: vi.fn(async () => {
+          throw new Error("Store unavailable");
+        }),
+      },
+      accessTokenForPortal: vi.fn(async () => "token"),
+      fetcher: handoffFetcher(false),
+    } as unknown as RuntimeApiContext;
+
+    await expect(
+      createHandoffTicket(context, 123, "501", configured),
+    ).rejects.toMatchObject({
+      status: 502,
+      message: expect.stringContaining("Ticket ticket-1 was created"),
+    });
+    expect(context.idempotency.release).toHaveBeenCalled();
+  });
+
   it("validates stored property names and ticket configuration", () => {
     expect(() =>
       parseHandoffSettings({

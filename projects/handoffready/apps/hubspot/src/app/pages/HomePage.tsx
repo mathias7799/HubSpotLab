@@ -22,6 +22,7 @@ import { PageBreadcrumbs, PageTitle } from "@hubspot/ui-extensions/pages";
 import { API_ORIGIN } from "./backend.ts";
 import {
   handoffStatus,
+  attentionSummary,
   missingCount,
   summarizeHandoffs,
   type HandoffOverviewItem,
@@ -116,7 +117,7 @@ export function HomePage(): React.ReactElement {
             <TableRow>
               <TableHeader>Deal</TableHeader>
               <TableHeader>Status</TableHeader>
-              <TableHeader>Missing</TableHeader>
+              <TableHeader>Open requirements</TableHeader>
               <TableHeader>Service ticket</TableHeader>
             </TableRow>
           </TableHead>
@@ -137,7 +138,13 @@ export function HomePage(): React.ReactElement {
                       {status.label}
                     </StatusTag>
                   </TableCell>
-                  <TableCell>{missingCount(item)}</TableCell>
+                  <TableCell>
+                    <Text>{attentionSummary(item)}</Text>
+                    <Text variant="microcopy">
+                      {missingCount(item)} prerequisite
+                      {missingCount(item) === 1 ? "" : "s"} missing
+                    </Text>
+                  </TableCell>
                   <TableCell>
                     {item.ticketId ? (
                       <Link

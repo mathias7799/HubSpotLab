@@ -2,8 +2,8 @@ import { HttpError, type RuntimeApiContext } from "@hubspotlab/spotkit-runtime";
 
 import {
   createHandoffTicket,
+  evaluateHandoff,
   getHandoffSettings,
-  HandoffService,
 } from "../handoff.js";
 
 export interface WorkflowActionExecution {
@@ -25,6 +25,7 @@ export async function handleHandoffWorkflowAction(
   }
   const rawBody = await request.text();
   await context.verifyRequest(request, rawBody);
+  requireJsonRequest(request);
   const execution = readExecution(rawBody);
   const key = `workflow-action:${execution.portalId}:${execution.callbackId}`;
   if (!(await context.idempotency.claim(key, 604_800))) {
@@ -62,11 +63,19 @@ export async function onHandoffWorkflowAction(
       settings,
     );
   }
-  const token = await context.accessTokenForPortal(execution.portalId);
-  return new HandoffService(token, context.fetcher).evaluate(
+  return evaluateHandoff(
+    context,
+    execution.portalId,
     execution.objectId,
     settings,
   );
+}
+
+function requireJsonRequest(request: Request): void {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    throw new HttpError(415, "Content-Type must be application/json.");
+  }
 }
 
 function readExecution(rawBody: string): WorkflowActionExecution {

@@ -27,7 +27,9 @@ upgrade plan, origin, release, OAuth, and smoke-test workflows.
 2. The deal sidebar card evaluates live CRM data and explains every missing
    prerequisite.
 3. When ready, a user creates one associated service ticket from the card.
-   Existing tickets make the action idempotent.
+   HandoffReady records the ticket ID in encrypted portal configuration and
+   verifies the live association on every read. Renaming the ticket does not
+   make the app create a duplicate.
 4. The app page summarizes the ten most recently updated closed-won deals as
    complete, ready for ticket, or needing attention.
 5. An unpublished deal workflow action can evaluate the same rules or create
@@ -35,10 +37,12 @@ upgrade plan, origin, release, OAuth, and smoke-test workflows.
    inactive until a deployed retry test is complete.
 
 HandoffReady uses zero custom objects. Portal settings and OAuth installations
-live in encrypted durable storage; deals, companies, contacts, and tickets stay
-in HubSpot. If ticket association fails after creation, the API archives the new
-ticket. If cleanup also fails, the response identifies the partial write for
-manual recovery.
+live in encrypted durable storage, including a small deal-to-ticket identity
+map; deals, companies, contacts, and tickets stay in HubSpot. The subject marker
+remains a backwards-compatible discovery path and repairs missing identity
+entries. If ticket association fails after creation, the API archives the new
+ticket. Association cleanup and tracking failures identify the partial write
+for safe recovery.
 
 Production writes fail closed unless the signed HubSpot user is authorized in
 `HANDOFFREADY_AUTHORIZATION_POLICY`. Portal administrators can edit settings and
