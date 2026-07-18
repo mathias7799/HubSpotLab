@@ -132,7 +132,10 @@ export function createConfigurationStore(
       fetcher,
     );
   }
-  if (config.allowUnsignedDevelopmentRequests) {
+  if (
+    config.allowUnsignedDevelopmentRequests ||
+    config.allowEphemeralTunnelDevelopment
+  ) {
     return new MemoryConfigurationStore();
   }
   throw new Error(

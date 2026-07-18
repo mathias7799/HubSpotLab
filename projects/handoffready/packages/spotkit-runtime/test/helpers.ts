@@ -18,6 +18,7 @@ export function runtimeConfig(
     upstashToken: "redis-token",
     port: 8788,
     allowUnsignedDevelopmentRequests: false,
+    allowEphemeralTunnelDevelopment: false,
     ...overrides,
   } as RuntimeConfig;
   if (overrides.upstashUrl === undefined && "upstashUrl" in overrides) {

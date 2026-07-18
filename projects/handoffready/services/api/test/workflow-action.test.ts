@@ -69,7 +69,12 @@ describe("HandoffReady workflow action", () => {
     await expect(
       (await handleHandoffWorkflowAction(request(), context))?.json(),
     ).resolves.toEqual({
-      outputFields: { status: "blocked", missing_count: 5, ticket_id: "" },
+      outputFields: {
+        status: "blocked",
+        missing_count: 5,
+        ticket_id: "",
+        output_ids: "",
+      },
     });
     await expect(
       (await handleHandoffWorkflowAction(request(), context))?.json(),

@@ -47,6 +47,19 @@ describe("loadRuntimeConfig", () => {
     expect(config.allowUnsignedDevelopmentRequests).toBe(true);
   });
 
+  it("allows signed ephemeral tunnel development over HTTPS", () => {
+    const config = load({
+      ...baseEnv,
+      PUBLIC_URL: "https://temporary.trycloudflare.com",
+      ALLOW_EPHEMERAL_TUNNEL_DEVELOPMENT: "true",
+      UPSTASH_REDIS_REST_URL: undefined,
+      UPSTASH_REDIS_REST_TOKEN: undefined,
+    });
+
+    expect(config.allowEphemeralTunnelDevelopment).toBe(true);
+    expect(config.allowUnsignedDevelopmentRequests).toBe(false);
+  });
+
   it("rejects insecure or unsigned non-local deployments", () => {
     expect(() =>
       load({ ...baseEnv, PUBLIC_URL: "http://example.test" }),
@@ -57,6 +70,13 @@ describe("loadRuntimeConfig", () => {
         ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS: "true",
       }),
     ).toThrow("only with a localhost");
+    expect(() =>
+      load({
+        ...baseEnv,
+        PUBLIC_URL: "http://temporary.example.test",
+        ALLOW_EPHEMERAL_TUNNEL_DEVELOPMENT: "true",
+      }),
+    ).toThrow("requires an HTTPS");
   });
 
   it("requires paired durable-storage variables", () => {

@@ -283,7 +283,181 @@ describe("HandoffReady domain service", () => {
     expect(accessTokenForPortal).not.toHaveBeenCalled();
     expect(context.fetcher).not.toHaveBeenCalled();
   });
+
+  it("creates a standalone task for a configured department route", async () => {
+    const fetcher = routeFetcher();
+    const service = new HandoffService("token", fetcher);
+    const result = await service.createRoute("501", {
+      id: "finance",
+      name: "Finance handoff",
+      department: "Finance",
+      outputType: "task",
+      requiredProperties: ["dealname"],
+      requireCompany: true,
+      requireContact: false,
+      pipelineId: "",
+      stageId: "",
+      subjectPrefix: "Prepare billing",
+      taskTemplates: [
+        {
+          id: "finance-review",
+          name: "Finance review: {deal}",
+          description: "Confirm billing details for {deal}.",
+          status: "NOT_STARTED",
+          priority: "HIGH",
+          dueInDays: 2,
+        },
+      ],
+    });
+    expect(result).toMatchObject({
+      complete: true,
+      routeId: "finance",
+      outputType: "task",
+      outputIds: ["task-1"],
+    });
+    expect(
+      fetcher.mock.calls.some(([url]) =>
+        String(url).endsWith("/crm/v3/objects/tasks"),
+      ),
+    ).toBe(true);
+    const taskCreate = fetcher.mock.calls.find(([url]) =>
+      String(url).endsWith("/crm/v3/objects/tasks"),
+    );
+    expect(JSON.parse(String(taskCreate?.[1]?.body))).toMatchObject({
+      properties: {
+        hs_task_subject: "Finance review: Nordic expansion",
+        hs_task_body: "Confirm billing details for Nordic expansion.",
+        hs_task_status: "NOT_STARTED",
+        hs_task_priority: "HIGH",
+      },
+    });
+  });
+
+  it("creates a project and reusable task plan for a project route", async () => {
+    const fetcher = routeFetcher();
+    const service = new HandoffService("token", fetcher);
+    const result = await service.createRoute("501", {
+      id: "implementation",
+      name: "Implementation handoff",
+      department: "Implementation",
+      outputType: "project_tasks",
+      requiredProperties: ["dealname"],
+      requireCompany: true,
+      requireContact: true,
+      pipelineId: "project-pipeline",
+      stageId: "planned",
+      subjectPrefix: "Implementation",
+      taskTemplates: [
+        {
+          id: "kickoff",
+          name: "Kickoff {deal}",
+          description: "Prepare kickoff.",
+          status: "NOT_STARTED",
+          priority: "HIGH",
+          dueInDays: 1,
+        },
+        {
+          id: "delivery-plan",
+          name: "Confirm delivery plan",
+          description: "Document the plan.",
+          status: "NOT_STARTED",
+          priority: "MEDIUM",
+          dueInDays: 3,
+        },
+      ],
+    });
+    expect(result).toMatchObject({
+      complete: true,
+      outputType: "project_tasks",
+      outputIds: ["project-1", "task-1", "task-2"],
+    });
+  });
+
+  it("validates configurable route identity and task plans", () => {
+    expect(() =>
+      parseHandoffSettings({
+        ...configured,
+        routes: [
+          {
+            id: "implementation",
+            name: "Implementation",
+            department: "Services",
+            outputType: "project_tasks",
+            requiredProperties: ["dealname"],
+            requireCompany: true,
+            requireContact: true,
+            pipelineId: "projects",
+            stageId: "new",
+            subjectPrefix: "Implementation",
+            taskTemplates: [],
+          },
+        ],
+      }),
+    ).toThrowError(/needs at least one task template/);
+  });
+
+  it("migrates legacy task names into structured templates", () => {
+    const settings = parseHandoffSettings({
+      ...configured,
+      routes: [
+        {
+          id: "implementation",
+          name: "Implementation",
+          department: "Services",
+          outputType: "project_tasks",
+          requiredProperties: ["dealname"],
+          requireCompany: true,
+          requireContact: true,
+          pipelineId: "projects",
+          stageId: "new",
+          subjectPrefix: "Implementation",
+          taskTemplates: ["Kickoff {deal}"],
+        },
+      ],
+    });
+    expect(settings.routes[0]?.taskTemplates[0]).toEqual({
+      id: "task-1",
+      name: "Kickoff {deal}",
+      description: "",
+      status: "NOT_STARTED",
+      priority: "MEDIUM",
+      dueInDays: 1,
+    });
+  });
 });
+
+function routeFetcher() {
+  let taskNumber = 0;
+  return vi.fn<typeof fetch>(async (input, init) => {
+    const path = new URL(String(input)).pathname;
+    if (path === "/crm/v3/objects/deals/501") {
+      return Response.json({
+        id: "501",
+        properties: { dealname: "Nordic expansion", hs_is_closed_won: "true" },
+        associations: {
+          companies: { results: [{ id: "601" }] },
+          contacts: { results: [{ id: "701" }] },
+        },
+      });
+    }
+    if (path === "/crm/v3/properties/deals") return propertyResponse();
+    if (path === "/crm/v4/objects/deals/501/associations/tickets")
+      return Response.json({ results: [] });
+    if (path === "/crm/v3/objects/tasks" && init?.method === "POST")
+      return Response.json({ id: `task-${++taskNumber}` });
+    if (path === "/crm/v3/objects/projects" && init?.method === "POST")
+      return Response.json({ id: "project-1" });
+    if (path.includes("/labels"))
+      return Response.json({
+        results: [{ category: "HUBSPOT_DEFINED", typeId: 1, label: null }],
+      });
+    if (path.includes("/associations/") && init?.method === "PUT")
+      return new Response(null, { status: 204 });
+    throw new Error(
+      `Unexpected route test request: ${init?.method ?? "GET"} ${path}`,
+    );
+  });
+}
 
 function handoffFetcher(
   associationFails: boolean,

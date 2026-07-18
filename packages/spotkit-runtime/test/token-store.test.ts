@@ -80,5 +80,15 @@ describe("token stores", () => {
         }),
       ),
     ).toBeInstanceOf(MemoryTokenStore);
+    expect(
+      createTokenStore(
+        runtimeConfig({
+          publicUrl: "https://temporary.trycloudflare.com",
+          allowEphemeralTunnelDevelopment: true,
+          upstashUrl: undefined,
+          upstashToken: undefined,
+        }),
+      ),
+    ).toBeInstanceOf(MemoryTokenStore);
   });
 });

@@ -1,8 +1,9 @@
 # HandoffReady
 
-HandoffReady turns a closed-won deal into a complete, visible sales-to-service
-handoff. It checks required deal fields and company/contact associations, then
-creates and links the service ticket only when the prerequisites pass.
+HandoffReady turns a closed-won deal into a complete, visible handoff to any
+department. HubSpot Super Admins configure named portal routes with independent
+deal requirements and choose whether each route creates a ticket, a standalone
+task, or a project with a reusable task plan.
 
 Generated with
 [SpotKit](https://github.com/mathias7799/HubSpotLab/tree/main/tools/spotkit).
@@ -22,34 +23,39 @@ upgrade plan, origin, release, OAuth, and smoke-test workflows.
 
 ## Product workflow
 
-1. An operator enables HandoffReady and configures required deal properties,
-   association requirements, and the target ticket pipeline/stage.
-2. The deal sidebar card evaluates live CRM data and explains every missing
-   prerequisite.
-3. When ready, a user creates one associated service ticket from the card.
-   HandoffReady records the ticket ID in encrypted portal configuration and
-   verifies the live association on every read. Renaming the ticket does not
-   make the app create a duplicate.
-4. The app page summarizes the ten most recently updated closed-won deals as
-   complete, ready for ticket, or needing attention.
+1. A HubSpot Super Admin adds up to 12 handoff routes, names the receiving
+   department, selects Ticket, Task, or Project + tasks, and configures that
+   route's fields, associations, destination, naming, and task template.
+2. The deal sidebar card lets the user choose the receiving route, evaluates
+   its live CRM requirements, and explains every missing prerequisite.
+3. When ready, HandoffReady creates and links the configured HubSpot records.
+   Each task template controls its name, description, default status, priority,
+   and due-date offset, with `{deal}` and `{date}` placeholders.
+   Route/deal output identity is stored in encrypted portal configuration;
+   ticket routes also repair missing tracking from their route-specific subject
+   marker. Partial project/task failures trigger compensating cleanup.
+4. The app page summarizes the ten most recently updated closed-won deals for
+   the portal's primary route as complete, ready to create, or needing attention.
 5. An unpublished deal workflow action can evaluate the same rules or create
    the ticket. Webhook subscriptions for deal creation/stage change remain
    inactive until a deployed retry test is complete.
 
-HandoffReady uses zero custom objects. Portal settings and OAuth installations
-live in encrypted durable storage, including a small deal-to-ticket identity
-map; deals, companies, contacts, and tickets stay in HubSpot. The subject marker
-remains a backwards-compatible discovery path and repairs missing identity
-entries. If ticket association fails after creation, the API archives the new
-ticket. Association cleanup and tracking failures identify the partial write
-for safe recovery.
+HandoffReady supports two encrypted configuration adapters. Upstash uses zero
+custom objects. `HANDOFFREADY_CONFIGURATION_STORAGE=hubspot-object` uses exactly
+one `handoffready_configuration` object and stores encrypted route and
+output-identity records inside the portal. Marketplace OAuth can use its records
+but may require a Super Admin to create the schema once; the adapter discovers
+the actual unique primary property automatically. OAuth installations always
+remain in the token store because a portal token is required before its object
+can be read. Deals, companies, contacts, tickets, tasks, and projects remain
+native HubSpot records.
 
-Production writes fail closed unless the signed HubSpot user is authorized in
-`HANDOFFREADY_AUTHORIZATION_POLICY`. Portal administrators can edit settings and
-create tickets; `ticketCreators` can create tickets but cannot change portal
-configuration. Readiness views remain available to signed users. Workflow
-actions are separately authenticated HubSpot automation callbacks and use their
-configured action mode.
+Production writes fail closed unless the signed HubSpot user is authorized.
+Native HubSpot Super Admin status grants portal configuration and handoff
+creation; `HANDOFFREADY_AUTHORIZATION_POLICY` remains available for explicit
+operators and non-admin creators. Super Admin status is verified server-side
+with the signed user ID and HubSpot's settings API. Readiness views remain
+available to signed users.
 
 ```dotenv
 HANDOFFREADY_AUTHORIZATION_POLICY={"148692618":{"administrators":["12345"],"ticketCreators":["67890"]}}
@@ -59,6 +65,18 @@ See the [workflow proof](docs/workflow-proof.md) for the architecture decision,
 commands, verified behavior, SpotKit feedback, and remaining deployment evidence.
 See the [production review](docs/production-review.md) for resolved findings,
 release blockers, and residual risks.
+
+## Verified HubSpot UI
+
+![Completed project and task-plan route](docs/screenshots/deal-card-project-task-plan.png)
+
+![Completed ticket route](docs/screenshots/deal-card-ticket-complete.png)
+
+![Structured project task plan](docs/screenshots/settings-structured-task-plan.png)
+
+![Settings restored after backend restart](docs/screenshots/settings-persisted-after-restart.png)
+
+![Single HubSpot configuration object](docs/screenshots/hubspot-configuration-object.png)
 
 ## Start locally
 

@@ -5,6 +5,7 @@ export interface HandoffPermissions {
   userEmail: string;
   canManageSettings: boolean;
   canCreateTicket: boolean;
+  isSuperAdmin: boolean;
 }
 
 type AuthorizationPolicy = Record<
@@ -51,6 +52,7 @@ export function permissionsForRequest(
   portalId: number,
   policy: AuthorizationPolicy,
   allowUnsignedDevelopmentRequests: boolean,
+  isSuperAdmin = false,
 ): HandoffPermissions {
   const url = new URL(request.url);
   const userId = url.searchParams.get("userId")?.trim();
@@ -65,6 +67,7 @@ export function permissionsForRequest(
       userEmail: userEmail || "developer@localhost",
       canManageSettings: true,
       canCreateTicket: true,
+      isSuperAdmin: false,
     };
   }
   if (!userId || !userEmail) {
@@ -74,13 +77,15 @@ export function permissionsForRequest(
     );
   }
   const portal = policy[String(portalId)];
-  const canManageSettings = portal?.administrators.includes(userId) ?? false;
+  const canManageSettings =
+    isSuperAdmin || (portal?.administrators.includes(userId) ?? false);
   return {
     userId,
     userEmail,
     canManageSettings,
     canCreateTicket:
       canManageSettings || (portal?.ticketCreators.includes(userId) ?? false),
+    isSuperAdmin,
   };
 }
 

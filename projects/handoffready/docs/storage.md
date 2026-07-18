@@ -2,14 +2,18 @@
 
 SpotKit defaults to zero custom objects: OAuth installations and application
 configuration are encrypted in Upstash. This is the simplest option and leaves
-the portal's custom-object allowance untouched.
+the portal's custom-object allowance untouched. Route definitions and the
+deal/route-to-output identity map share the same portal-isolated encrypted
+configuration boundary; HubSpot tickets, tasks, and projects remain native CRM
+records.
 
 ## Optional one-object configuration
 
-`services/api/src/storage/hubspot-configuration.ts` provides an opt-in store
-that provisions exactly one `handoffready` configuration object per portal.
-It creates only two properties: a unique configuration key and an encrypted
-value. Plaintext settings and OAuth tokens are never stored in HubSpot.
+Set `HANDOFFREADY_CONFIGURATION_STORAGE=hubspot-object` to use the runtime's
+tested one-object adapter. It discovers exactly one
+`handoffready_configuration` object per portal and stores a unique
+configuration key plus an encrypted value. Plaintext settings and OAuth tokens
+are never stored in HubSpot.
 
 Before using it, add these optional OAuth scopes to app metadata and runtime
 scope configuration:
@@ -22,20 +26,17 @@ scope configuration:
 ]
 ```
 
-Then create the store once inside `createApi` and use it instead of the default
-`configuration` value:
+Marketplace OAuth can read and write custom-object records but does not receive
+general schema-administration access. If HubSpot denies the adapter's
+idempotent schema-create attempt, a Super Admin creates one object in **Data
+Management → Data Model** with:
 
-```ts
-createApi: (context) => {
-  const configuration = createHubSpotConfigurationStore(context);
-  return async (request) => {
-    // Use configuration.get/put/delete with the signed request's portal ID.
-  };
-};
-```
+- internal object name `handoffready_configuration`;
+- a unique primary text property (the adapter reads its actual internal name);
+- a text property with internal name `encrypted_value`.
 
-Schema provisioning is idempotent and coalesced per portal. Some HubSpot
-accounts or app-review states may not permit OAuth schema creation; keep the
-default Upstash store when that capability is unavailable. OAuth installations
+The adapter addresses that schema directly, supports both `config_key` and
+administrator-chosen primary-property names, and uses unique-property record
+lookup instead of the eventually indexed search endpoint. OAuth installations
 always remain in encrypted external storage because access is required before a
 portal-owned custom object can be read.

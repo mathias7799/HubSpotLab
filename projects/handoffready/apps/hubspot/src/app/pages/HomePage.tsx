@@ -74,8 +74,8 @@ export function HomePage(): React.ReactElement {
       </PageBreadcrumbs>
       <PageTitle>Customer handoff overview</PageTitle>
       <Text>
-        Review the ten most recently updated closed-won deals and resolve sales
-        to service handoff gaps before work begins.
+        Review the ten most recently updated closed-won deals for the portal's
+        primary handoff route and resolve gaps before the receiving team begins.
       </Text>
 
       {state === "loading" ? (
@@ -94,7 +94,7 @@ export function HomePage(): React.ReactElement {
       {state === "ready" ? (
         <Flex direction="row" gap="small" wrap="wrap">
           <StatusTag variant="success">{summary.complete} complete</StatusTag>
-          <StatusTag variant="info">{summary.ready} ready for ticket</StatusTag>
+          <StatusTag variant="info">{summary.ready} ready to create</StatusTag>
           <StatusTag variant="warning">
             {summary.blocked} need attention
           </StatusTag>
@@ -118,7 +118,7 @@ export function HomePage(): React.ReactElement {
               <TableHeader>Deal</TableHeader>
               <TableHeader>Status</TableHeader>
               <TableHeader>Open requirements</TableHeader>
-              <TableHeader>Service ticket</TableHeader>
+              <TableHeader>Handoff destination</TableHeader>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -146,11 +146,14 @@ export function HomePage(): React.ReactElement {
                     </Text>
                   </TableCell>
                   <TableCell>
-                    {item.ticketId ? (
-                      <Link
-                        href={`https://app.hubspot.com/contacts/${portalId}/record/0-5/${item.ticketId}`}
-                      >
-                        Open ticket
+                    {item.outputIds[0] ? (
+                      <Link href={recordUrl(portalId, item)}>
+                        Open{" "}
+                        {item.outputType === "ticket"
+                          ? "ticket"
+                          : item.outputType === "task"
+                            ? "task"
+                            : "project"}
                       </Link>
                     ) : (
                       "Not created"
@@ -168,6 +171,16 @@ export function HomePage(): React.ReactElement {
       </Button>
     </Flex>
   );
+}
+
+function recordUrl(portalId: number, item: HandoffOverviewItem): string {
+  const objectTypeId =
+    item.outputType === "ticket"
+      ? "0-5"
+      : item.outputType === "task"
+        ? "0-27"
+        : "0-970";
+  return `https://app.hubspot.com/contacts/${portalId}/record/${objectTypeId}/${item.outputIds[0]}`;
 }
 
 function messageFrom(cause: unknown): string {

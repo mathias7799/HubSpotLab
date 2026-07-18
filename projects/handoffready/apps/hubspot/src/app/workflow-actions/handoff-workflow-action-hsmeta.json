@@ -4,7 +4,11 @@
   "config": {
     "actionUrl": "https://handoffready.example.com/workflow-actions/prepare-handoff",
     "isPublished": false,
-    "supportedClients": [{ "client": "WORKFLOWS" }],
+    "supportedClients": [
+      {
+        "client": "WORKFLOWS"
+      }
+    ],
     "inputFields": [
       {
         "typeDefinition": {
@@ -12,12 +16,27 @@
           "type": "enumeration",
           "fieldType": "select",
           "options": [
-            { "value": "evaluate", "label": "Evaluate only" },
-            { "value": "create_ticket", "label": "Create ticket when ready" }
+            {
+              "value": "evaluate",
+              "label": "Evaluate only"
+            },
+            {
+              "value": "create_ticket",
+              "label": "Create configured handoff when ready"
+            }
           ]
         },
         "supportedValueTypes": ["STATIC_VALUE"],
         "isRequired": true
+      },
+      {
+        "typeDefinition": {
+          "name": "route_id",
+          "type": "string",
+          "fieldType": "text"
+        },
+        "supportedValueTypes": ["STATIC_VALUE"],
+        "isRequired": false
       }
     ],
     "outputFields": [
@@ -41,21 +60,33 @@
           "type": "string",
           "fieldType": "text"
         }
+      },
+      {
+        "typeDefinition": {
+          "name": "output_ids",
+          "type": "string",
+          "fieldType": "text"
+        }
       }
     ],
     "labels": {
       "en": {
         "actionName": "HandoffReady: prepare customer handoff",
-        "actionDescription": "Evaluate a closed-won deal and optionally create its associated service ticket.",
+        "actionDescription": "Evaluate a closed-won deal and optionally create a configured department handoff.",
         "actionCardContent": "Prepare the customer handoff",
-        "inputFieldLabels": { "mode": "Handoff action" },
+        "inputFieldLabels": {
+          "mode": "Handoff action",
+          "route_id": "Handoff route ID"
+        },
         "inputFieldDescriptions": {
-          "mode": "Choose whether to evaluate readiness or create the ticket when all prerequisites pass."
+          "mode": "Choose whether to evaluate readiness or create the configured output when all prerequisites pass.",
+          "route_id": "Optional stable route ID from HandoffReady settings. Leave blank to use the primary route."
         },
         "outputFieldLabels": {
           "status": "Handoff status",
           "missing_count": "Missing requirement count",
-          "ticket_id": "Created or existing ticket ID"
+          "ticket_id": "Created or existing ticket ID",
+          "output_ids": "Created or existing output IDs"
         }
       }
     },

@@ -6,4 +6,6 @@ TOKEN_ENCRYPTION_KEY=replace-with-a-long-random-secret
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=false
+# Volatile stores for a temporary HTTPS tunnel; signature checks stay enabled.
+ALLOW_EPHEMERAL_TUNNEL_DEVELOPMENT=false
 PORT=8788

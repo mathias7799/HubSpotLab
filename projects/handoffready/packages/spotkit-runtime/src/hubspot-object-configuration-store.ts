@@ -18,6 +18,7 @@ export interface HubSpotObjectConfigurationStoreOptions {
 
 interface ConfigurationSchema {
   fullyQualifiedName: string;
+  keyProperty: string;
 }
 
 interface ConfigurationRecord {
@@ -86,35 +87,86 @@ export class HubSpotObjectConfigurationStore implements ConfigurationStore {
         "Encrypted HubSpot configuration value must not exceed 64 KiB.",
       );
     }
-    const record = await this.search(portalId, schema, key);
-    const properties = { config_key: key, encrypted_value: encrypted };
+    const record = await this.findByKey(portalId, schema, key);
+    const properties = {
+      [schema.keyProperty]: key,
+      encrypted_value: encrypted,
+    };
     if (record) {
       await this.update(portalId, schema, record.id, properties);
       return;
     }
     try {
-      await this.request(
-        portalId,
-        `/crm/v3/objects/${encodeURIComponent(schema.fullyQualifiedName)}`,
-        { method: "POST", body: JSON.stringify({ properties }) },
-      );
+      await this.createRecord(portalId, schema, properties);
     } catch (cause) {
+      if (
+        cause instanceof HubSpotConfigurationError &&
+        cause.status === 400 &&
+        cause.message.toLowerCase().includes("required properties")
+      ) {
+        const pipeline = await this.defaultPipelineProperties(portalId, schema);
+        if (!pipeline) throw cause;
+        await this.createRecord(portalId, schema, {
+          ...properties,
+          ...pipeline,
+        });
+        return;
+      }
       if (
         !(cause instanceof HubSpotConfigurationError) ||
         cause.status !== 409
       ) {
         throw cause;
       }
-      const raced = await this.search(portalId, schema, key);
+      const raced = await this.findByKey(portalId, schema, key);
       if (!raced) throw cause;
       await this.update(portalId, schema, raced.id, properties);
     }
   }
 
+  private async createRecord(
+    portalId: number,
+    schema: ConfigurationSchema,
+    properties: Record<string, string>,
+  ): Promise<void> {
+    await this.request(
+      portalId,
+      `/crm/v3/objects/${encodeURIComponent(schema.fullyQualifiedName)}`,
+      { method: "POST", body: JSON.stringify({ properties }) },
+    );
+  }
+
+  private async defaultPipelineProperties(
+    portalId: number,
+    schema: ConfigurationSchema,
+  ): Promise<Record<string, string> | null> {
+    const response = await this.request<{
+      results?: Array<{
+        id?: string;
+        stages?: Array<{ id?: string; displayOrder?: number }>;
+      }>;
+    }>(
+      portalId,
+      `/crm/v3/pipelines/${encodeURIComponent(schema.fullyQualifiedName)}`,
+    );
+    const pipeline = response.results?.[0];
+    const stage = pipeline?.stages
+      ?.slice()
+      .sort(
+        (left, right) =>
+          (left.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+          (right.displayOrder ?? Number.MAX_SAFE_INTEGER),
+      )[0];
+    if (!pipeline?.id || !stage?.id) {
+      return null;
+    }
+    return { hs_pipeline: pipeline.id, hs_pipeline_stage: stage.id };
+  }
+
   async delete(portalId: number, key: string): Promise<void> {
     assertKey(key);
     const schema = await this.provision(portalId);
-    const record = await this.search(portalId, schema, key);
+    const record = await this.findByKey(portalId, schema, key);
     if (!record) return;
     await this.request(
       portalId,
@@ -127,7 +179,7 @@ export class HubSpotObjectConfigurationStore implements ConfigurationStore {
     portalId: number,
     key: string,
   ): Promise<ConfigurationRecord | null> {
-    return this.search(portalId, await this.provision(portalId), key);
+    return this.findByKey(portalId, await this.provision(portalId), key);
   }
 
   private async update(
@@ -143,30 +195,26 @@ export class HubSpotObjectConfigurationStore implements ConfigurationStore {
     );
   }
 
-  private async search(
+  private async findByKey(
     portalId: number,
     schema: ConfigurationSchema,
     key: string,
   ): Promise<ConfigurationRecord | null> {
-    const response = await this.request<{ results?: ConfigurationRecord[] }>(
-      portalId,
-      `/crm/v3/objects/${encodeURIComponent(schema.fullyQualifiedName)}/search`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          filterGroups: [
-            {
-              filters: [
-                { propertyName: "config_key", operator: "EQ", value: key },
-              ],
-            },
-          ],
-          properties: ["config_key", "encrypted_value"],
-          limit: 1,
-        }),
-      },
-    );
-    return response.results?.[0] ?? null;
+    const query = new URLSearchParams({
+      idProperty: schema.keyProperty,
+      properties: `${schema.keyProperty},encrypted_value`,
+    });
+    try {
+      return await this.request<ConfigurationRecord>(
+        portalId,
+        `/crm/v3/objects/${encodeURIComponent(schema.fullyQualifiedName)}/${encodeURIComponent(key)}?${query}`,
+      );
+    } catch (cause) {
+      if (cause instanceof HubSpotConfigurationError && cause.status === 404) {
+        return null;
+      }
+      throw cause;
+    }
   }
 
   async #provision(portalId: number): Promise<ConfigurationSchema> {
@@ -188,7 +236,7 @@ export class HubSpotObjectConfigurationStore implements ConfigurationStore {
       ) {
         throw new HubSpotConfigurationError(
           403,
-          "One-object storage requires crm.schemas.custom.read, crm.objects.custom.read, and crm.objects.custom.write. Reauthorize the app with those scopes or keep the default Upstash configuration store.",
+          `One-object storage requires crm.schemas.custom.read, crm.objects.custom.read, and crm.objects.custom.write. HubSpot reported: ${cause.message}`,
         );
       }
       if (
@@ -206,16 +254,26 @@ export class HubSpotObjectConfigurationStore implements ConfigurationStore {
   private async findExistingSchema(
     portalId: number,
   ): Promise<ConfigurationSchema | null> {
-    const response = await this.request<{ results?: unknown[] }>(
-      portalId,
-      "/crm-object-schemas/v3/schemas",
-    );
-    for (const candidate of response.results ?? []) {
-      if (typeof candidate !== "object" || candidate === null) continue;
-      const schema = candidate as Record<string, unknown>;
-      if (schema.name === this.#objectName) return normalizeSchema(schema);
+    const fullyQualifiedName = `p${portalId}_${this.#objectName}`;
+    try {
+      const schema = await this.request<Record<string, unknown>>(
+        portalId,
+        `/crm-object-schemas/v3/schemas/${encodeURIComponent(fullyQualifiedName)}`,
+      );
+      return normalizeSchema(schema);
+    } catch (cause) {
+      if (
+        cause instanceof HubSpotConfigurationError &&
+        (cause.status === 404 ||
+          (cause.status === 400 &&
+            cause.message
+              .toLowerCase()
+              .includes("unable to infer object type")))
+      ) {
+        return null;
+      }
+      throw cause;
     }
-    return null;
   }
 
   private get schemaDefinition(): Record<string, unknown> {
@@ -268,6 +326,12 @@ export class HubSpotObjectConfigurationStore implements ConfigurationStore {
       try {
         body = JSON.parse(text) as unknown;
       } catch {
+        if (!response.ok) {
+          throw new HubSpotConfigurationError(
+            response.status,
+            text.trim() || `HubSpot API failed with status ${response.status}.`,
+          );
+        }
         throw new HubSpotConfigurationError(
           502,
           "HubSpot returned an invalid JSON response.",
@@ -282,7 +346,21 @@ export class HubSpotObjectConfigurationStore implements ConfigurationStore {
         typeof body.message === "string"
           ? body.message
           : `HubSpot API failed with status ${response.status}.`;
-      throw new HubSpotConfigurationError(response.status, message);
+      const details =
+        typeof body === "object" && body !== null
+          ? JSON.stringify({
+              ...((body as Record<string, unknown>).context === undefined
+                ? {}
+                : { context: (body as Record<string, unknown>).context }),
+              ...((body as Record<string, unknown>).errors === undefined
+                ? {}
+                : { errors: (body as Record<string, unknown>).errors }),
+            })
+          : "{}";
+      throw new HubSpotConfigurationError(
+        response.status,
+        details === "{}" ? message : `${message} ${details}`,
+      );
     }
     return body as Value;
   }
@@ -304,7 +382,12 @@ function normalizeSchema(value: Record<string, unknown>): ConfigurationSchema {
       "HubSpot returned an incomplete configuration schema.",
     );
   }
-  return { fullyQualifiedName: value.fullyQualifiedName };
+  const keyProperty =
+    typeof value.primaryDisplayProperty === "string" &&
+    value.primaryDisplayProperty.trim()
+      ? value.primaryDisplayProperty
+      : "config_key";
+  return { fullyQualifiedName: value.fullyQualifiedName, keyProperty };
 }
 
 function objectName(namespace: string): string {

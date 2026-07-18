@@ -8,6 +8,32 @@ export interface HandoffSettings {
   ticketPipelineId: string;
   ticketStageId: string;
   ticketSubjectPrefix: string;
+  routes: HandoffRoute[];
+}
+
+export type HandoffOutputType = "ticket" | "task" | "project_tasks";
+
+export interface HandoffRoute {
+  id: string;
+  name: string;
+  department: string;
+  outputType: HandoffOutputType;
+  requiredProperties: string[];
+  requireCompany: boolean;
+  requireContact: boolean;
+  pipelineId: string;
+  stageId: string;
+  subjectPrefix: string;
+  taskTemplates: HandoffTaskTemplate[];
+}
+
+export interface HandoffTaskTemplate {
+  id: string;
+  name: string;
+  description: string;
+  status: "NOT_STARTED" | "COMPLETED";
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  dueInDays: number;
 }
 
 export interface HandoffItem {
@@ -24,6 +50,11 @@ export interface HandoffReadiness {
   prerequisitesReady: boolean;
   complete: boolean;
   ticketId?: string;
+  routeId: string;
+  routeName: string;
+  department: string;
+  outputType: HandoffOutputType;
+  outputIds: string[];
   items: HandoffItem[];
 }
 
@@ -48,6 +79,21 @@ export const defaultHandoffSettings: HandoffSettings = {
   ticketPipelineId: "",
   ticketStageId: "",
   ticketSubjectPrefix: "Customer handoff",
+  routes: [
+    {
+      id: "customer-success",
+      name: "Customer success handoff",
+      department: "Customer Success",
+      outputType: "ticket",
+      requiredProperties: ["dealname", "amount", "closedate"],
+      requireCompany: true,
+      requireContact: true,
+      pipelineId: "",
+      stageId: "",
+      subjectPrefix: "Customer handoff",
+      taskTemplates: [],
+    },
+  ],
 };
 
 export async function getHandoffSettings(
@@ -105,6 +151,63 @@ export async function createHandoffTicket(
   }
 }
 
+interface StoredHandoffOutput {
+  outputType: HandoffOutputType;
+  ids: string[];
+}
+
+export async function createConfiguredHandoff(
+  context: RuntimeApiContext,
+  portalId: number,
+  dealId: string,
+  settings: HandoffSettings,
+  routeId: string,
+): Promise<HandoffReadiness> {
+  if (!settings.enabled)
+    throw new HttpError(409, "HandoffReady is disabled for this portal.");
+  const route = configuredRoute(settings, routeId);
+  const key = `handoff-output:${portalId}:${route.id}:${dealId}`;
+  if (!(await context.idempotency.claim(key, 120))) {
+    throw new HttpError(
+      409,
+      "This handoff is already being created. Refresh before trying again.",
+    );
+  }
+  try {
+    const stored = await trackedOutput(context, portalId, dealId, route);
+    const result = await new HandoffService(
+      await context.accessTokenForPortal(portalId),
+      context.fetcher,
+    ).createRoute(dealId, route, stored?.ids ?? []);
+    if (result.outputIds.length && !stored) {
+      await context.configuration.put(
+        portalId,
+        handoffOutputStorageKey(dealId, route.id),
+        { outputType: route.outputType, ids: result.outputIds },
+      );
+    }
+    return result;
+  } catch (cause) {
+    await context.idempotency.release(key);
+    throw cause;
+  }
+}
+
+export async function evaluateConfiguredHandoff(
+  context: RuntimeApiContext,
+  portalId: number,
+  dealId: string,
+  settings: HandoffSettings,
+  routeId: string,
+): Promise<HandoffReadiness> {
+  const route = configuredRoute(settings, routeId);
+  const stored = await trackedOutput(context, portalId, dealId, route);
+  return new HandoffService(
+    await context.accessTokenForPortal(portalId),
+    context.fetcher,
+  ).evaluateRoute(dealId, route, stored?.ids ?? []);
+}
+
 export async function evaluateHandoff(
   context: RuntimeApiContext,
   portalId: number,
@@ -140,8 +243,11 @@ export async function listHandoffs(
     await context.accessTokenForPortal(portalId),
     context.fetcher,
   );
-  return service.list(settings, (dealId) =>
-    trackedTicketForDeal(context, portalId, dealId),
+  const route = settings.routes[0] as HandoffRoute;
+  return service.listRoute(
+    route,
+    async (dealId) =>
+      (await trackedOutput(context, portalId, dealId, route))?.ids ?? [],
   );
 }
 
@@ -175,7 +281,7 @@ export function parseHandoffSettings(value: unknown): HandoffSettings {
       "Ticket subject prefix must be 80 characters or fewer.",
     );
   }
-  return {
+  const legacy = {
     enabled: requiredBoolean(body.enabled, "enabled"),
     requiredProperties: [
       ...new Set(requiredProperties.map((item) => item.trim())),
@@ -186,6 +292,189 @@ export function parseHandoffSettings(value: unknown): HandoffSettings {
     ticketStageId: optionalString(body.ticketStageId, "ticketStageId"),
     ticketSubjectPrefix: prefix,
   };
+  const routes =
+    body.routes === undefined
+      ? [
+          {
+            id: "customer-success",
+            name: "Customer success handoff",
+            department: "Customer Success",
+            outputType: "ticket" as const,
+            requiredProperties: legacy.requiredProperties,
+            requireCompany: legacy.requireCompany,
+            requireContact: legacy.requireContact,
+            pipelineId: legacy.ticketPipelineId,
+            stageId: legacy.ticketStageId,
+            subjectPrefix: legacy.ticketSubjectPrefix,
+            taskTemplates: [],
+          },
+        ]
+      : parseRoutes(body.routes);
+  if (new TextEncoder().encode(JSON.stringify(routes)).length > 40_000) {
+    throw new HttpError(
+      400,
+      "Handoff routes are too large. Shorten task descriptions or remove unused templates.",
+    );
+  }
+  const primary = routes[0] as HandoffRoute;
+  return {
+    ...legacy,
+    requiredProperties: primary.requiredProperties,
+    requireCompany: primary.requireCompany,
+    requireContact: primary.requireContact,
+    ticketPipelineId: primary.outputType === "ticket" ? primary.pipelineId : "",
+    ticketStageId: primary.outputType === "ticket" ? primary.stageId : "",
+    ticketSubjectPrefix: primary.subjectPrefix,
+    routes,
+  };
+}
+
+function parseRoutes(value: unknown): HandoffRoute[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 12) {
+    throw new HttpError(400, "Configure between 1 and 12 handoff routes.");
+  }
+  const ids = new Set<string>();
+  return value.map((item, index) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      throw new HttpError(400, `Handoff route ${index + 1} must be an object.`);
+    }
+    const route = item as Record<string, unknown>;
+    const id = requiredString(route.id, "route id").toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id) || ids.has(id)) {
+      throw new HttpError(
+        400,
+        "Handoff route IDs must be unique URL-safe names.",
+      );
+    }
+    ids.add(id);
+    const outputType = route.outputType;
+    if (
+      !(["ticket", "task", "project_tasks"] as unknown[]).includes(outputType)
+    ) {
+      throw new HttpError(
+        400,
+        `Handoff route ${id} has an invalid output type.`,
+      );
+    }
+    const requiredProperties = route.requiredProperties;
+    if (
+      !Array.isArray(requiredProperties) ||
+      requiredProperties.length > 20 ||
+      requiredProperties.some(
+        (property) =>
+          typeof property !== "string" ||
+          !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(property.trim()),
+      )
+    ) {
+      throw new HttpError(
+        400,
+        `Handoff route ${id} has invalid required properties.`,
+      );
+    }
+    const taskTemplates = parseTaskTemplates(route.taskTemplates ?? [], id);
+    if (
+      ["task", "project_tasks"].includes(String(outputType)) &&
+      taskTemplates.length === 0
+    ) {
+      throw new HttpError(
+        400,
+        `${outputType === "task" ? "Task" : "Project"} route ${id} needs at least one task template.`,
+      );
+    }
+    return {
+      id,
+      name: limitedString(route.name, "route name", 80),
+      department: limitedString(route.department, "department", 80),
+      outputType: outputType as HandoffOutputType,
+      requiredProperties: [
+        ...new Set(
+          requiredProperties.map((property) => String(property).trim()),
+        ),
+      ],
+      requireCompany: requiredBoolean(route.requireCompany, "requireCompany"),
+      requireContact: requiredBoolean(route.requireContact, "requireContact"),
+      pipelineId: optionalString(route.pipelineId, "pipelineId"),
+      stageId: optionalString(route.stageId, "stageId"),
+      subjectPrefix: limitedString(route.subjectPrefix, "subjectPrefix", 80),
+      taskTemplates,
+    };
+  });
+}
+
+function parseTaskTemplates(
+  value: unknown,
+  routeId: string,
+): HandoffTaskTemplate[] {
+  if (!Array.isArray(value) || value.length > 20) {
+    throw new HttpError(
+      400,
+      `Handoff route ${routeId} must contain at most 20 task templates.`,
+    );
+  }
+  const ids = new Set<string>();
+  return value.map((item, index) => {
+    const template =
+      typeof item === "string"
+        ? {
+            id: `task-${index + 1}`,
+            name: item,
+            description: "",
+            status: "NOT_STARTED",
+            priority: "MEDIUM",
+            dueInDays: index + 1,
+          }
+        : item;
+    if (
+      typeof template !== "object" ||
+      template === null ||
+      Array.isArray(template)
+    ) {
+      throw new HttpError(
+        400,
+        `Task template ${index + 1} in ${routeId} must be an object.`,
+      );
+    }
+    const record = template as Record<string, unknown>;
+    const id = requiredString(record.id, "task template id").toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id) || ids.has(id)) {
+      throw new HttpError(
+        400,
+        `Task template IDs in ${routeId} must be unique URL-safe names.`,
+      );
+    }
+    ids.add(id);
+    const status = record.status ?? "NOT_STARTED";
+    const priority = record.priority ?? "MEDIUM";
+    const dueInDays = record.dueInDays ?? 1;
+    if (!["NOT_STARTED", "COMPLETED"].includes(String(status))) {
+      throw new HttpError(400, `Task template ${id} has an invalid status.`);
+    }
+    if (!["LOW", "MEDIUM", "HIGH"].includes(String(priority))) {
+      throw new HttpError(400, `Task template ${id} has an invalid priority.`);
+    }
+    if (
+      !Number.isInteger(dueInDays) ||
+      Number(dueInDays) < 0 ||
+      Number(dueInDays) > 365
+    ) {
+      throw new HttpError(
+        400,
+        `Task template ${id} due offset must be between 0 and 365 days.`,
+      );
+    }
+    return {
+      id,
+      name: limitedString(record.name, "task template name", 120),
+      description: optionalLimitedString(
+        record.description,
+        "task template description",
+        2000,
+      ),
+      status: status as HandoffTaskTemplate["status"],
+      priority: priority as HandoffTaskTemplate["priority"],
+      dueInDays: Number(dueInDays),
+    };
+  });
 }
 
 export class HandoffService {
@@ -206,6 +495,110 @@ export class HandoffService {
       this.dealProperties(),
     ]);
     return readiness(deal, settings, propertyLabels(properties));
+  }
+
+  async evaluateRoute(
+    dealId: string,
+    route: HandoffRoute,
+    outputIds: string[] = [],
+  ): Promise<HandoffReadiness> {
+    const settings = legacySettingsForRoute(route);
+    const [deal, properties] = await Promise.all([
+      this.getDeal(
+        dealId,
+        settings,
+        route.outputType === "ticket" ? outputIds[0] : undefined,
+        route.outputType === "ticket" ? route.subjectPrefix : undefined,
+      ),
+      this.dealProperties(),
+    ]);
+    if (route.outputType !== "ticket") delete deal.handoffTicketId;
+    return readiness(
+      deal,
+      settings,
+      propertyLabels(properties),
+      route,
+      outputIds,
+    );
+  }
+
+  async createRoute(
+    dealId: string,
+    route: HandoffRoute,
+    outputIds: string[] = [],
+  ): Promise<HandoffReadiness> {
+    const current = await this.evaluateRoute(dealId, route, outputIds);
+    if (!current.configurationReady) {
+      throw new HttpError(
+        409,
+        `Configure the destination for ${route.name} before creating it.`,
+      );
+    }
+    if (!current.prerequisitesReady) {
+      throw new HttpError(
+        409,
+        "Complete the required deal fields and associations before creating this handoff.",
+      );
+    }
+    if (current.complete) return current;
+    if (route.outputType === "ticket") {
+      const ticket = await this.createTicket(
+        dealId,
+        legacySettingsForRoute(route),
+        outputIds[0],
+      );
+      return readinessForRoute(
+        ticket,
+        route,
+        ticket.ticketId ? [ticket.ticketId] : [],
+      );
+    }
+    const dealName = current.dealName;
+    if (route.outputType === "task") {
+      const template = route.taskTemplates[0] as HandoffTaskTemplate;
+      const task = await this.createTask(template, dealName, [
+        { type: "deals", id: dealId },
+      ]);
+      return completedRoute(current, route, [task.id]);
+    }
+    const project = await this.request<{ id: string }>(
+      "/crm/v3/objects/projects",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          properties: {
+            hs_name: `${route.subjectPrefix}: ${dealName}`,
+            hs_pipeline: route.pipelineId,
+            hs_pipeline_stage: route.stageId,
+          },
+        }),
+      },
+    );
+    const createdIds = [project.id];
+    try {
+      await this.associate("projects", project.id, "deals", dealId);
+      for (const template of route.taskTemplates) {
+        const task = await this.createTask(template, dealName, [
+          { type: "projects", id: project.id },
+          { type: "deals", id: dealId },
+        ]);
+        createdIds.push(task.id);
+      }
+    } catch (cause) {
+      for (const [index, id] of createdIds.slice().reverse().entries()) {
+        const type = index === createdIds.length - 1 ? "projects" : "tasks";
+        try {
+          await this.request(
+            `/crm/v3/objects/${type}/${encodeURIComponent(id)}`,
+            { method: "DELETE" },
+          );
+        } catch {
+          /* preserve original error */
+        }
+      }
+      throw cause;
+    }
+    return completedRoute(current, route, createdIds);
   }
 
   async list(
@@ -241,6 +634,42 @@ export class HandoffService {
       .filter((id): id is string => Boolean(id));
     return mapConcurrent(dealIds, 3, async (dealId) =>
       this.evaluate(dealId, settings, await trackedTicketForDeal(dealId)),
+    );
+  }
+
+  async listRoute(
+    route: HandoffRoute,
+    trackedOutputForDeal: (
+      dealId: string,
+    ) => Promise<string[]> = async () => [],
+  ): Promise<HandoffReadiness[]> {
+    const response = await this.request<{ results?: Array<{ id?: string }> }>(
+      "/crm/v3/objects/deals/search",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          filterGroups: [
+            {
+              filters: [
+                {
+                  propertyName: "hs_is_closed_won",
+                  operator: "EQ",
+                  value: "true",
+                },
+              ],
+            },
+          ],
+          properties: ["dealname"],
+          sorts: ["-hs_lastmodifieddate"],
+          limit: 10,
+        }),
+      },
+    );
+    const dealIds = (response.results ?? [])
+      .map((item) => item.id)
+      .filter((id): id is string => Boolean(id));
+    return mapConcurrent(dealIds, 3, async (dealId) =>
+      this.evaluateRoute(dealId, route, await trackedOutputForDeal(dealId)),
     );
   }
 
@@ -293,36 +722,55 @@ export class HandoffService {
     );
   }
 
+  async projectPipelines(): Promise<TicketPipeline[]> {
+    return this.pipelines("projects");
+  }
+
+  async isSuperAdmin(userId: string): Promise<boolean> {
+    const response = await this.request<{ superAdmin?: boolean }>(
+      `/settings/v3/users/${encodeURIComponent(userId)}`,
+    );
+    return response.superAdmin === true;
+  }
+
   async validateSettings(settings: HandoffSettings): Promise<void> {
-    const [properties, pipelines] = await Promise.all([
+    const [properties, ticketPipelines, projectPipelines] = await Promise.all([
       this.dealProperties(),
       this.ticketPipelines(),
+      settings.routes.some((route) => route.outputType === "project_tasks")
+        ? this.projectPipelines()
+        : Promise.resolve([]),
     ]);
     const propertyNames = new Set(properties.map((property) => property.name));
-    const unknown = settings.requiredProperties.filter(
-      (property) => !propertyNames.has(property),
-    );
+    const unknown = [
+      ...new Set(settings.routes.flatMap((route) => route.requiredProperties)),
+    ].filter((property) => !propertyNames.has(property));
     if (unknown.length) {
       throw new HttpError(
         400,
         `Unknown deal properties: ${unknown.join(", ")}. Refresh settings and choose current HubSpot properties.`,
       );
     }
-    if (!settings.ticketPipelineId && !settings.ticketStageId) return;
-    const pipeline = pipelines.find(
-      (item) => item.id === settings.ticketPipelineId,
-    );
-    if (!pipeline) {
-      throw new HttpError(
-        400,
-        "The selected ticket pipeline no longer exists. Refresh settings and choose another pipeline.",
-      );
-    }
-    if (!pipeline.stages.some((stage) => stage.id === settings.ticketStageId)) {
-      throw new HttpError(
-        400,
-        "The selected ticket stage does not belong to the configured pipeline.",
-      );
+    for (const route of settings.routes) {
+      if (route.outputType === "task") continue;
+      if (!route.pipelineId || !route.stageId) {
+        throw new HttpError(
+          400,
+          `Choose a pipeline and initial stage for ${route.name}.`,
+        );
+      }
+      const pipelines =
+        route.outputType === "ticket" ? ticketPipelines : projectPipelines;
+      const pipeline = pipelines.find((item) => item.id === route.pipelineId);
+      if (
+        !pipeline ||
+        !pipeline.stages.some((stage) => stage.id === route.stageId)
+      ) {
+        throw new HttpError(
+          400,
+          `The selected destination for ${route.name} no longer exists.`,
+        );
+      }
     }
   }
 
@@ -407,7 +855,7 @@ export class HandoffService {
       complete: true,
       ticketId: ticket.id,
       items: current.items.map((item) =>
-        item.key === "ticket"
+        item.key === "output"
           ? {
               ...item,
               passed: true,
@@ -422,6 +870,7 @@ export class HandoffService {
     dealId: string,
     settings: HandoffSettings,
     trackedTicketId?: string,
+    ticketSubjectPrefix?: string,
   ): Promise<DealRecord> {
     const properties = [
       ...new Set([
@@ -439,7 +888,7 @@ export class HandoffService {
       this.request<DealRecord>(
         `/crm/v3/objects/deals/${encodeURIComponent(dealId)}?${query}`,
       ),
-      this.findHandoffTicket(dealId, trackedTicketId),
+      this.findHandoffTicket(dealId, trackedTicketId, ticketSubjectPrefix),
     ]);
     return { ...deal, ...(handoffTicketId ? { handoffTicketId } : {}) };
   }
@@ -447,6 +896,7 @@ export class HandoffService {
   private async findHandoffTicket(
     dealId: string,
     trackedTicketId?: string,
+    subjectPrefix?: string,
   ): Promise<string | undefined> {
     const associations = await this.request<{
       results?: Array<{ toObjectId?: number | string }>;
@@ -476,8 +926,11 @@ export class HandoffService {
         inputs: ids.map((id) => ({ id })),
       }),
     });
+    const marker = subjectPrefix
+      ? `${handoffSubjectMarker}${subjectPrefix}:`
+      : handoffSubjectMarker;
     return tickets.results?.find((ticket) =>
-      ticket.properties?.subject?.startsWith(handoffSubjectMarker),
+      ticket.properties?.subject?.startsWith(marker),
     )?.id;
   }
 
@@ -505,6 +958,101 @@ export class HandoffService {
       );
     }
     return { category: label.category, typeId: label.typeId };
+  }
+
+  private async associate(
+    from: string,
+    fromId: string,
+    to: string,
+    toId: string,
+  ): Promise<void> {
+    const label = await this.defaultAssociation(from, to);
+    await this.request(
+      `/crm/v4/objects/${encodeURIComponent(from)}/${encodeURIComponent(fromId)}/associations/${encodeURIComponent(to)}/${encodeURIComponent(toId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify([
+          {
+            associationCategory: label.category,
+            associationTypeId: label.typeId,
+          },
+        ]),
+      },
+    );
+  }
+
+  private async createTask(
+    template: HandoffTaskTemplate,
+    dealName: string,
+    associations: Array<{ type: string; id: string }>,
+  ): Promise<{ id: string }> {
+    const task = await this.request<{ id: string }>("/crm/v3/objects/tasks", {
+      method: "POST",
+      body: JSON.stringify({
+        properties: {
+          hs_timestamp: new Date(
+            Date.now() + template.dueInDays * 86_400_000,
+          ).toISOString(),
+          hs_task_subject: renderTaskText(template.name, dealName),
+          hs_task_body: renderTaskText(template.description, dealName),
+          hs_task_status: template.status,
+          hs_task_priority: template.priority,
+          hs_task_type: "TODO",
+        },
+      }),
+    });
+    try {
+      for (const association of associations) {
+        await this.associate(
+          "tasks",
+          task.id,
+          association.type,
+          association.id,
+        );
+      }
+    } catch (cause) {
+      try {
+        await this.request(
+          `/crm/v3/objects/tasks/${encodeURIComponent(task.id)}`,
+          { method: "DELETE" },
+        );
+      } catch {
+        /* preserve original error */
+      }
+      throw cause;
+    }
+    return task;
+  }
+
+  private async pipelines(objectType: "projects"): Promise<TicketPipeline[]> {
+    const response = await this.request<{
+      results?: Array<{
+        id?: string;
+        label?: string;
+        stages?: Array<{ id?: string; label?: string; displayOrder?: number }>;
+      }>;
+    }>(`/crm/v3/pipelines/${objectType}`);
+    return (response.results ?? []).flatMap((pipeline) =>
+      pipeline.id && pipeline.label
+        ? [
+            {
+              id: pipeline.id,
+              label: pipeline.label,
+              stages: (pipeline.stages ?? []).flatMap((stage) =>
+                stage.id && stage.label
+                  ? [
+                      {
+                        id: stage.id,
+                        label: stage.label,
+                        displayOrder: stage.displayOrder ?? 0,
+                      },
+                    ]
+                  : [],
+              ),
+            },
+          ]
+        : [],
+    );
   }
 
   private async request<T = unknown>(
@@ -580,6 +1128,8 @@ function readiness(
   deal: DealRecord,
   settings: HandoffSettings,
   labels: Map<string, string>,
+  route?: HandoffRoute,
+  trackedOutputIds: string[] = [],
 ): HandoffReadiness {
   const closedWon = deal.properties.hs_is_closed_won === "true";
   const items: HandoffItem[] = [
@@ -628,29 +1178,147 @@ function readiness(
           : "Associate a contact with this deal.",
     });
   }
-  const ticketId = deal.handoffTicketId;
+  const outputType = route?.outputType ?? "ticket";
+  const outputIds = trackedOutputIds.length
+    ? trackedOutputIds
+    : deal.handoffTicketId
+      ? [deal.handoffTicketId]
+      : [];
+  const ticketId = outputType === "ticket" ? outputIds[0] : undefined;
+  const outputLabel =
+    outputType === "ticket"
+      ? "service ticket"
+      : outputType === "task"
+        ? "handoff task"
+        : "project and tasks";
   items.push({
-    key: "ticket",
-    label: "Service handoff ticket",
-    passed: Boolean(ticketId),
-    detail: ticketId
-      ? `HandoffReady ticket ${ticketId} is associated with this deal.`
-      : "Create the service ticket when the handoff details are ready.",
+    key: "output",
+    label:
+      outputType === "ticket"
+        ? "Service handoff ticket"
+        : outputType === "task"
+          ? "Handoff task"
+          : "Project and task plan",
+    passed: outputIds.length > 0,
+    detail: outputIds.length
+      ? `${outputIds.length} ${outputLabel} record${outputIds.length === 1 ? "" : "s"} created and linked.`
+      : `Create the ${outputLabel} when the handoff details are ready.`,
   });
   const prerequisitesReady = items
-    .filter((item) => item.key !== "ticket")
+    .filter((item) => item.key !== "output")
     .every((item) => item.passed);
   return {
     dealId: deal.id,
     dealName: deal.properties.dealname || `Deal ${deal.id}`,
-    configurationReady: Boolean(
-      settings.ticketPipelineId && settings.ticketStageId,
-    ),
+    routeId: route?.id ?? "customer-success",
+    routeName: route?.name ?? "Customer success handoff",
+    department: route?.department ?? "Customer Success",
+    outputType,
+    outputIds,
+    configurationReady:
+      outputType === "task" ||
+      Boolean(settings.ticketPipelineId && settings.ticketStageId),
     prerequisitesReady,
-    complete: prerequisitesReady && Boolean(ticketId),
+    complete: prerequisitesReady && outputIds.length > 0,
     ...(ticketId ? { ticketId } : {}),
     items,
   };
+}
+
+function legacySettingsForRoute(route: HandoffRoute): HandoffSettings {
+  return {
+    enabled: true,
+    requiredProperties: route.requiredProperties,
+    requireCompany: route.requireCompany,
+    requireContact: route.requireContact,
+    ticketPipelineId: route.pipelineId,
+    ticketStageId: route.stageId,
+    ticketSubjectPrefix: route.subjectPrefix,
+    routes: [route],
+  };
+}
+
+function configuredRoute(
+  settings: HandoffSettings,
+  routeId: string,
+): HandoffRoute {
+  const route = settings.routes.find((candidate) => candidate.id === routeId);
+  if (!route)
+    throw new HttpError(
+      404,
+      "That handoff route is no longer configured. Refresh and choose another route.",
+    );
+  return route;
+}
+
+function readinessForRoute(
+  readinessResult: HandoffReadiness,
+  route: HandoffRoute,
+  outputIds: string[],
+): HandoffReadiness {
+  return completedRoute(
+    { ...readinessResult, complete: false },
+    route,
+    outputIds,
+  );
+}
+
+function completedRoute(
+  current: HandoffReadiness,
+  route: HandoffRoute,
+  outputIds: string[],
+): HandoffReadiness {
+  const { ticketId: _previousTicketId, ...withoutTicketId } = current;
+  return {
+    ...withoutTicketId,
+    routeId: route.id,
+    routeName: route.name,
+    department: route.department,
+    outputType: route.outputType,
+    outputIds,
+    ...(route.outputType === "ticket" && outputIds[0]
+      ? { ticketId: outputIds[0] }
+      : {}),
+    complete: current.prerequisitesReady && outputIds.length > 0,
+    items: current.items.map((item) =>
+      item.key === "output" || item.key === "ticket"
+        ? {
+            ...item,
+            key: "output",
+            passed: outputIds.length > 0,
+            detail: `${route.name} created ${outputIds.length} linked HubSpot record${outputIds.length === 1 ? "" : "s"}.`,
+          }
+        : item,
+    ),
+  };
+}
+
+async function trackedOutput(
+  context: RuntimeApiContext,
+  portalId: number,
+  dealId: string,
+  route: HandoffRoute,
+): Promise<StoredHandoffOutput | undefined> {
+  const value = await context.configuration.get(
+    portalId,
+    handoffOutputStorageKey(dealId, route.id),
+  );
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return undefined;
+  const record = value as Record<string, unknown>;
+  if (
+    record.outputType !== route.outputType ||
+    !Array.isArray(record.ids) ||
+    record.ids.some((id) => typeof id !== "string" || !id)
+  )
+    return undefined;
+  return { outputType: route.outputType, ids: record.ids as string[] };
+}
+
+function handoffOutputStorageKey(dealId: string, routeId: string): string {
+  if (!/^\d+$/.test(dealId))
+    throw new HttpError(400, "A numeric HubSpot deal ID is required.");
+  return `handoff.output.${routeId}.${dealId}`;
 }
 
 function propertyLabels(properties: DealProperty[]): Map<string, string> {
@@ -688,6 +1356,12 @@ function hasValue(value: string | null | undefined): boolean {
   return value !== null && value !== undefined && value.trim() !== "";
 }
 
+function renderTaskText(value: string, dealName: string): string {
+  return value
+    .replaceAll("{deal}", dealName)
+    .replaceAll("{date}", new Date().toISOString().slice(0, 10));
+}
+
 function requiredBoolean(value: unknown, name: string): boolean {
   if (typeof value !== "boolean")
     throw new HttpError(400, `${name} must be boolean.`);
@@ -706,4 +1380,26 @@ function optionalString(value: unknown, name: string): string {
   if (typeof value !== "string")
     throw new HttpError(400, `${name} must be a string.`);
   return value.trim();
+}
+
+function limitedString(value: unknown, name: string, maximum: number): string {
+  const result = requiredString(value, name);
+  if (result.length > maximum) {
+    throw new HttpError(400, `${name} must be ${maximum} characters or fewer.`);
+  }
+  return result;
+}
+
+function optionalLimitedString(
+  value: unknown,
+  name: string,
+  maximum: number,
+): string {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value !== "string")
+    throw new HttpError(400, `${name} must be a string.`);
+  const result = value.trim();
+  if (result.length > maximum)
+    throw new HttpError(400, `${name} must be ${maximum} characters or fewer.`);
+  return result;
 }

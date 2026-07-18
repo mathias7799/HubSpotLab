@@ -6,6 +6,7 @@ import {
   Heading,
   Link,
   LoadingSpinner,
+  Select,
   StatusTag,
   Text,
   hubspot,
@@ -22,6 +23,11 @@ interface HandoffReadiness {
   prerequisitesReady: boolean;
   complete: boolean;
   ticketId?: string;
+  routeId: string;
+  routeName: string;
+  department: string;
+  outputType: "ticket" | "task" | "project_tasks";
+  outputIds: string[];
   items: Array<{
     key: string;
     label: string;
@@ -32,6 +38,13 @@ interface HandoffReadiness {
 
 interface HandoffPermissions {
   canCreateTicket: boolean;
+}
+
+interface HandoffRoute {
+  id: string;
+  name: string;
+  department: string;
+  outputType: "ticket" | "task" | "project_tasks";
 }
 
 hubspot.extend<"crm.record.sidebar">(() => <AppCard />);
@@ -46,15 +59,30 @@ function AppCard(): React.ReactElement {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canCreateTicket, setCanCreateTicket] = useState(false);
+  const [routes, setRoutes] = useState<HandoffRoute[]>([]);
+  const [routeId, setRouteId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [nextReadiness, permissions] = await Promise.all([
-        request<HandoffReadiness>(portalId, dealId, "GET"),
+      const [settings, permissions] = await Promise.all([
+        loadSettings(portalId),
         authorization(portalId),
       ]);
+      const nextRouteId = settings.routes.some((route) => route.id === routeId)
+        ? routeId
+        : (settings.routes[0]?.id ?? "");
+      if (!nextRouteId)
+        throw new Error("No handoff routes are configured for this portal.");
+      const nextReadiness = await request<HandoffReadiness>(
+        portalId,
+        dealId,
+        nextRouteId,
+        "GET",
+      );
+      setRoutes(settings.routes);
+      setRouteId(nextRouteId);
       setReadiness(nextReadiness);
       setCanCreateTicket(permissions.canCreateTicket);
     } catch (cause) {
@@ -62,7 +90,7 @@ function AppCard(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [dealId, portalId]);
+  }, [dealId, portalId, routeId]);
 
   useEffect(() => {
     void load();
@@ -72,13 +100,18 @@ function AppCard(): React.ReactElement {
     setCreating(true);
     setError(null);
     try {
-      const result = await request<HandoffReadiness>(portalId, dealId, "POST");
+      const result = await request<HandoffReadiness>(
+        portalId,
+        dealId,
+        routeId,
+        "POST",
+      );
       setReadiness(result);
       actions.refreshObjectProperties();
       actions.addAlert({
         type: "success",
         title: "HandoffReady",
-        message: `Service ticket ${result.ticketId ?? "created"} is linked to this deal.`,
+        message: `${result.routeName} created ${result.outputIds.length} linked HubSpot record${result.outputIds.length === 1 ? "" : "s"}.`,
       });
     } catch (cause) {
       setError(messageFrom(cause));
@@ -127,7 +160,7 @@ function AppCard(): React.ReactElement {
             : !readiness.configurationReady
               ? "Setup required"
               : readiness.prerequisitesReady
-                ? "Ready for ticket"
+                ? "Ready to create"
                 : "Needs attention"}
         </StatusTag>
       </Flex>
@@ -138,17 +171,32 @@ function AppCard(): React.ReactElement {
         </Alert>
       ) : null}
 
+      <Select
+        name="handoffRoute"
+        label="Send handoff to"
+        description="Each department can have different requirements and create a different HubSpot record."
+        value={routeId}
+        options={routes.map((route) => ({
+          label: `${route.department} — ${route.name}`,
+          value: route.id,
+        }))}
+        onChange={(value) => setRouteId(String(value))}
+      />
+
       {!readiness.configurationReady ? (
-        <Alert title="Ticket destination is not configured" variant="warning">
-          Open HandoffReady settings and choose the service ticket pipeline and
-          initial stage.
+        <Alert
+          title={`${readiness.routeName} needs a destination`}
+          variant="warning"
+        >
+          Ask a HubSpot Super Admin to open HandoffReady settings and choose the
+          destination pipeline and initial stage for this route.
         </Alert>
       ) : null}
 
       {!canCreateTicket ? (
-        <Alert title="Ticket creation is read-only" variant="info">
+        <Alert title="Handoff creation is read-only" variant="info">
           You can review handoff readiness, but your HubSpot user is not a
-          configured HandoffReady ticket creator for this portal.
+          permitted HandoffReady creator for this portal.
         </Alert>
       ) : null}
 
@@ -167,12 +215,15 @@ function AppCard(): React.ReactElement {
       </Flex>
 
       {readiness.complete ? (
-        <Alert title="Handoff ticket is linked" variant="success">
-          <Link
-            href={`https://app.hubspot.com/contacts/${portalId}/record/0-5/${readiness.ticketId}`}
-          >
-            Open service ticket {readiness.ticketId}
-          </Link>
+        <Alert title={`${readiness.routeName} is complete`} variant="success">
+          {readiness.outputIds.map((id, index) => (
+            <Link
+              key={id}
+              href={recordUrl(portalId, readiness.outputType, id, index)}
+            >
+              Open {outputRecordLabel(readiness.outputType, index)} {id}
+            </Link>
+          ))}
         </Alert>
       ) : (
         <Button
@@ -185,7 +236,9 @@ function AppCard(): React.ReactElement {
           }
           onClick={() => void createTicket()}
         >
-          {creating ? "Creating ticket..." : "Create service handoff ticket"}
+          {creating
+            ? "Creating handoff..."
+            : `Create ${outputLabel(readiness.outputType)}`}
         </Button>
       )}
 
@@ -214,10 +267,11 @@ async function authorization(portalId: number): Promise<HandoffPermissions> {
 async function request<Value>(
   portalId: number,
   dealId: string,
+  routeId: string,
   method: "GET" | "POST",
 ): Promise<Value> {
   const response = await hubspot.fetch(
-    `${API_ORIGIN}/api/deals/${encodeURIComponent(dealId)}/handoff?portalId=${portalId}`,
+    `${API_ORIGIN}/api/deals/${encodeURIComponent(dealId)}/handoff?portalId=${portalId}&routeId=${encodeURIComponent(routeId)}`,
     method === "POST" ? { method } : undefined,
   );
   const body = (await response.json()) as Value & { error?: string };
@@ -227,6 +281,50 @@ async function request<Value>(
     );
   }
   return body;
+}
+
+async function loadSettings(
+  portalId: number,
+): Promise<{ routes: HandoffRoute[] }> {
+  const response = await hubspot.fetch(
+    `${API_ORIGIN}/api/settings?portalId=${portalId}`,
+  );
+  const body = (await response.json()) as {
+    routes?: HandoffRoute[];
+    error?: string;
+  };
+  if (!response.ok)
+    throw new Error(
+      body.error ?? `Request failed with status ${response.status}.`,
+    );
+  return { routes: body.routes ?? [] };
+}
+
+function outputLabel(type: HandoffReadiness["outputType"]): string {
+  return type === "ticket"
+    ? "service ticket"
+    : type === "task"
+      ? "handoff task"
+      : "project and task plan";
+}
+
+function outputRecordLabel(
+  type: HandoffReadiness["outputType"],
+  index: number,
+): string {
+  if (type === "project_tasks") return index === 0 ? "project" : "task";
+  return type;
+}
+
+function recordUrl(
+  portalId: number,
+  type: HandoffReadiness["outputType"],
+  id: string,
+  index: number,
+): string {
+  const objectTypeId =
+    type === "ticket" ? "0-5" : type === "task" || index > 0 ? "0-27" : "0-970";
+  return `https://app.hubspot.com/contacts/${portalId}/record/${objectTypeId}/${id}`;
 }
 
 function messageFrom(cause: unknown): string {

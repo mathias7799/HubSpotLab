@@ -1,4 +1,8 @@
-import { createSpotKitRuntime, HttpError } from "@hubspotlab/spotkit-runtime";
+import {
+  createSpotKitRuntime,
+  HttpError,
+  HubSpotObjectConfigurationStore,
+} from "@hubspotlab/spotkit-runtime";
 import { handleHubSpotWebhooks } from "./features/webhooks.js";
 import { handleHandoffWorkflowAction } from "./features/workflow-action.js";
 import {
@@ -9,7 +13,9 @@ import {
 } from "./authorization.js";
 import {
   createHandoffTicket,
+  createConfiguredHandoff,
   evaluateHandoff,
+  evaluateConfiguredHandoff,
   getHandoffSettings,
   HandoffService,
   listHandoffs,
@@ -32,13 +38,30 @@ export function createApp(
     requiredScopes: [
       "oauth",
       "crm.objects.deals.read",
-      "crm.objects.tickets.read",
-      "crm.objects.tickets.write",
+      "crm.objects.contacts.write",
+      "crm.objects.projects.read",
+      "crm.objects.projects.write",
+      "crm.schemas.custom.read",
+      "crm.objects.custom.read",
+      "crm.objects.custom.write",
+      "settings.users.read",
+      "tickets",
     ],
     env,
     fetcher,
     createApi: (context) => {
-      const { accessTokenForPortal, configuration, verifyRequest } = context;
+      const { accessTokenForPortal, verifyRequest } = context;
+      const configuration =
+        env.HANDOFFREADY_CONFIGURATION_STORAGE === "hubspot-object"
+          ? new HubSpotObjectConfigurationStore({
+              appName: "HandoffReady",
+              namespace: "handoffready",
+              encryptionKey: env.TOKEN_ENCRYPTION_KEY as string,
+              accessTokenForPortal,
+              fetcher,
+            })
+          : context.configuration;
+      const handoffContext = { ...context, configuration };
       return async (request) => {
         const url = new URL(request.url);
         if (request.method === "GET" && url.pathname === "/health") {
@@ -47,7 +70,30 @@ export function createApp(
         if (request.method === "GET" && url.pathname === "/api/installation") {
           await verifyRequest(request, "");
           const portalId = readPortalId(url);
-          await accessTokenForPortal(portalId);
+          const token = await accessTokenForPortal(portalId);
+          if (url.searchParams.get("includeScopes") === "true") {
+            const response = await fetcher(
+              `https://api.hubapi.com/oauth/v1/access-tokens/${encodeURIComponent(token)}`,
+            );
+            const body = (await response.json()) as Record<string, unknown>;
+            if (!response.ok) {
+              throw new HttpError(
+                502,
+                typeof body.message === "string"
+                  ? body.message
+                  : "HubSpot could not inspect the installation token.",
+              );
+            }
+            return Response.json({
+              installed: true,
+              portalId,
+              scopes: Array.isArray(body.scopes)
+                ? body.scopes.filter(
+                    (scope): scope is string => typeof scope === "string",
+                  )
+                : [],
+            });
+          }
           return Response.json({ installed: true, portalId });
         }
         if (url.pathname === "/api/settings") {
@@ -55,23 +101,26 @@ export function createApp(
           await verifyRequest(request, rawBody);
           const portalId = readPortalId(url);
           const token = await accessTokenForPortal(portalId);
-          const permissions = permissionsForRequest(
+          const permissions = await resolvePermissions(
             request,
             portalId,
-            authorizationPolicy,
-            allowUnsignedDevelopmentRequests,
+            token,
           );
           if (request.method === "GET") {
-            return Response.json(await getHandoffSettings(context, portalId));
+            return Response.json(
+              await getHandoffSettings(handoffContext, portalId),
+            );
           }
           if (request.method === "PUT") {
             requireJsonRequest(request);
             requireSettingsAdministrator(permissions);
             const settings = parseSettingsBody(rawBody);
             await new HandoffService(token, fetcher).validateSettings(settings);
-            await configuration.put(portalId, "handoff.settings", {
-              ...settings,
-            });
+            await configuration.put(
+              portalId,
+              "handoff.settings",
+              JSON.parse(JSON.stringify(settings)) as never,
+            );
             return Response.json(settings);
           }
         }
@@ -80,11 +129,10 @@ export function createApp(
           const portalId = readPortalId(url);
           await accessTokenForPortal(portalId);
           return Response.json(
-            permissionsForRequest(
+            await resolvePermissions(
               request,
               portalId,
-              authorizationPolicy,
-              allowUnsignedDevelopmentRequests,
+              await accessTokenForPortal(portalId),
             ),
           );
         }
@@ -95,22 +143,48 @@ export function createApp(
           const rawBody = request.method === "GET" ? "" : await request.text();
           await verifyRequest(request, rawBody);
           const portalId = readPortalId(url);
-          const settings = await getHandoffSettings(context, portalId);
+          const settings = await getHandoffSettings(handoffContext, portalId);
           const dealId = decodeURIComponent(dealRoute[1] as string);
+          const routeId = url.searchParams.get("routeId")?.trim();
           if (request.method === "POST") {
             requireTicketCreator(
-              permissionsForRequest(
+              await resolvePermissions(
                 request,
                 portalId,
-                authorizationPolicy,
-                allowUnsignedDevelopmentRequests,
+                await accessTokenForPortal(portalId),
               ),
             );
           }
           return Response.json(
-            request.method === "POST"
-              ? await createHandoffTicket(context, portalId, dealId, settings)
-              : await evaluateHandoff(context, portalId, dealId, settings),
+            routeId
+              ? request.method === "POST"
+                ? await createConfiguredHandoff(
+                    handoffContext,
+                    portalId,
+                    dealId,
+                    settings,
+                    routeId,
+                  )
+                : await evaluateConfiguredHandoff(
+                    handoffContext,
+                    portalId,
+                    dealId,
+                    settings,
+                    routeId,
+                  )
+              : request.method === "POST"
+                ? await createHandoffTicket(
+                    handoffContext,
+                    portalId,
+                    dealId,
+                    settings,
+                  )
+                : await evaluateHandoff(
+                    handoffContext,
+                    portalId,
+                    dealId,
+                    settings,
+                  ),
           );
         }
         if (request.method === "GET" && url.pathname === "/api/handoffs") {
@@ -118,9 +192,9 @@ export function createApp(
           const portalId = readPortalId(url);
           return Response.json({
             results: await listHandoffs(
-              context,
+              handoffContext,
               portalId,
-              await getHandoffSettings(context, portalId),
+              await getHandoffSettings(handoffContext, portalId),
             ),
           });
         }
@@ -137,6 +211,20 @@ export function createApp(
         }
         if (
           request.method === "GET" &&
+          url.pathname === "/api/project-pipelines"
+        ) {
+          await verifyRequest(request, "");
+          const portalId = readPortalId(url);
+          const token = await accessTokenForPortal(portalId);
+          return Response.json({
+            results: await new HandoffService(
+              token,
+              fetcher,
+            ).projectPipelines(),
+          });
+        }
+        if (
+          request.method === "GET" &&
           url.pathname === "/api/deal-properties"
         ) {
           await verifyRequest(request, "");
@@ -146,16 +234,53 @@ export function createApp(
             results: await new HandoffService(token, fetcher).dealProperties(),
           });
         }
-        const webhookResponse = await handleHubSpotWebhooks(request, context);
+        const webhookResponse = await handleHubSpotWebhooks(
+          request,
+          handoffContext,
+        );
         if (webhookResponse) return webhookResponse;
         const workflowActionResponse = await handleHandoffWorkflowAction(
           request,
-          context,
+          handoffContext,
         );
         if (workflowActionResponse) return workflowActionResponse;
         // spotkit:feature-routes
         return Response.json({ error: "Not found" }, { status: 404 });
       };
+
+      async function resolvePermissions(
+        request: Request,
+        portalId: number,
+        token: string,
+      ) {
+        const base = permissionsForRequest(
+          request,
+          portalId,
+          authorizationPolicy,
+          allowUnsignedDevelopmentRequests,
+        );
+        if (base.canManageSettings || base.userId === "local-developer")
+          return base;
+        try {
+          const isSuperAdmin = await new HandoffService(
+            token,
+            fetcher,
+          ).isSuperAdmin(base.userId);
+          return permissionsForRequest(
+            request,
+            portalId,
+            authorizationPolicy,
+            allowUnsignedDevelopmentRequests,
+            isSuperAdmin,
+          );
+        } catch (cause) {
+          console.warn(
+            "HandoffReady could not verify HubSpot Super Admin status",
+            { portalId, userId: base.userId, cause },
+          );
+          return base;
+        }
+      }
     },
   }).app;
 }

@@ -60,6 +60,21 @@ describe("HandoffReady authorization", () => {
       ),
     ).toThrowError(/signed user identity metadata/);
   });
+
+  it("grants native HubSpot Super Admins portal administration", () => {
+    const administrator = permissionsForRequest(
+      request("99", "super-admin@example.com"),
+      123,
+      policy,
+      false,
+      true,
+    );
+    expect(administrator).toMatchObject({
+      isSuperAdmin: true,
+      canManageSettings: true,
+      canCreateTicket: true,
+    });
+  });
 });
 
 function request(userId: string, userEmail: string): Request {

@@ -16,6 +16,10 @@ const item = (
   configurationReady: true,
   prerequisitesReady: false,
   complete: false,
+  routeName: "Customer success handoff",
+  department: "Customer Success",
+  outputType: "ticket",
+  outputIds: [],
   items: [{ key: "amount", label: "Amount", passed: false }],
   ...overrides,
 });
@@ -37,7 +41,7 @@ describe("handoff overview model", () => {
       variant: "success",
     });
     expect(handoffStatus(item({ prerequisitesReady: true }))).toEqual({
-      label: "Ready for ticket",
+      label: "Ready to create",
       variant: "info",
     });
     expect(handoffStatus(item({}))).toEqual({
@@ -77,6 +81,6 @@ describe("handoff overview model", () => {
     ).toBe("Amount, Associated contact +1 more");
     expect(
       attentionSummary(item({ prerequisitesReady: true, items: [] })),
-    ).toBe("Create the service ticket");
+    ).toBe("Create the handoff destination");
   });
 });

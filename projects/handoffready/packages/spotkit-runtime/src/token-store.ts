@@ -113,7 +113,12 @@ export function createTokenStore(
       fetcher,
     );
   }
-  if (config.allowUnsignedDevelopmentRequests) return new MemoryTokenStore();
+  if (
+    config.allowUnsignedDevelopmentRequests ||
+    config.allowEphemeralTunnelDevelopment
+  ) {
+    return new MemoryTokenStore();
+  }
   throw new Error(
     "Durable encrypted token storage is required outside local development.",
   );

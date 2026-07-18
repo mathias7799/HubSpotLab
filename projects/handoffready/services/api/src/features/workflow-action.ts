@@ -1,7 +1,9 @@
 import { HttpError, type RuntimeApiContext } from "@hubspotlab/spotkit-runtime";
 
 import {
+  createConfiguredHandoff,
   createHandoffTicket,
+  evaluateConfiguredHandoff,
   evaluateHandoff,
   getHandoffSettings,
 } from "../handoff.js";
@@ -12,6 +14,7 @@ export interface WorkflowActionExecution {
   objectId: string;
   objectType: "DEAL";
   mode: "evaluate" | "create_ticket";
+  routeId?: string;
 }
 
 export async function handleHandoffWorkflowAction(
@@ -38,10 +41,11 @@ export async function handleHandoffWorkflowAction(
         status: result.complete
           ? "complete"
           : result.prerequisitesReady
-            ? "ready_for_ticket"
+            ? "ready_to_create"
             : "blocked",
         missing_count: result.items.filter((item) => !item.passed).length,
         ticket_id: result.ticketId ?? "",
+        output_ids: result.outputIds.join(","),
       },
     });
   } catch (cause) {
@@ -55,6 +59,23 @@ export async function onHandoffWorkflowAction(
   context: RuntimeApiContext,
 ) {
   const settings = await getHandoffSettings(context, execution.portalId);
+  if (execution.routeId) {
+    return execution.mode === "create_ticket"
+      ? createConfiguredHandoff(
+          context,
+          execution.portalId,
+          execution.objectId,
+          settings,
+          execution.routeId,
+        )
+      : evaluateConfiguredHandoff(
+          context,
+          execution.portalId,
+          execution.objectId,
+          settings,
+          execution.routeId,
+        );
+  }
   if (execution.mode === "create_ticket") {
     return createHandoffTicket(
       context,
@@ -114,11 +135,15 @@ function readExecution(rawBody: string): WorkflowActionExecution {
       "Workflow action requires a deal and an evaluate or create_ticket mode.",
     );
   }
+  const fields = inputFields as Record<string, unknown>;
   return {
     callbackId: String(body.callbackId),
     portalId: origin.portalId as number,
     objectId: String(object.objectId),
     objectType: "DEAL",
     mode: String(inputFields.mode) as "evaluate" | "create_ticket",
+    ...(typeof fields.route_id === "string" && fields.route_id.trim()
+      ? { routeId: fields.route_id.trim() }
+      : {}),
   };
 }

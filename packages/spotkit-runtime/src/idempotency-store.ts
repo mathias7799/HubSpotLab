@@ -91,7 +91,10 @@ export function createIdempotencyStore(
       fetcher,
     );
   }
-  if (config.allowUnsignedDevelopmentRequests) {
+  if (
+    config.allowUnsignedDevelopmentRequests ||
+    config.allowEphemeralTunnelDevelopment
+  ) {
     return new MemoryIdempotencyStore();
   }
   throw new Error("Durable idempotency storage is required in production.");

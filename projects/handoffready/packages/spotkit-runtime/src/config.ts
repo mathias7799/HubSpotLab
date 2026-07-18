@@ -11,6 +11,7 @@ export interface RuntimeConfig {
   upstashToken?: string;
   port: number;
   allowUnsignedDevelopmentRequests: boolean;
+  allowEphemeralTunnelDevelopment: boolean;
 }
 
 export interface LoadRuntimeConfigOptions {
@@ -28,12 +29,22 @@ export function loadRuntimeConfig(
   validateIdentity(options.appName, options.namespace);
   const env = options.env ?? process.env;
   const allowUnsigned = env.ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS === "true";
+  const allowEphemeralTunnelDevelopment =
+    env.ALLOW_EPHEMERAL_TUNNEL_DEVELOPMENT === "true";
   const publicUrl = normalizePublicUrl(required(env, "PUBLIC_URL"));
   const parsedPublicUrl = new URL(publicUrl);
   const local = isLocalHostname(parsedPublicUrl.hostname);
   if (allowUnsigned && !local) {
     throw new Error(
       "Unsigned development requests are allowed only with a localhost PUBLIC_URL.",
+    );
+  }
+  if (
+    allowEphemeralTunnelDevelopment &&
+    parsedPublicUrl.protocol !== "https:"
+  ) {
+    throw new Error(
+      "Ephemeral tunnel development requires an HTTPS PUBLIC_URL.",
     );
   }
   if (!allowUnsigned && parsedPublicUrl.protocol !== "https:") {
@@ -86,6 +97,7 @@ export function loadRuntimeConfig(
     ...(upstashToken ? { upstashToken } : {}),
     port: parsePort(env.PORT, options.defaultPort ?? 8788),
     allowUnsignedDevelopmentRequests: allowUnsigned,
+    allowEphemeralTunnelDevelopment,
   };
 }
 

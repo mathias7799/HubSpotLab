@@ -2,7 +2,7 @@
   "uid": "handoffready_app",
   "type": "app",
   "config": {
-    "description": "Prepare complete sales-to-service handoffs and create an associated service ticket.",
+    "description": "Prepare complete department handoffs and create linked HubSpot tickets, tasks, or projects with task plans.",
     "name": "HandoffReady",
     "distribution": "marketplace",
     "auth": {
@@ -11,8 +11,14 @@
       "requiredScopes": [
         "oauth",
         "crm.objects.deals.read",
-        "crm.objects.tickets.read",
-        "crm.objects.tickets.write"
+        "crm.objects.contacts.write",
+        "crm.objects.projects.read",
+        "crm.objects.projects.write",
+        "crm.schemas.custom.read",
+        "crm.objects.custom.read",
+        "crm.objects.custom.write",
+        "settings.users.read",
+        "tickets"
       ],
       "optionalScopes": [],
       "conditionallyRequiredScopes": []

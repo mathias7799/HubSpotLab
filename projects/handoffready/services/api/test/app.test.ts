@@ -124,6 +124,21 @@ describe("HandoffReady API", () => {
       ticketPipelineId: "support",
       ticketStageId: "new",
       ticketSubjectPrefix: "Implementation",
+      routes: [
+        {
+          id: "customer-success",
+          name: "Customer success handoff",
+          department: "Customer Success",
+          outputType: "ticket",
+          requiredProperties: ["dealname", "amount"],
+          requireCompany: true,
+          requireContact: false,
+          pipelineId: "support",
+          stageId: "new",
+          subjectPrefix: "Implementation",
+          taskTemplates: [],
+        },
+      ],
     });
 
     const loaded = await app(
@@ -137,6 +152,21 @@ describe("HandoffReady API", () => {
       ticketPipelineId: "support",
       ticketStageId: "new",
       ticketSubjectPrefix: "Implementation",
+      routes: [
+        {
+          id: "customer-success",
+          name: "Customer success handoff",
+          department: "Customer Success",
+          outputType: "ticket",
+          requiredProperties: ["dealname", "amount"],
+          requireCompany: true,
+          requireContact: false,
+          pipelineId: "support",
+          stageId: "new",
+          subjectPrefix: "Implementation",
+          taskTemplates: [],
+        },
+      ],
     });
   });
 

@@ -31,3 +31,8 @@ func start
 Configure `PUBLIC_URL`, HubSpot OAuth credentials, `TOKEN_ENCRYPTION_KEY`, both
 Upstash variables, and `ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=false` in the
 provider's secret store.
+
+For an authenticated temporary HTTPS tunnel, set
+`ALLOW_EPHEMERAL_TUNNEL_DEVELOPMENT=true`. This uses volatile in-memory stores
+without disabling HubSpot request-signature verification. Never use it for a
+shared, long-running, or production deployment.
