@@ -107,7 +107,7 @@ Before release:
 6. run `spotkit release-check --hubspot`, deploy the reviewed build, and run the
    public smoke test.
 
-HubSpot build #9 passed official validation, built all six components, and
+HubSpot build #10 passed official validation, built all six components, and
 deployed successfully to developer account `148692688` on 18 July 2026.
 Browser control opened the OAuth grant for test portal `148692618` and verified
 native Super Admin access. Live

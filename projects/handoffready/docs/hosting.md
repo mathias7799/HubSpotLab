@@ -33,6 +33,7 @@ Upstash variables, and `ALLOW_UNSIGNED_DEVELOPMENT_REQUESTS=false` in the
 provider's secret store. OAuth scopes are `oauth`, deal read, contact write
 (required by HubSpot's Tasks API), project read/write, owner read,
 `settings.users.read`, and `tickets`. Owner read populates the per-task person
-picker; queue options are discovered from the portal's task properties. Use
+picker; queue options are loaded from HubSpot's task-queue API with task
+property discovery as a compatibility fallback. Use
 `HANDOFFREADY_AUTHORIZATION_POLICY` only for delegated users; native HubSpot
 Super Admins are verified automatically.

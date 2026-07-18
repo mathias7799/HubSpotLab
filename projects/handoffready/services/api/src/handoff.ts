@@ -779,7 +779,7 @@ export class HandoffService {
   }
 
   async taskAssignees(): Promise<TaskAssigneeCatalog> {
-    const [ownerResponse, propertyResponse] = await Promise.all([
+    const [ownerResponse, propertyResponse, queueResponse] = await Promise.all([
       this.request<{
         results?: Array<{
           id?: string;
@@ -796,6 +796,13 @@ export class HandoffService {
           options?: Array<{ value?: string; label?: string; hidden?: boolean }>;
         }>;
       }>("/crm/v3/properties/tasks?archived=false"),
+      this.request<
+        | Array<{ id?: string | number; name?: string }>
+        | {
+            results?: Array<{ id?: string | number; name?: string }>;
+            taskQueues?: Array<{ id?: string | number; name?: string }>;
+          }
+      >("/engagements/v1/task-queues").catch(() => []),
     ]);
     const owners = (ownerResponse.results ?? [])
       .filter((owner) => owner.id && owner.archived !== true)
@@ -807,7 +814,7 @@ export class HandoffService {
           `Owner ${owner.id}`,
       }))
       .sort((left, right) => left.label.localeCompare(right.label));
-    const queues = (propertyResponse.results ?? [])
+    const propertyQueues = (propertyResponse.results ?? [])
       .filter(
         (property) =>
           property.name?.toLowerCase().includes("queue") &&
@@ -825,6 +832,31 @@ export class HandoffService {
               ]
             : [],
         ),
+      )
+      .sort((left, right) => left.label.localeCompare(right.label));
+    const legacyQueues = (
+      Array.isArray(queueResponse)
+        ? queueResponse
+        : (queueResponse.taskQueues ?? queueResponse.results ?? [])
+    ).flatMap((queue) =>
+      queue.id !== undefined && queue.name
+        ? [
+            {
+              id: String(queue.id),
+              label: queue.name,
+              propertyName: "hs_queue_membership_ids",
+            },
+          ]
+        : [],
+    );
+    const queues = [...legacyQueues, ...propertyQueues]
+      .filter(
+        (queue, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.id === queue.id &&
+              candidate.propertyName === queue.propertyName,
+          ) === index,
       )
       .sort((left, right) => left.label.localeCompare(right.label));
     return { owners, queues };

@@ -488,6 +488,12 @@ describe("HandoffReady domain service", () => {
             ],
           });
         }
+        if (path === "/engagements/v1/task-queues") {
+          return Response.json([
+            { id: "queue-7", name: "Implementation" },
+            { id: 8, name: "Customer Success" },
+          ]);
+        }
         throw new Error(`Unexpected assignee request: GET ${path}`);
       }),
     );
@@ -495,6 +501,11 @@ describe("HandoffReady domain service", () => {
     await expect(service.taskAssignees()).resolves.toEqual({
       owners: [{ id: "owner-42", label: "Ada Lovelace" }],
       queues: [
+        {
+          id: "8",
+          label: "Customer Success",
+          propertyName: "hs_queue_membership_ids",
+        },
         {
           id: "queue-7",
           label: "Implementation",
