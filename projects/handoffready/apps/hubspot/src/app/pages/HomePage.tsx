@@ -6,6 +6,7 @@ import {
   Flex,
   Link,
   LoadingSpinner,
+  Select,
   StatusTag,
   Table,
   TableBody,
@@ -30,36 +31,64 @@ import {
 
 type LoadState = "loading" | "ready" | "error";
 
+interface OverviewRoute {
+  id: string;
+  name: string;
+  department: string;
+  outputType: "ticket" | "task" | "project_tasks";
+}
+
 export function HomePage(): React.ReactElement {
   const context = useExtensionContext<"pages">();
   const portalId = context.portal.id;
   const [state, setState] = useState<LoadState>("loading");
   const [results, setResults] = useState<HandoffOverviewItem[]>([]);
+  const [routes, setRoutes] = useState<OverviewRoute[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setState("loading");
-    setError(null);
-    try {
-      const response = await hubspot.fetch(
-        `${API_ORIGIN}/api/handoffs?portalId=${portalId}`,
-      );
-      const body = (await response.json()) as {
-        results?: HandoffOverviewItem[];
-        error?: string;
-      };
-      if (!response.ok) {
-        throw new Error(
-          body.error ?? `HandoffReady API error ${response.status}.`,
-        );
+  const load = useCallback(
+    async (routeId = "") => {
+      setState("loading");
+      setError(null);
+      try {
+        const [settingsResponse, response] = await Promise.all([
+          hubspot.fetch(`${API_ORIGIN}/api/settings?portalId=${portalId}`),
+          hubspot.fetch(
+            `${API_ORIGIN}/api/handoffs?portalId=${portalId}${routeId ? `&routeId=${encodeURIComponent(routeId)}` : ""}`,
+          ),
+        ]);
+        const settingsBody = (await settingsResponse.json()) as {
+          routes?: OverviewRoute[];
+          error?: string;
+        };
+        const body = (await response.json()) as {
+          results?: HandoffOverviewItem[];
+          error?: string;
+        };
+        if (!settingsResponse.ok) {
+          throw new Error(
+            settingsBody.error ??
+              `HandoffReady settings error ${settingsResponse.status}.`,
+          );
+        }
+        if (!response.ok) {
+          throw new Error(
+            body.error ?? `HandoffReady API error ${response.status}.`,
+          );
+        }
+        const nextRoutes = settingsBody.routes ?? [];
+        setRoutes(nextRoutes);
+        setSelectedRouteId(routeId || nextRoutes[0]?.id || "");
+        setResults(body.results ?? []);
+        setState("ready");
+      } catch (cause) {
+        setError(messageFrom(cause));
+        setState("error");
       }
-      setResults(body.results ?? []);
-      setState("ready");
-    } catch (cause) {
-      setError(messageFrom(cause));
-      setState("error");
-    }
-  }, [portalId]);
+    },
+    [portalId],
+  );
 
   useEffect(() => {
     void load();
@@ -72,11 +101,29 @@ export function HomePage(): React.ReactElement {
       <PageBreadcrumbs>
         <PageBreadcrumbs.Current>HandoffReady</PageBreadcrumbs.Current>
       </PageBreadcrumbs>
-      <PageTitle>Customer handoff overview</PageTitle>
+      <PageTitle>Handoff operations overview</PageTitle>
       <Text>
-        Review the ten most recently updated closed-won deals for the portal's
-        primary handoff route and resolve gaps before the receiving team begins.
+        Review readiness for every receiving department and resolve gaps before
+        the handoff begins.
       </Text>
+
+      {routes.length > 0 ? (
+        <Select
+          name="overviewRoute"
+          label="Handoff route"
+          description="Switch departments without leaving the overview."
+          value={selectedRouteId}
+          options={routes.map((route) => ({
+            label: `${route.department}: ${route.name}`,
+            value: route.id,
+          }))}
+          onChange={(value) => {
+            const routeId = String(value);
+            setSelectedRouteId(routeId);
+            void load(routeId);
+          }}
+        />
+      ) : null}
 
       {state === "loading" ? (
         <Flex direction="row" gap="small" align="center">
@@ -168,7 +215,10 @@ export function HomePage(): React.ReactElement {
         </Table>
       ) : null}
 
-      <Button disabled={state === "loading"} onClick={() => void load()}>
+      <Button
+        disabled={state === "loading"}
+        onClick={() => void load(selectedRouteId)}
+      >
         Refresh handoffs
       </Button>
     </Flex>

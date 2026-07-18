@@ -24,11 +24,12 @@ HandoffReady can use zero custom objects with Upstash or exactly one encrypted
 HubSpot configuration object. Portal settings contain up to 12 independently
 configurable department routes. Each route owns
 its required deal properties, company/contact requirements, output type,
-pipeline/stage, record prefix, and optional project task plan.
+pipeline/stage, record prefix, output owner, and optional project task plan.
 
 Task templates are structured records containing a stable ID, name,
-description, default status, priority, and due-date offset. Names and
-descriptions support `{deal}` and `{date}` placeholders.
+description, activity type, default status, priority, due-date offset, reminder
+timing, and person/queue assignment. Names and descriptions support `{deal}`
+and `{date}` placeholders.
 
 Readiness is derived from live deal properties and associations. Completion is
 represented by the route's tracked HubSpot output IDs. Ticket routes also use a

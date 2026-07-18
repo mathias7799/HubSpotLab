@@ -2,8 +2,8 @@
 
 HandoffReady turns a closed-won deal into a complete, visible handoff to any
 department. HubSpot Super Admins configure named portal routes with independent
-deal requirements and choose whether each route creates a ticket, a standalone
-task, or a project with a reusable task plan.
+deal requirements and choose whether each route creates a ticket, an ordered
+task plan, or a project with a reusable task plan.
 
 Generated with
 [SpotKit](https://github.com/mathias7799/HubSpotLab/tree/main/tools/spotkit).
@@ -30,13 +30,15 @@ upgrade plan, origin, release, OAuth, and smoke-test workflows.
    its live CRM requirements, and explains every missing prerequisite.
 3. When ready, HandoffReady creates and links the configured HubSpot records.
    A route can create up to 20 ordered tasks. Each template controls its name,
-   description, default status, priority, due-date offset, and optional HubSpot
-   owner or task queue, with `{deal}` and `{date}` placeholders.
+   description, type, default status, priority, due-date offset, reminder, and
+   optional HubSpot owner or task queue, with `{deal}` and `{date}` placeholders.
+   Ticket and project outputs can also have a default owner.
    Route/deal output identity is stored in encrypted portal configuration;
    ticket routes also repair missing tracking from their route-specific subject
    marker. Partial project/task failures trigger compensating cleanup.
-4. The app page summarizes the ten most recently updated closed-won deals for
-   the portal's primary route as complete, ready to create, or needing attention.
+4. The app page switches between every department route and summarizes the ten
+   most recently updated closed-won deals as complete, ready to create, or
+   needing attention.
 5. An unpublished deal workflow action can evaluate the same rules or create
    the ticket. Webhook subscriptions for deal creation/stage change remain
    inactive until a deployed retry test is complete.

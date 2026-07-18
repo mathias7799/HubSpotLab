@@ -8,6 +8,7 @@ export interface HandoffSettings {
   ticketPipelineId: string;
   ticketStageId: string;
   ticketSubjectPrefix: string;
+  ticketOwnerId: string;
   routes: HandoffRoute[];
 }
 
@@ -24,6 +25,7 @@ export interface HandoffRoute {
   pipelineId: string;
   stageId: string;
   subjectPrefix: string;
+  ownerId: string;
   taskTemplates: HandoffTaskTemplate[];
 }
 
@@ -34,6 +36,8 @@ export interface HandoffTaskTemplate {
   status: "NOT_STARTED" | "COMPLETED";
   priority: "LOW" | "MEDIUM" | "HIGH";
   dueInDays: number;
+  taskType: "TODO" | "CALL" | "EMAIL";
+  reminderMinutesBefore: number;
   assignmentType: "none" | "owner" | "queue";
   assigneeId: string;
   queuePropertyName: string;
@@ -93,6 +97,7 @@ export const defaultHandoffSettings: HandoffSettings = {
   ticketPipelineId: "",
   ticketStageId: "",
   ticketSubjectPrefix: "Customer handoff",
+  ticketOwnerId: "",
   routes: [
     {
       id: "customer-success",
@@ -105,6 +110,7 @@ export const defaultHandoffSettings: HandoffSettings = {
       pipelineId: "",
       stageId: "",
       subjectPrefix: "Customer handoff",
+      ownerId: "",
       taskTemplates: [],
     },
   ],
@@ -252,12 +258,15 @@ export async function listHandoffs(
   context: RuntimeApiContext,
   portalId: number,
   settings: HandoffSettings,
+  routeId?: string,
 ): Promise<HandoffReadiness[]> {
   const service = new HandoffService(
     await context.accessTokenForPortal(portalId),
     context.fetcher,
   );
-  const route = settings.routes[0] as HandoffRoute;
+  const route = routeId
+    ? configuredRoute(settings, routeId)
+    : (settings.routes[0] as HandoffRoute);
   return service.listRoute(
     route,
     async (dealId) =>
@@ -305,6 +314,7 @@ export function parseHandoffSettings(value: unknown): HandoffSettings {
     ticketPipelineId: optionalString(body.ticketPipelineId, "ticketPipelineId"),
     ticketStageId: optionalString(body.ticketStageId, "ticketStageId"),
     ticketSubjectPrefix: prefix,
+    ticketOwnerId: optionalString(body.ticketOwnerId, "ticketOwnerId"),
   };
   const routes =
     body.routes === undefined
@@ -320,6 +330,7 @@ export function parseHandoffSettings(value: unknown): HandoffSettings {
             pipelineId: legacy.ticketPipelineId,
             stageId: legacy.ticketStageId,
             subjectPrefix: legacy.ticketSubjectPrefix,
+            ownerId: legacy.ticketOwnerId,
             taskTemplates: [],
           },
         ]
@@ -339,6 +350,7 @@ export function parseHandoffSettings(value: unknown): HandoffSettings {
     ticketPipelineId: primary.outputType === "ticket" ? primary.pipelineId : "",
     ticketStageId: primary.outputType === "ticket" ? primary.stageId : "",
     ticketSubjectPrefix: primary.subjectPrefix,
+    ticketOwnerId: primary.ownerId,
     routes,
   };
 }
@@ -410,6 +422,7 @@ function parseRoutes(value: unknown): HandoffRoute[] {
       pipelineId: optionalString(route.pipelineId, "pipelineId"),
       stageId: optionalString(route.stageId, "stageId"),
       subjectPrefix: limitedString(route.subjectPrefix, "subjectPrefix", 80),
+      ownerId: optionalString(route.ownerId, "route owner ID"),
       taskTemplates,
     };
   });
@@ -436,6 +449,8 @@ function parseTaskTemplates(
             status: "NOT_STARTED",
             priority: "MEDIUM",
             dueInDays: index + 1,
+            taskType: "TODO",
+            reminderMinutesBefore: 0,
             assignmentType: "none",
             assigneeId: "",
             queuePropertyName: "",
@@ -463,12 +478,17 @@ function parseTaskTemplates(
     const status = record.status ?? "NOT_STARTED";
     const priority = record.priority ?? "MEDIUM";
     const dueInDays = record.dueInDays ?? 1;
+    const taskType = record.taskType ?? "TODO";
+    const reminderMinutesBefore = record.reminderMinutesBefore ?? 0;
     const assignmentType = record.assignmentType ?? "none";
     if (!["NOT_STARTED", "COMPLETED"].includes(String(status))) {
       throw new HttpError(400, `Task template ${id} has an invalid status.`);
     }
     if (!["LOW", "MEDIUM", "HIGH"].includes(String(priority))) {
       throw new HttpError(400, `Task template ${id} has an invalid priority.`);
+    }
+    if (!(["TODO", "CALL", "EMAIL"] as unknown[]).includes(taskType)) {
+      throw new HttpError(400, `Task template ${id} has an invalid task type.`);
     }
     if (
       !Number.isInteger(dueInDays) ||
@@ -478,6 +498,16 @@ function parseTaskTemplates(
       throw new HttpError(
         400,
         `Task template ${id} due offset must be between 0 and 365 days.`,
+      );
+    }
+    if (
+      !Number.isInteger(reminderMinutesBefore) ||
+      Number(reminderMinutesBefore) < 0 ||
+      Number(reminderMinutesBefore) > 10_080
+    ) {
+      throw new HttpError(
+        400,
+        `Task template ${id} reminder must be between 0 and 10080 minutes before the due time.`,
       );
     }
     if (!(["none", "owner", "queue"] as unknown[]).includes(assignmentType)) {
@@ -514,6 +544,8 @@ function parseTaskTemplates(
       status: status as HandoffTaskTemplate["status"],
       priority: priority as HandoffTaskTemplate["priority"],
       dueInDays: Number(dueInDays),
+      taskType: taskType as HandoffTaskTemplate["taskType"],
+      reminderMinutesBefore: Number(reminderMinutesBefore),
       assignmentType: assignmentType as HandoffTaskTemplate["assignmentType"],
       assigneeId: assignmentType === "none" ? "" : assigneeId,
       queuePropertyName: assignmentType === "queue" ? queuePropertyName : "",
@@ -622,6 +654,7 @@ export class HandoffService {
             hs_name: `${route.subjectPrefix}: ${dealName}`,
             hs_pipeline: route.pipelineId,
             hs_pipeline_stage: route.stageId,
+            ...(route.ownerId ? { hs_project_owner_id: route.ownerId } : {}),
           },
         }),
       },
@@ -870,10 +903,12 @@ export class HandoffService {
   }
 
   async validateSettings(settings: HandoffSettings): Promise<void> {
-    const hasAssignments = settings.routes.some((route) =>
-      route.taskTemplates.some(
-        (template) => template.assignmentType !== "none",
-      ),
+    const hasAssignments = settings.routes.some(
+      (route) =>
+        Boolean(route.ownerId) ||
+        route.taskTemplates.some(
+          (template) => template.assignmentType !== "none",
+        ),
     );
     const [properties, ticketPipelines, projectPipelines, assignees] =
       await Promise.all([
@@ -897,6 +932,15 @@ export class HandoffService {
       );
     }
     for (const route of settings.routes) {
+      if (
+        route.ownerId &&
+        !assignees.owners.some((owner) => owner.id === route.ownerId)
+      ) {
+        throw new HttpError(
+          400,
+          `The selected output owner for ${route.name} no longer exists.`,
+        );
+      }
       for (const template of route.taskTemplates) {
         const validAssignment =
           template.assignmentType === "none" ||
@@ -975,6 +1019,9 @@ export class HandoffService {
             subject: `${handoffSubjectMarker}${settings.ticketSubjectPrefix}: ${deal.properties.dealname || dealId}`,
             hs_pipeline: settings.ticketPipelineId,
             hs_pipeline_stage: settings.ticketStageId,
+            ...(settings.ticketOwnerId
+              ? { hubspot_owner_id: settings.ticketOwnerId }
+              : {}),
           },
         }),
       },
@@ -1151,18 +1198,24 @@ export class HandoffService {
     dealName: string,
     associations: Array<{ type: string; id: string }>,
   ): Promise<{ id: string }> {
+    const dueAt = Date.now() + template.dueInDays * 86_400_000;
     const task = await this.request<{ id: string }>("/crm/v3/objects/tasks", {
       method: "POST",
       body: JSON.stringify({
         properties: {
-          hs_timestamp: new Date(
-            Date.now() + template.dueInDays * 86_400_000,
-          ).toISOString(),
+          hs_timestamp: new Date(dueAt).toISOString(),
           hs_task_subject: renderTaskText(template.name, dealName),
           hs_task_body: renderTaskText(template.description, dealName),
           hs_task_status: template.status,
           hs_task_priority: template.priority,
-          hs_task_type: "TODO",
+          hs_task_type: template.taskType,
+          ...(template.reminderMinutesBefore > 0
+            ? {
+                hs_task_reminders: String(
+                  dueAt - template.reminderMinutesBefore * 60_000,
+                ),
+              }
+            : {}),
           ...(template.assignmentType === "owner"
             ? { hubspot_owner_id: template.assigneeId }
             : {}),
@@ -1422,6 +1475,7 @@ function legacySettingsForRoute(route: HandoffRoute): HandoffSettings {
     ticketPipelineId: route.pipelineId,
     ticketStageId: route.stageId,
     ticketSubjectPrefix: route.subjectPrefix,
+    ticketOwnerId: route.ownerId,
     routes: [route],
   };
 }

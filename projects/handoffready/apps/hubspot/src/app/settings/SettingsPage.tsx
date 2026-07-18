@@ -26,6 +26,7 @@ interface AppSettings {
   ticketPipelineId: string;
   ticketStageId: string;
   ticketSubjectPrefix: string;
+  ticketOwnerId: string;
   routes: HandoffRoute[];
 }
 
@@ -42,6 +43,7 @@ interface HandoffRoute {
   pipelineId: string;
   stageId: string;
   subjectPrefix: string;
+  ownerId: string;
   taskTemplates: HandoffTaskTemplate[];
 }
 
@@ -52,6 +54,8 @@ interface HandoffTaskTemplate {
   status: "NOT_STARTED" | "COMPLETED";
   priority: "LOW" | "MEDIUM" | "HIGH";
   dueInDays: number;
+  taskType: "TODO" | "CALL" | "EMAIL";
+  reminderMinutesBefore: number;
   assignmentType: "none" | "owner" | "queue";
   assigneeId: string;
   queuePropertyName: string;
@@ -101,6 +105,7 @@ function SettingsPage(): React.ReactElement {
     ticketPipelineId: "",
     ticketStageId: "",
     ticketSubjectPrefix: "Customer handoff",
+    ticketOwnerId: "",
     routes: [defaultRoute()],
   });
   const [error, setError] = useState<string | null>(null);
@@ -221,6 +226,21 @@ function SettingsPage(): React.ReactElement {
     const template = taskTemplate(index);
     updateRoute({ taskTemplates: [...selectedRoute.taskTemplates, template] });
     setSelectedTemplateId(template.id);
+  }
+
+  function applySelectedAssignmentToAll(): void {
+    if (!selectedRoute || !selectedTemplate) return;
+    const assignment = {
+      assignmentType: selectedTemplate.assignmentType,
+      assigneeId: selectedTemplate.assigneeId,
+      queuePropertyName: selectedTemplate.queuePropertyName,
+    };
+    updateRoute({
+      taskTemplates: selectedRoute.taskTemplates.map((template) => ({
+        ...template,
+        ...assignment,
+      })),
+    });
   }
 
   function removeTaskTemplate(): void {
@@ -370,7 +390,7 @@ function SettingsPage(): React.ReactElement {
               description="Choose a route to edit. Users select from these routes on the deal card."
               value={selectedRoute?.id ?? ""}
               options={settings.routes.map((route) => ({
-                label: `${route.department} — ${route.name}`,
+                label: `${route.department}: ${route.name}`,
                 value: route.id,
               }))}
               onChange={(value) => {
@@ -565,6 +585,27 @@ function SettingsPage(): React.ReactElement {
                   updateRoute({ subjectPrefix: String(value) })
                 }
               />
+              {selectedRoute.outputType !== "task" ? (
+                <Select
+                  name="routeOwnerId"
+                  label="Output owner"
+                  description="Optionally assign the created ticket or project to a HubSpot user."
+                  value={selectedRoute.ownerId || "none"}
+                  readOnly={!editable}
+                  options={[
+                    { label: "Unassigned", value: "none" },
+                    ...taskAssignees.owners.map((owner) => ({
+                      label: owner.label,
+                      value: owner.id,
+                    })),
+                  ]}
+                  onChange={(value) =>
+                    updateRoute({
+                      ownerId: String(value) === "none" ? "" : String(value),
+                    })
+                  }
+                />
+              ) : null}
               {selectedRoute.outputType === "task" ||
               selectedRoute.outputType === "project_tasks" ? (
                 <Flex direction="column" gap="small">
@@ -659,6 +700,24 @@ function SettingsPage(): React.ReactElement {
                       />
                       <Flex direction="row" gap="small">
                         <Select
+                          name="taskTemplateType"
+                          label="Task type"
+                          value={selectedTemplate.taskType}
+                          readOnly={!editable}
+                          options={[
+                            { label: "To-do", value: "TODO" },
+                            { label: "Call", value: "CALL" },
+                            { label: "Email", value: "EMAIL" },
+                          ]}
+                          onChange={(value) =>
+                            updateTaskTemplate({
+                              taskType: String(
+                                value,
+                              ) as HandoffTaskTemplate["taskType"],
+                            })
+                          }
+                        />
+                        <Select
                           name="taskTemplateStatus"
                           label="Default status"
                           value={selectedTemplate.status}
@@ -707,27 +766,55 @@ function SettingsPage(): React.ReactElement {
                           }
                         />
                       </Flex>
-                      <Select
-                        name="taskTemplateAssignee"
-                        label="Assign to"
-                        description="Choose a HubSpot user or task queue. Leave unassigned when the receiving team should claim it manually."
-                        value={assignmentValue(selectedTemplate)}
-                        readOnly={!editable}
-                        options={[
-                          { label: "Unassigned", value: "none" },
-                          ...taskAssignees.owners.map((owner) => ({
-                            label: `Person — ${owner.label}`,
-                            value: `owner|${owner.id}`,
-                          })),
-                          ...taskAssignees.queues.map((queue) => ({
-                            label: `Queue — ${queue.label}`,
-                            value: `queue|${queue.propertyName ?? ""}|${queue.id}`,
-                          })),
-                        ]}
-                        onChange={(value) =>
-                          updateTaskTemplate(assignmentFrom(String(value)))
-                        }
-                      />
+                      <Flex direction="row" gap="small" align="end" wrap="wrap">
+                        <NumberInput
+                          name="taskTemplateReminder"
+                          label="Reminder minutes before"
+                          description="0 disables the reminder. Maximum 10080 (7 days)."
+                          value={selectedTemplate.reminderMinutesBefore}
+                          min={0}
+                          max={10080}
+                          precision={0}
+                          readOnly={!editable}
+                          onChange={(value) =>
+                            updateTaskTemplate({
+                              reminderMinutesBefore: value,
+                            })
+                          }
+                        />
+                        <Select
+                          name="taskTemplateAssignee"
+                          label="Assign to"
+                          description="Choose a HubSpot user or task queue. Leave unassigned when the receiving team should claim it manually."
+                          value={assignmentValue(selectedTemplate)}
+                          readOnly={!editable}
+                          options={[
+                            { label: "Unassigned", value: "none" },
+                            ...taskAssignees.owners.map((owner) => ({
+                              label: `Person: ${owner.label}`,
+                              value: `owner|${owner.id}`,
+                            })),
+                            ...taskAssignees.queues.map((queue) => ({
+                              label: `Queue: ${queue.label}`,
+                              value: `queue|${queue.propertyName ?? ""}|${queue.id}`,
+                            })),
+                          ]}
+                          onChange={(value) =>
+                            updateTaskTemplate(assignmentFrom(String(value)))
+                          }
+                        />
+                        <Button
+                          disabled={
+                            !editable || selectedRoute.taskTemplates.length < 2
+                          }
+                          onClick={applySelectedAssignmentToAll}
+                        >
+                          Apply assignee to all
+                        </Button>
+                      </Flex>
+                      <Text variant="microcopy">
+                        {taskPlanSummary(selectedRoute.taskTemplates)}
+                      </Text>
                     </Flex>
                   ) : null}
                 </Flex>
@@ -887,6 +974,7 @@ function defaultRoute(): HandoffRoute {
     pipelineId: "",
     stageId: "",
     subjectPrefix: "Customer handoff",
+    ownerId: "",
     taskTemplates: [],
   };
 }
@@ -902,10 +990,22 @@ function taskTemplate(
     status: "NOT_STARTED",
     priority: "MEDIUM",
     dueInDays: index,
+    taskType: "TODO",
+    reminderMinutesBefore: 0,
     assignmentType: "none",
     assigneeId: "",
     queuePropertyName: "",
   };
+}
+
+function taskPlanSummary(templates: HandoffTaskTemplate[]): string {
+  const assigned = templates.filter(
+    (template) => template.assignmentType !== "none",
+  ).length;
+  const reminders = templates.filter(
+    (template) => template.reminderMinutesBefore > 0,
+  ).length;
+  return `${templates.length} task${templates.length === 1 ? "" : "s"} in this plan. ${assigned} assigned and ${reminders} with reminders.`;
 }
 
 function assignmentValue(template: HandoffTaskTemplate): string {

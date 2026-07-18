@@ -196,6 +196,7 @@ export function createApp(
               handoffContext,
               portalId,
               await getHandoffSettings(handoffContext, portalId),
+              url.searchParams.get("routeId")?.trim() || undefined,
             ),
           });
         }

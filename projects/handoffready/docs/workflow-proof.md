@@ -45,10 +45,12 @@ renames both route and handler.
 - Portal settings contain up to 12 independently configurable department
   routes. Each route controls its fields, associations, output type,
   pipeline/stage, record prefix, and optional project task plan.
-- Structured task templates control name, description, status, priority,
-  due-date offset, and optional HubSpot owner or queue assignment while
-  migrating legacy task-name arrays. Both Tasks and Project + tasks routes can
-  create up to 20 ordered templates.
+- Structured task templates control name, description, activity type, status,
+  priority, due-date offset, reminder timing, and optional HubSpot owner or
+  queue assignment while migrating legacy task-name arrays. Both Tasks and
+  Project + tasks routes can create up to 20 ordered templates.
+- Ticket and project routes optionally assign their created output to a HubSpot
+  owner, and settings reject owners that no longer exist.
 - Successful handoffs persist an encrypted deal/route-to-output identity.
   Ticket routes use route-specific subject markers so one department's ticket
   cannot satisfy another route.
@@ -71,8 +73,9 @@ renames both route and handler.
   out after ten seconds, and all Node adapters reject bodies over 1 MiB.
 - Automation JSON endpoints reject unsupported media types after signature
   verification.
-- Overview requirement counts exclude the ticket action and explain the next
-  step in plain language.
+- The app overview switches between every configured department route;
+  requirement counts exclude the output action and explain the next step in
+  plain language.
 - The app page links each closed-won deal back to its HubSpot record.
 - The app page and card link directly to the associated handoff ticket.
 
@@ -107,7 +110,7 @@ Before release:
 6. run `spotkit release-check --hubspot`, deploy the reviewed build, and run the
    public smoke test.
 
-HubSpot build #10 passed official validation, built all six components, and
+HubSpot build #12 passed official validation, built all six components, and
 deployed successfully to developer account `148692688` on 18 July 2026.
 Browser control opened the OAuth grant for test portal `148692618` and verified
 native Super Admin access. Live

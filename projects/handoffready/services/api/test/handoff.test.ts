@@ -62,7 +62,10 @@ describe("HandoffReady domain service", () => {
     const fetcher = handoffFetcher(false);
     const service = new HandoffService("token", fetcher);
 
-    const result = await service.createTicket("501", configured);
+    const result = await service.createTicket("501", {
+      ...configured,
+      ticketOwnerId: "owner-42",
+    });
 
     expect(result).toMatchObject({ complete: true, ticketId: "ticket-1" });
     expect(
@@ -72,6 +75,12 @@ describe("HandoffReady domain service", () => {
           init?.method === "PUT",
       ),
     ).toBe(true);
+    const ticketCreate = fetcher.mock.calls.find(([url]) =>
+      String(url).endsWith("/crm/v3/objects/tickets"),
+    );
+    expect(JSON.parse(String(ticketCreate?.[1]?.body))).toMatchObject({
+      properties: { hubspot_owner_id: "owner-42" },
+    });
   });
 
   it("archives a ticket when its deal association fails", async () => {
@@ -298,6 +307,7 @@ describe("HandoffReady domain service", () => {
       pipelineId: "",
       stageId: "",
       subjectPrefix: "Prepare billing",
+      ownerId: "",
       taskTemplates: [
         {
           id: "finance-review",
@@ -306,6 +316,8 @@ describe("HandoffReady domain service", () => {
           status: "NOT_STARTED",
           priority: "HIGH",
           dueInDays: 2,
+          taskType: "CALL",
+          reminderMinutesBefore: 30,
           assignmentType: "owner",
           assigneeId: "owner-42",
           queuePropertyName: "",
@@ -317,6 +329,8 @@ describe("HandoffReady domain service", () => {
           status: "NOT_STARTED",
           priority: "MEDIUM",
           dueInDays: 3,
+          taskType: "EMAIL",
+          reminderMinutesBefore: 0,
           assignmentType: "queue",
           assigneeId: "queue-7",
           queuePropertyName: "hs_queue_membership_ids",
@@ -343,6 +357,8 @@ describe("HandoffReady domain service", () => {
         hs_task_body: "Confirm billing details for Nordic expansion.",
         hs_task_status: "NOT_STARTED",
         hs_task_priority: "HIGH",
+        hs_task_type: "CALL",
+        hs_task_reminders: expect.any(String),
         hubspot_owner_id: "owner-42",
       },
     });
@@ -371,6 +387,7 @@ describe("HandoffReady domain service", () => {
       pipelineId: "project-pipeline",
       stageId: "planned",
       subjectPrefix: "Implementation",
+      ownerId: "owner-42",
       taskTemplates: [
         {
           id: "kickoff",
@@ -379,6 +396,8 @@ describe("HandoffReady domain service", () => {
           status: "NOT_STARTED",
           priority: "HIGH",
           dueInDays: 1,
+          taskType: "TODO",
+          reminderMinutesBefore: 0,
           assignmentType: "none",
           assigneeId: "",
           queuePropertyName: "",
@@ -390,6 +409,8 @@ describe("HandoffReady domain service", () => {
           status: "NOT_STARTED",
           priority: "MEDIUM",
           dueInDays: 3,
+          taskType: "TODO",
+          reminderMinutesBefore: 0,
           assignmentType: "none",
           assigneeId: "",
           queuePropertyName: "",
@@ -400,6 +421,12 @@ describe("HandoffReady domain service", () => {
       complete: true,
       outputType: "project_tasks",
       outputIds: ["project-1", "task-1", "task-2"],
+    });
+    const projectCreate = fetcher.mock.calls.find(([url]) =>
+      String(url).endsWith("/crm/v3/objects/projects"),
+    );
+    expect(JSON.parse(String(projectCreate?.[1]?.body))).toMatchObject({
+      properties: { hs_project_owner_id: "owner-42" },
     });
   });
 
@@ -452,6 +479,8 @@ describe("HandoffReady domain service", () => {
       status: "NOT_STARTED",
       priority: "MEDIUM",
       dueInDays: 1,
+      taskType: "TODO",
+      reminderMinutesBefore: 0,
       assignmentType: "none",
       assigneeId: "",
       queuePropertyName: "",

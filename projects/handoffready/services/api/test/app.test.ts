@@ -124,6 +124,7 @@ describe("HandoffReady API", () => {
       ticketPipelineId: "support",
       ticketStageId: "new",
       ticketSubjectPrefix: "Implementation",
+      ticketOwnerId: "",
       routes: [
         {
           id: "customer-success",
@@ -136,6 +137,7 @@ describe("HandoffReady API", () => {
           pipelineId: "support",
           stageId: "new",
           subjectPrefix: "Implementation",
+          ownerId: "",
           taskTemplates: [],
         },
       ],
@@ -152,6 +154,7 @@ describe("HandoffReady API", () => {
       ticketPipelineId: "support",
       ticketStageId: "new",
       ticketSubjectPrefix: "Implementation",
+      ticketOwnerId: "",
       routes: [
         {
           id: "customer-success",
@@ -164,6 +167,7 @@ describe("HandoffReady API", () => {
           pipelineId: "support",
           stageId: "new",
           subjectPrefix: "Implementation",
+          ownerId: "",
           taskTemplates: [],
         },
       ],
