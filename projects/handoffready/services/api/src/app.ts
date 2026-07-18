@@ -41,6 +41,7 @@ export function createApp(
       "crm.objects.contacts.write",
       "crm.objects.projects.read",
       "crm.objects.projects.write",
+      "crm.objects.owners.read",
       "crm.schemas.custom.read",
       "crm.objects.custom.read",
       "crm.objects.custom.write",
@@ -233,6 +234,17 @@ export function createApp(
           return Response.json({
             results: await new HandoffService(token, fetcher).dealProperties(),
           });
+        }
+        if (
+          request.method === "GET" &&
+          url.pathname === "/api/task-assignees"
+        ) {
+          await verifyRequest(request, "");
+          const portalId = readPortalId(url);
+          const token = await accessTokenForPortal(portalId);
+          return Response.json(
+            await new HandoffService(token, fetcher).taskAssignees(),
+          );
         }
         const webhookResponse = await handleHubSpotWebhooks(
           request,

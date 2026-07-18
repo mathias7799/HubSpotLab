@@ -52,6 +52,20 @@ interface HandoffTaskTemplate {
   status: "NOT_STARTED" | "COMPLETED";
   priority: "LOW" | "MEDIUM" | "HIGH";
   dueInDays: number;
+  assignmentType: "none" | "owner" | "queue";
+  assigneeId: string;
+  queuePropertyName: string;
+}
+
+interface TaskAssigneeOption {
+  id: string;
+  label: string;
+  propertyName?: string;
+}
+
+interface TaskAssigneeCatalog {
+  owners: TaskAssigneeOption[];
+  queues: TaskAssigneeOption[];
 }
 
 interface TicketPipeline {
@@ -96,6 +110,10 @@ function SettingsPage(): React.ReactElement {
     [],
   );
   const [dealProperties, setDealProperties] = useState<DealProperty[]>([]);
+  const [taskAssignees, setTaskAssignees] = useState<TaskAssigneeCatalog>({
+    owners: [],
+    queues: [],
+  });
   const [permissions, setPermissions] = useState<HandoffPermissions | null>(
     null,
   );
@@ -113,18 +131,21 @@ function SettingsPage(): React.ReactElement {
         nextProjectPipelines,
         nextPermissions,
         nextProperties,
+        nextTaskAssignees,
       ] = await Promise.all([
         request<AppSettings>(portalId),
         loadTicketPipelines(portalId),
         loadProjectPipelines(portalId),
         loadAuthorization(portalId),
         loadDealProperties(portalId),
+        loadTaskAssignees(portalId),
       ]);
       setSettings(nextSettings);
       setPipelines(nextPipelines);
       setProjectPipelines(nextProjectPipelines);
       setPermissions(nextPermissions);
       setDealProperties(nextProperties);
+      setTaskAssignees(nextTaskAssignees);
       setSelectedRouteId(nextSettings.routes[0]?.id ?? "customer-success");
       setSelectedTemplateId(nextSettings.routes[0]?.taskTemplates[0]?.id ?? "");
       setState("ready");
@@ -313,7 +334,7 @@ function SettingsPage(): React.ReactElement {
       ) : (
         <Flex direction="column" gap="small">
           {error ? (
-            <Alert title="Settings could not be saved" variant="danger">
+            <Alert title="Settings unavailable" variant="danger">
               {error}
             </Alert>
           ) : null}
@@ -411,7 +432,7 @@ function SettingsPage(): React.ReactElement {
                 readOnly={!editable}
                 options={[
                   { label: "Ticket", value: "ticket" },
-                  { label: "Task", value: "task" },
+                  { label: "Tasks", value: "task" },
                   { label: "Project + tasks", value: "project_tasks" },
                 ]}
                 onChange={(value) => {
@@ -552,7 +573,7 @@ function SettingsPage(): React.ReactElement {
                       name="selectedTaskTemplate"
                       label={
                         selectedRoute.outputType === "task"
-                          ? "Task template"
+                          ? "Task plan"
                           : "Project task plan"
                       }
                       description="Configure the exact task records HandoffReady creates. {deal} inserts the deal name and {date} inserts today's date."
@@ -567,9 +588,7 @@ function SettingsPage(): React.ReactElement {
                     />
                     <Button
                       disabled={
-                        !editable ||
-                        selectedRoute.outputType === "task" ||
-                        selectedRoute.taskTemplates.length >= 20
+                        !editable || selectedRoute.taskTemplates.length >= 20
                       }
                       onClick={addTaskTemplate}
                     >
@@ -578,7 +597,6 @@ function SettingsPage(): React.ReactElement {
                     <Button
                       disabled={
                         !editable ||
-                        selectedRoute.outputType === "task" ||
                         !selectedTemplate ||
                         selectedRoute.taskTemplates.length >= 20
                       }
@@ -597,7 +615,6 @@ function SettingsPage(): React.ReactElement {
                     <Button
                       disabled={
                         !editable ||
-                        selectedRoute.outputType === "task" ||
                         !selectedTemplate ||
                         selectedRoute.taskTemplates[0]?.id ===
                           selectedTemplate.id
@@ -609,7 +626,6 @@ function SettingsPage(): React.ReactElement {
                     <Button
                       disabled={
                         !editable ||
-                        selectedRoute.outputType === "task" ||
                         !selectedTemplate ||
                         selectedRoute.taskTemplates.at(-1)?.id ===
                           selectedTemplate.id
@@ -691,6 +707,27 @@ function SettingsPage(): React.ReactElement {
                           }
                         />
                       </Flex>
+                      <Select
+                        name="taskTemplateAssignee"
+                        label="Assign to"
+                        description="Choose a HubSpot user or task queue. Leave unassigned when the receiving team should claim it manually."
+                        value={assignmentValue(selectedTemplate)}
+                        readOnly={!editable}
+                        options={[
+                          { label: "Unassigned", value: "none" },
+                          ...taskAssignees.owners.map((owner) => ({
+                            label: `Person — ${owner.label}`,
+                            value: `owner|${owner.id}`,
+                          })),
+                          ...taskAssignees.queues.map((queue) => ({
+                            label: `Queue — ${queue.label}`,
+                            value: `queue|${queue.propertyName ?? ""}|${queue.id}`,
+                          })),
+                        ]}
+                        onChange={(value) =>
+                          updateTaskTemplate(assignmentFrom(String(value)))
+                        }
+                      />
                     </Flex>
                   ) : null}
                 </Flex>
@@ -793,6 +830,23 @@ async function loadDealProperties(portalId: number): Promise<DealProperty[]> {
   return body.results ?? [];
 }
 
+async function loadTaskAssignees(
+  portalId: number,
+): Promise<TaskAssigneeCatalog> {
+  const response = await hubspot.fetch(
+    `${API_ORIGIN}/api/task-assignees?portalId=${portalId}`,
+  );
+  const body = (await response.json()) as TaskAssigneeCatalog & {
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(
+      body.error ?? `Request failed with status ${response.status}.`,
+    );
+  }
+  return { owners: body.owners ?? [], queues: body.queues ?? [] };
+}
+
 async function request<Value>(
   portalId: number,
   options?: { method: "PUT"; body: AppSettings },
@@ -848,5 +902,40 @@ function taskTemplate(
     status: "NOT_STARTED",
     priority: "MEDIUM",
     dueInDays: index,
+    assignmentType: "none",
+    assigneeId: "",
+    queuePropertyName: "",
   };
+}
+
+function assignmentValue(template: HandoffTaskTemplate): string {
+  if (template.assignmentType === "owner")
+    return `owner|${template.assigneeId}`;
+  if (template.assignmentType === "queue")
+    return `queue|${template.queuePropertyName}|${template.assigneeId}`;
+  return "none";
+}
+
+function assignmentFrom(
+  value: string,
+): Pick<
+  HandoffTaskTemplate,
+  "assignmentType" | "assigneeId" | "queuePropertyName"
+> {
+  const [type, propertyOrId = "", queueId = ""] = value.split("|");
+  if (type === "owner") {
+    return {
+      assignmentType: "owner",
+      assigneeId: propertyOrId,
+      queuePropertyName: "",
+    };
+  }
+  if (type === "queue") {
+    return {
+      assignmentType: "queue",
+      assigneeId: queueId,
+      queuePropertyName: propertyOrId,
+    };
+  }
+  return { assignmentType: "none", assigneeId: "", queuePropertyName: "" };
 }

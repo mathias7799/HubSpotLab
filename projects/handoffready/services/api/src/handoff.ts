@@ -34,6 +34,20 @@ export interface HandoffTaskTemplate {
   status: "NOT_STARTED" | "COMPLETED";
   priority: "LOW" | "MEDIUM" | "HIGH";
   dueInDays: number;
+  assignmentType: "none" | "owner" | "queue";
+  assigneeId: string;
+  queuePropertyName: string;
+}
+
+export interface TaskAssigneeOption {
+  id: string;
+  label: string;
+  propertyName?: string;
+}
+
+export interface TaskAssigneeCatalog {
+  owners: TaskAssigneeOption[];
+  queues: TaskAssigneeOption[];
 }
 
 export interface HandoffItem {
@@ -422,6 +436,9 @@ function parseTaskTemplates(
             status: "NOT_STARTED",
             priority: "MEDIUM",
             dueInDays: index + 1,
+            assignmentType: "none",
+            assigneeId: "",
+            queuePropertyName: "",
           }
         : item;
     if (
@@ -446,6 +463,7 @@ function parseTaskTemplates(
     const status = record.status ?? "NOT_STARTED";
     const priority = record.priority ?? "MEDIUM";
     const dueInDays = record.dueInDays ?? 1;
+    const assignmentType = record.assignmentType ?? "none";
     if (!["NOT_STARTED", "COMPLETED"].includes(String(status))) {
       throw new HttpError(400, `Task template ${id} has an invalid status.`);
     }
@@ -462,6 +480,29 @@ function parseTaskTemplates(
         `Task template ${id} due offset must be between 0 and 365 days.`,
       );
     }
+    if (!(["none", "owner", "queue"] as unknown[]).includes(assignmentType)) {
+      throw new HttpError(
+        400,
+        `Task template ${id} has an invalid assignee type.`,
+      );
+    }
+    const assigneeId = optionalString(record.assigneeId, "task assignee ID");
+    const queuePropertyName = optionalString(
+      record.queuePropertyName,
+      "task queue property",
+    );
+    if (assignmentType !== "none" && !assigneeId) {
+      throw new HttpError(400, `Task template ${id} needs an assignee.`);
+    }
+    if (
+      assignmentType === "queue" &&
+      (!queuePropertyName || !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(queuePropertyName))
+    ) {
+      throw new HttpError(
+        400,
+        `Task template ${id} has an invalid task queue.`,
+      );
+    }
     return {
       id,
       name: limitedString(record.name, "task template name", 120),
@@ -473,6 +514,9 @@ function parseTaskTemplates(
       status: status as HandoffTaskTemplate["status"],
       priority: priority as HandoffTaskTemplate["priority"],
       dueInDays: Number(dueInDays),
+      assignmentType: assignmentType as HandoffTaskTemplate["assignmentType"],
+      assigneeId: assignmentType === "none" ? "" : assigneeId,
+      queuePropertyName: assignmentType === "queue" ? queuePropertyName : "",
     };
   });
 }
@@ -555,11 +599,19 @@ export class HandoffService {
     }
     const dealName = current.dealName;
     if (route.outputType === "task") {
-      const template = route.taskTemplates[0] as HandoffTaskTemplate;
-      const task = await this.createTask(template, dealName, [
-        { type: "deals", id: dealId },
-      ]);
-      return completedRoute(current, route, [task.id]);
+      const createdIds: string[] = [];
+      try {
+        for (const template of route.taskTemplates) {
+          const task = await this.createTask(template, dealName, [
+            { type: "deals", id: dealId },
+          ]);
+          createdIds.push(task.id);
+        }
+      } catch (cause) {
+        await this.removeCreatedTasks(createdIds);
+        throw cause;
+      }
+      return completedRoute(current, route, createdIds);
     }
     const project = await this.request<{ id: string }>(
       "/crm/v3/objects/projects",
@@ -726,6 +778,58 @@ export class HandoffService {
     return this.pipelines("projects");
   }
 
+  async taskAssignees(): Promise<TaskAssigneeCatalog> {
+    const [ownerResponse, propertyResponse] = await Promise.all([
+      this.request<{
+        results?: Array<{
+          id?: string;
+          email?: string;
+          firstName?: string;
+          lastName?: string;
+          archived?: boolean;
+        }>;
+      }>("/crm/v3/owners/?limit=500&archived=false"),
+      this.request<{
+        results?: Array<{
+          name?: string;
+          label?: string;
+          options?: Array<{ value?: string; label?: string; hidden?: boolean }>;
+        }>;
+      }>("/crm/v3/properties/tasks?archived=false"),
+    ]);
+    const owners = (ownerResponse.results ?? [])
+      .filter((owner) => owner.id && owner.archived !== true)
+      .map((owner) => ({
+        id: owner.id as string,
+        label:
+          [owner.firstName, owner.lastName].filter(Boolean).join(" ") ||
+          owner.email ||
+          `Owner ${owner.id}`,
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label));
+    const queues = (propertyResponse.results ?? [])
+      .filter(
+        (property) =>
+          property.name?.toLowerCase().includes("queue") &&
+          property.options?.length,
+      )
+      .flatMap((property) =>
+        (property.options ?? []).flatMap((option) =>
+          option.value && option.label && option.hidden !== true
+            ? [
+                {
+                  id: option.value,
+                  label: option.label,
+                  propertyName: property.name as string,
+                },
+              ]
+            : [],
+        ),
+      )
+      .sort((left, right) => left.label.localeCompare(right.label));
+    return { owners, queues };
+  }
+
   async isSuperAdmin(userId: string): Promise<boolean> {
     const response = await this.request<{ superAdmin?: boolean }>(
       `/settings/v3/users/${encodeURIComponent(userId)}`,
@@ -734,13 +838,22 @@ export class HandoffService {
   }
 
   async validateSettings(settings: HandoffSettings): Promise<void> {
-    const [properties, ticketPipelines, projectPipelines] = await Promise.all([
-      this.dealProperties(),
-      this.ticketPipelines(),
-      settings.routes.some((route) => route.outputType === "project_tasks")
-        ? this.projectPipelines()
-        : Promise.resolve([]),
-    ]);
+    const hasAssignments = settings.routes.some((route) =>
+      route.taskTemplates.some(
+        (template) => template.assignmentType !== "none",
+      ),
+    );
+    const [properties, ticketPipelines, projectPipelines, assignees] =
+      await Promise.all([
+        this.dealProperties(),
+        this.ticketPipelines(),
+        settings.routes.some((route) => route.outputType === "project_tasks")
+          ? this.projectPipelines()
+          : Promise.resolve([]),
+        hasAssignments
+          ? this.taskAssignees()
+          : Promise.resolve({ owners: [], queues: [] }),
+      ]);
     const propertyNames = new Set(properties.map((property) => property.name));
     const unknown = [
       ...new Set(settings.routes.flatMap((route) => route.requiredProperties)),
@@ -752,6 +865,26 @@ export class HandoffService {
       );
     }
     for (const route of settings.routes) {
+      for (const template of route.taskTemplates) {
+        const validAssignment =
+          template.assignmentType === "none" ||
+          (template.assignmentType === "owner" &&
+            assignees.owners.some(
+              (owner) => owner.id === template.assigneeId,
+            )) ||
+          (template.assignmentType === "queue" &&
+            assignees.queues.some(
+              (queue) =>
+                queue.id === template.assigneeId &&
+                queue.propertyName === template.queuePropertyName,
+            ));
+        if (!validAssignment) {
+          throw new HttpError(
+            400,
+            `The selected task assignee for ${template.name} no longer exists.`,
+          );
+        }
+      }
       if (route.outputType === "task") continue;
       if (!route.pipelineId || !route.stageId) {
         throw new HttpError(
@@ -998,6 +1131,12 @@ export class HandoffService {
           hs_task_status: template.status,
           hs_task_priority: template.priority,
           hs_task_type: "TODO",
+          ...(template.assignmentType === "owner"
+            ? { hubspot_owner_id: template.assigneeId }
+            : {}),
+          ...(template.assignmentType === "queue"
+            ? { [template.queuePropertyName]: template.assigneeId }
+            : {}),
         },
       }),
     });
@@ -1022,6 +1161,23 @@ export class HandoffService {
       throw cause;
     }
     return task;
+  }
+
+  private async removeCreatedTasks(ids: string[]): Promise<void> {
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          await this.request(
+            `/crm/v3/objects/tasks/${encodeURIComponent(id)}`,
+            {
+              method: "DELETE",
+            },
+          );
+        } catch {
+          /* preserve the original creation error */
+        }
+      }),
+    );
   }
 
   private async pipelines(objectType: "projects"): Promise<TicketPipeline[]> {

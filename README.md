@@ -85,18 +85,18 @@ flowchart LR
 
 ## What ships today
 
-| Product                             | What it demonstrates                                                                                                                   | Start here                                                |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **TidsHub**                         | Weekly time registration, CRM associations, project/task context, editing, approvals, and operational dashboards                       | [Product guide](projects/tidshub/README.md)               |
-| **CloseReady**                      | Pipeline-specific readiness rules, associated-record requirements, guarded deal transitions, configuration, and clear blocker UX       | [Product guide](projects/closeready/README.md)            |
-| **HandoffReady**                    | Department routes, structured task templates, Ticket/Task/Project plans, Super Admin setup, and optional one-object encrypted settings | [Product guide](projects/handoffready/README.md)          |
-| **SpotKit 0.7**                     | HubSpot project generator, feature catalog, diagnostics, lifecycle management, release tooling, and interactive terminal UI            | [Tool guide](tools/spotkit/README.md)                     |
-| **SpotKit runtime**                 | Portable OAuth, signature v3, encrypted token/configuration storage, idempotency, and cloud adapters                                   | [Package guide](packages/spotkit-runtime/README.md)       |
-| **Build HubSpot App skill**         | Agentic planning, implementation, adoption, verification, and release workflow backed by SpotKit                                       | [Skill source](skills/build-hubspot-app/SKILL.md)         |
-| **Review HubSpot App skill**        | Read-only correctness, security, platform, CRM, UX, operations, and release-readiness audit                                            | [Skill source](skills/review-hubspot-app/SKILL.md)        |
-| **Model HubSpot CRM skill**         | Durable object/property models, directional associations, labels, contextual tasks, scopes, and safe schema evolution                  | [Skill source](skills/model-hubspot-crm/SKILL.md)         |
-| **Design HubSpot Automation skill** | Reliable webhooks, workflow actions, app events, agent tools, contracts, retries, idempotency, and rate-limit behavior                 | [Skill source](skills/design-hubspot-automation/SKILL.md) |
-| **Operate HubSpot App skill**       | Installation health, deployment evidence, portal diagnostics, incidents, smoke testing, recovery, and rollback                         | [Skill source](skills/operate-hubspot-app/SKILL.md)       |
+| Product                             | What it demonstrates                                                                                                             | Start here                                                |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **TidsHub**                         | Weekly time registration, CRM associations, project/task context, editing, approvals, and operational dashboards                 | [Product guide](projects/tidshub/README.md)               |
+| **CloseReady**                      | Pipeline-specific readiness rules, associated-record requirements, guarded deal transitions, configuration, and clear blocker UX | [Product guide](projects/closeready/README.md)            |
+| **HandoffReady**                    | Department routes, multi-task plans, per-task owner or queue assignment, Super Admin setup, and one-object encrypted settings    | [Product guide](projects/handoffready/README.md)          |
+| **SpotKit 0.7**                     | HubSpot project generator, feature catalog, diagnostics, lifecycle management, release tooling, and interactive terminal UI      | [Tool guide](tools/spotkit/README.md)                     |
+| **SpotKit runtime**                 | Portable OAuth, signature v3, encrypted token/configuration storage, idempotency, and cloud adapters                             | [Package guide](packages/spotkit-runtime/README.md)       |
+| **Build HubSpot App skill**         | Agentic planning, implementation, adoption, verification, and release workflow backed by SpotKit                                 | [Skill source](skills/build-hubspot-app/SKILL.md)         |
+| **Review HubSpot App skill**        | Read-only correctness, security, platform, CRM, UX, operations, and release-readiness audit                                      | [Skill source](skills/review-hubspot-app/SKILL.md)        |
+| **Model HubSpot CRM skill**         | Durable object/property models, directional associations, labels, contextual tasks, scopes, and safe schema evolution            | [Skill source](skills/model-hubspot-crm/SKILL.md)         |
+| **Design HubSpot Automation skill** | Reliable webhooks, workflow actions, app events, agent tools, contracts, retries, idempotency, and rate-limit behavior           | [Skill source](skills/design-hubspot-automation/SKILL.md) |
+| **Operate HubSpot App skill**       | Installation health, deployment evidence, portal diagnostics, incidents, smoke testing, recovery, and rollback                   | [Skill source](skills/operate-hubspot-app/SKILL.md)       |
 
 ## SpotKit at a glance
 

@@ -152,7 +152,9 @@ export function HomePage(): React.ReactElement {
                         {item.outputType === "ticket"
                           ? "ticket"
                           : item.outputType === "task"
-                            ? "task"
+                            ? item.outputIds.length === 1
+                              ? "task"
+                              : `first of ${item.outputIds.length} tasks`
                             : "project"}
                       </Link>
                     ) : (

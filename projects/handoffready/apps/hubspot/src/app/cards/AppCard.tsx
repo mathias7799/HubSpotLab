@@ -304,7 +304,7 @@ function outputLabel(type: HandoffReadiness["outputType"]): string {
   return type === "ticket"
     ? "service ticket"
     : type === "task"
-      ? "handoff task"
+      ? "handoff tasks"
       : "project and task plan";
 }
 

@@ -14,6 +14,7 @@
         "crm.objects.contacts.write",
         "crm.objects.projects.read",
         "crm.objects.projects.write",
+        "crm.objects.owners.read",
         "crm.schemas.custom.read",
         "crm.objects.custom.read",
         "crm.objects.custom.write",

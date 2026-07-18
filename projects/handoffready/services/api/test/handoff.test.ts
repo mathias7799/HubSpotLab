@@ -306,6 +306,20 @@ describe("HandoffReady domain service", () => {
           status: "NOT_STARTED",
           priority: "HIGH",
           dueInDays: 2,
+          assignmentType: "owner",
+          assigneeId: "owner-42",
+          queuePropertyName: "",
+        },
+        {
+          id: "billing-check",
+          name: "Billing check: {deal}",
+          description: "Verify the billing contact.",
+          status: "NOT_STARTED",
+          priority: "MEDIUM",
+          dueInDays: 3,
+          assignmentType: "queue",
+          assigneeId: "queue-7",
+          queuePropertyName: "hs_queue_membership_ids",
         },
       ],
     });
@@ -313,7 +327,7 @@ describe("HandoffReady domain service", () => {
       complete: true,
       routeId: "finance",
       outputType: "task",
-      outputIds: ["task-1"],
+      outputIds: ["task-1", "task-2"],
     });
     expect(
       fetcher.mock.calls.some(([url]) =>
@@ -329,6 +343,16 @@ describe("HandoffReady domain service", () => {
         hs_task_body: "Confirm billing details for Nordic expansion.",
         hs_task_status: "NOT_STARTED",
         hs_task_priority: "HIGH",
+        hubspot_owner_id: "owner-42",
+      },
+    });
+    const taskCreates = fetcher.mock.calls.filter(([url]) =>
+      String(url).endsWith("/crm/v3/objects/tasks"),
+    );
+    expect(JSON.parse(String(taskCreates[1]?.[1]?.body))).toMatchObject({
+      properties: {
+        hs_task_subject: "Billing check: Nordic expansion",
+        hs_queue_membership_ids: "queue-7",
       },
     });
   });
@@ -355,6 +379,9 @@ describe("HandoffReady domain service", () => {
           status: "NOT_STARTED",
           priority: "HIGH",
           dueInDays: 1,
+          assignmentType: "none",
+          assigneeId: "",
+          queuePropertyName: "",
         },
         {
           id: "delivery-plan",
@@ -363,6 +390,9 @@ describe("HandoffReady domain service", () => {
           status: "NOT_STARTED",
           priority: "MEDIUM",
           dueInDays: 3,
+          assignmentType: "none",
+          assigneeId: "",
+          queuePropertyName: "",
         },
       ],
     });
@@ -422,6 +452,55 @@ describe("HandoffReady domain service", () => {
       status: "NOT_STARTED",
       priority: "MEDIUM",
       dueInDays: 1,
+      assignmentType: "none",
+      assigneeId: "",
+      queuePropertyName: "",
+    });
+  });
+
+  it("loads HubSpot people and task queues for template assignment", async () => {
+    const service = new HandoffService(
+      "token",
+      vi.fn<typeof fetch>(async (input) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/crm/v3/owners/") {
+          return Response.json({
+            results: [
+              {
+                id: "owner-42",
+                firstName: "Ada",
+                lastName: "Lovelace",
+                email: "ada@example.com",
+              },
+            ],
+          });
+        }
+        if (path === "/crm/v3/properties/tasks") {
+          return Response.json({
+            results: [
+              {
+                name: "hs_queue_membership_ids",
+                label: "Task queues",
+                options: [
+                  { value: "queue-7", label: "Implementation", hidden: false },
+                ],
+              },
+            ],
+          });
+        }
+        throw new Error(`Unexpected assignee request: GET ${path}`);
+      }),
+    );
+
+    await expect(service.taskAssignees()).resolves.toEqual({
+      owners: [{ id: "owner-42", label: "Ada Lovelace" }],
+      queues: [
+        {
+          id: "queue-7",
+          label: "Implementation",
+          propertyName: "hs_queue_membership_ids",
+        },
+      ],
     });
   });
 });

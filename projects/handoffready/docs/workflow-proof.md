@@ -45,8 +45,10 @@ renames both route and handler.
 - Portal settings contain up to 12 independently configurable department
   routes. Each route controls its fields, associations, output type,
   pipeline/stage, record prefix, and optional project task plan.
-- Structured task templates control name, description, status, priority, and
-  due-date offset while migrating legacy task-name arrays.
+- Structured task templates control name, description, status, priority,
+  due-date offset, and optional HubSpot owner or queue assignment while
+  migrating legacy task-name arrays. Both Tasks and Project + tasks routes can
+  create up to 20 ordered templates.
 - Successful handoffs persist an encrypted deal/route-to-output identity.
   Ticket routes use route-specific subject markers so one department's ticket
   cannot satisfy another route.
@@ -105,7 +107,7 @@ Before release:
 6. run `spotkit release-check --hubspot`, deploy the reviewed build, and run the
    public smoke test.
 
-HubSpot build #7 passed official validation, built all six components, and
+HubSpot build #9 passed official validation, built all six components, and
 deployed successfully to developer account `148692688` on 18 July 2026.
 Browser control opened the OAuth grant for test portal `148692618` and verified
 native Super Admin access. Live

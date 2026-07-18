@@ -24,13 +24,14 @@ upgrade plan, origin, release, OAuth, and smoke-test workflows.
 ## Product workflow
 
 1. A HubSpot Super Admin adds up to 12 handoff routes, names the receiving
-   department, selects Ticket, Task, or Project + tasks, and configures that
-   route's fields, associations, destination, naming, and task template.
+   department, selects Ticket, Tasks, or Project + tasks, and configures that
+   route's fields, associations, destination, naming, and task plan.
 2. The deal sidebar card lets the user choose the receiving route, evaluates
    its live CRM requirements, and explains every missing prerequisite.
 3. When ready, HandoffReady creates and links the configured HubSpot records.
-   Each task template controls its name, description, default status, priority,
-   and due-date offset, with `{deal}` and `{date}` placeholders.
+   A route can create up to 20 ordered tasks. Each template controls its name,
+   description, default status, priority, due-date offset, and optional HubSpot
+   owner or task queue, with `{deal}` and `{date}` placeholders.
    Route/deal output identity is stored in encrypted portal configuration;
    ticket routes also repair missing tracking from their route-specific subject
    marker. Partial project/task failures trigger compensating cleanup.
